@@ -1,5 +1,10 @@
 {
-  "description": "Block-angular plant routing with intermediate tanks",
+  "description": "Wave3 arc-flow superstructure: decision arcs, chemical defaults, optional single-period tanks. Solver chooses fractions within capacities/economics \u2014 not hard single paths.",
+  "version": "wave3-superstructure",
+  "tanks": {
+    "mode": "single_period_pass_optional",
+    "notes": "Single-period default collapses tanks to pure balances (inventory_mode=false). Inventory/heels only when multi-period or capacity binds."
+  },
   "units": [
     "CDU",
     "TANK_GASOIL",
@@ -9,96 +14,507 @@
     "TANK_FCC_NAPH",
     "TANK_COKER_NAPH",
     "REFORMER",
-    "BLENDER"
+    "HYDROTREAT_NAPH",
+    "BLENDER",
+    "SELL"
+  ],
+  "chemical_defaults": {
+    "cdu_naphtha_heavy": "REFORMER",
+    "cdu_naphtha_light": "BLENDER_gasoline",
+    "fcc_naphtha": "BLENDER_gasoline",
+    "fcc_naphtha_note": "FCC naphtha is high-octane cat gasoline component (soft HDT for S); NOT reformer default.",
+    "coker_naphtha": "BLENDER_gasoline_via_HDT_or_FO",
+    "coker_naphtha_note": "Coker naphtha is olefinic/high-S; soft HDT path to gasoline or FO; NOT reformer default.",
+    "cdu_gasoil": "swing_FCC_diesel_sell",
+    "cdu_resid": "swing_coker_FO"
+  },
+  "component_properties": {
+    "cdu_naphtha_light": {
+      "ron": 72.0,
+      "sulfur_wt": 0.005,
+      "source": "planning-grade SR light naphtha"
+    },
+    "cdu_naphtha_heavy": {
+      "ron": 58.0,
+      "sulfur_wt": 0.01,
+      "source": "planning-grade SR heavy (reformer feed)"
+    },
+    "fcc_naphtha": {
+      "ron": 93.0,
+      "sulfur_wt": 0.005,
+      "source": "FCC naphtha post soft HDT assumption"
+    },
+    "coker_naphtha": {
+      "ron": 72.0,
+      "sulfur_wt": 0.25,
+      "source": "raw coker naphtha; high S"
+    },
+    "coker_naphtha_hdt": {
+      "ron": 74.0,
+      "sulfur_wt": 0.008,
+      "source": "soft HDT coker naphtha"
+    },
+    "reformate": {
+      "ron": 100.0,
+      "sulfur_wt": 0.0005,
+      "source": "C5+ reformate"
+    },
+    "cdu_distillate": {
+      "ron": 0.0,
+      "sulfur_wt": 0.12,
+      "source": "SR distillate to diesel"
+    },
+    "fcc_lco": {
+      "ron": 0.0,
+      "sulfur_wt": 0.35,
+      "source": "LCO to diesel/FO"
+    },
+    "coker_gasoil": {
+      "ron": 0.0,
+      "sulfur_wt": 0.4,
+      "source": "coker GO"
+    },
+    "fcc_slurry": {
+      "ron": 0.0,
+      "sulfur_wt": 0.8,
+      "source": "slurry oil"
+    },
+    "cdu_gasoil": {
+      "ron": 0.0,
+      "sulfur_wt": 0.45,
+      "source": "VGO/gasoil if sold or diesel swing"
+    },
+    "cdu_resid": {
+      "ron": 0.0,
+      "sulfur_wt": 2.5,
+      "source": "resid to FO"
+    }
+  },
+  "product_quality_specs": {
+    "gasoline": {
+      "min_ron": 87.0,
+      "max_sulfur_wt": 0.01
+    },
+    "diesel": {
+      "max_sulfur_wt": 0.05
+    },
+    "fuel_oil": {
+      "max_sulfur_wt": 2.0
+    }
+  },
+  "naphtha_split": {
+    "light_frac_of_cdu_naphtha": 0.4,
+    "heavy_frac_of_cdu_naphtha": 0.6,
+    "note": "Planning split of SR naphtha into light (pool) and heavy (reformer feed)"
+  },
+  "arcs": [
+    {
+      "id": "cdu_go_tank",
+      "from": "CDU",
+      "to": "TANK_GASOIL",
+      "stream": "cdu_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": false,
+      "note": "production into gasoil tank balance"
+    },
+    {
+      "id": "go_to_fcc",
+      "from": "TANK_GASOIL",
+      "to": "FCC",
+      "stream": "cdu_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": true,
+      "decision": true,
+      "note": "gasoil swing \u2192 FCC feed"
+    },
+    {
+      "id": "go_to_diesel",
+      "from": "TANK_GASOIL",
+      "to": "BLENDER",
+      "stream": "cdu_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "diesel",
+      "note": "gasoil swing \u2192 distillate/diesel pool (HDT-heavy; costly)"
+    },
+    {
+      "id": "go_to_sell",
+      "from": "TANK_GASOIL",
+      "to": "SELL",
+      "stream": "cdu_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": false,
+      "decision": true,
+      "sell_price_usd_per_bbl": 70.0,
+      "note": "optional intermediate sell (closed by default \u2014 open for make/buy studies)"
+    },
+    {
+      "id": "cdu_resid_tank",
+      "from": "CDU",
+      "to": "TANK_RESID",
+      "stream": "cdu_resid",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": false,
+      "note": "production into resid tank balance"
+    },
+    {
+      "id": "resid_to_coker",
+      "from": "TANK_RESID",
+      "to": "COKER",
+      "stream": "cdu_resid",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": true,
+      "decision": true,
+      "note": "resid swing \u2192 delayed coker"
+    },
+    {
+      "id": "resid_to_fo",
+      "from": "TANK_RESID",
+      "to": "BLENDER",
+      "stream": "cdu_resid",
+      "capacity": null,
+      "cost_usd_per_bbl": 2.5,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "fuel_oil",
+      "note": "resid swing \u2192 FO (costly vs coker conversion margin)"
+    },
+    {
+      "id": "sr_light_to_gas",
+      "from": "CDU",
+      "to": "BLENDER",
+      "stream": "cdu_naphtha_light",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "gasoline",
+      "note": "light SR naphtha \u2192 gasoline pool"
+    },
+    {
+      "id": "sr_heavy_to_reformer",
+      "from": "CDU",
+      "to": "REFORMER",
+      "stream": "cdu_naphtha_heavy",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": true,
+      "decision": true,
+      "note": "heavy SR naphtha \u2192 reformer (chemical default)"
+    },
+    {
+      "id": "sr_heavy_to_gas",
+      "from": "CDU",
+      "to": "BLENDER",
+      "stream": "cdu_naphtha_heavy",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "gasoline",
+      "note": "optional heavy SR to pool (bypass reformer)"
+    },
+    {
+      "id": "fcc_naph_tank",
+      "from": "FCC",
+      "to": "TANK_FCC_NAPH",
+      "stream": "fcc_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": false,
+      "note": "FCC naphtha into tank balance"
+    },
+    {
+      "id": "fcc_naph_to_gas",
+      "from": "TANK_FCC_NAPH",
+      "to": "BLENDER",
+      "stream": "fcc_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.02,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "gasoline",
+      "note": "FCC naphtha \u2192 gasoline (chemical default; soft HDT attribute)"
+    },
+    {
+      "id": "fcc_naph_to_reformer",
+      "from": "TANK_FCC_NAPH",
+      "to": "REFORMER",
+      "stream": "fcc_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 5.0,
+      "default_open": false,
+      "decision": true,
+      "note": "optional FCC naphtha \u2192 reformer (NOT default; costly / non-preferred chemistry)"
+    },
+    {
+      "id": "coker_naph_tank",
+      "from": "COKER",
+      "to": "TANK_COKER_NAPH",
+      "stream": "coker_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": false,
+      "note": "coker naphtha into tank balance"
+    },
+    {
+      "id": "coker_naph_to_hdt_gas",
+      "from": "TANK_COKER_NAPH",
+      "to": "BLENDER",
+      "stream": "coker_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.35,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "gasoline",
+      "via": "HYDROTREAT_NAPH",
+      "note": "coker naphtha soft HDT \u2192 gasoline (preferred vs reformer)"
+    },
+    {
+      "id": "coker_naph_to_fo",
+      "from": "TANK_COKER_NAPH",
+      "to": "BLENDER",
+      "stream": "coker_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "fuel_oil",
+      "note": "coker naphtha \u2192 FO when HDT/gasoline not economic"
+    },
+    {
+      "id": "coker_naph_to_reformer",
+      "from": "TANK_COKER_NAPH",
+      "to": "REFORMER",
+      "stream": "coker_naphtha",
+      "capacity": null,
+      "cost_usd_per_bbl": 6.0,
+      "default_open": false,
+      "decision": true,
+      "note": "optional coker naphtha \u2192 reformer (NOT default)"
+    },
+    {
+      "id": "cdu_dist_to_diesel",
+      "from": "CDU",
+      "to": "BLENDER",
+      "stream": "cdu_distillate",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "diesel",
+      "note": "SR distillate \u2192 diesel"
+    },
+    {
+      "id": "fcc_lco_to_diesel",
+      "from": "FCC",
+      "to": "BLENDER",
+      "stream": "fcc_lco",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "diesel",
+      "note": "LCO \u2192 diesel"
+    },
+    {
+      "id": "fcc_lco_to_fo",
+      "from": "FCC",
+      "to": "BLENDER",
+      "stream": "fcc_lco",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.02,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "fuel_oil",
+      "note": "LCO swing \u2192 FO"
+    },
+    {
+      "id": "fcc_slurry_to_fo",
+      "from": "FCC",
+      "to": "BLENDER",
+      "stream": "fcc_slurry",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "fuel_oil",
+      "note": "slurry \u2192 FO"
+    },
+    {
+      "id": "coker_go_to_diesel",
+      "from": "COKER",
+      "to": "BLENDER",
+      "stream": "coker_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.08,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "diesel",
+      "note": "coker gasoil \u2192 diesel"
+    },
+    {
+      "id": "coker_go_to_fo",
+      "from": "COKER",
+      "to": "BLENDER",
+      "stream": "coker_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.02,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "fuel_oil",
+      "note": "coker gasoil \u2192 FO"
+    },
+    {
+      "id": "reformate_to_gas",
+      "from": "REFORMER",
+      "to": "BLENDER",
+      "stream": "reformate",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "product_pool": "gasoline",
+      "note": "reformate \u2192 gasoline"
+    }
   ],
   "routes": [
     {
       "from": "CDU",
       "stream": "cdu_gasoil",
       "to": "TANK_GASOIL",
-      "note": "crude unit gasoil to tank then FCC"
+      "note": "compat: production to tank"
     },
     {
       "from": "TANK_GASOIL",
       "stream": "cdu_gasoil",
       "to": "FCC",
-      "note": "tank feeds FCC"
+      "note": "compat: decision arc go_to_fcc"
+    },
+    {
+      "from": "TANK_GASOIL",
+      "stream": "cdu_gasoil",
+      "to": "BLENDER",
+      "note": "compat: diesel swing"
+    },
+    {
+      "from": "TANK_GASOIL",
+      "stream": "cdu_gasoil",
+      "to": "SELL",
+      "note": "compat: sell swing"
     },
     {
       "from": "CDU",
       "stream": "cdu_resid",
       "to": "TANK_RESID",
-      "note": "crude unit resid to tank then coker"
+      "note": "compat"
     },
     {
       "from": "TANK_RESID",
       "stream": "cdu_resid",
       "to": "COKER",
-      "note": "tank feeds delayed coker"
+      "note": "compat: resid\u2192coker"
+    },
+    {
+      "from": "TANK_RESID",
+      "stream": "cdu_resid",
+      "to": "BLENDER",
+      "note": "compat: resid\u2192FO"
     },
     {
       "from": "FCC",
       "stream": "fcc_naphtha",
       "to": "TANK_FCC_NAPH",
-      "note": "FCC naphtha to tank then reformer"
+      "note": "compat"
+    },
+    {
+      "from": "TANK_FCC_NAPH",
+      "stream": "fcc_naphtha",
+      "to": "BLENDER",
+      "note": "compat: FCC naph\u2192gas default"
     },
     {
       "from": "TANK_FCC_NAPH",
       "stream": "fcc_naphtha",
       "to": "REFORMER",
-      "note": "FCC naphtha reformer feed"
+      "note": "compat: optional non-default"
     },
     {
       "from": "COKER",
       "stream": "coker_naphtha",
       "to": "TANK_COKER_NAPH",
-      "note": "coker naphtha to tank then reformer"
+      "note": "compat"
+    },
+    {
+      "from": "TANK_COKER_NAPH",
+      "stream": "coker_naphtha",
+      "to": "BLENDER",
+      "note": "compat: HDT/gas or FO"
     },
     {
       "from": "TANK_COKER_NAPH",
       "stream": "coker_naphtha",
       "to": "REFORMER",
-      "note": "coker naphtha reformer feed"
+      "note": "compat: optional non-default"
     },
     {
       "from": "CDU",
-      "stream": "cdu_naphtha",
+      "stream": "cdu_naphtha_light",
       "to": "BLENDER",
-      "note": "straight-run naphtha to gasoline pool"
+      "note": "light SR \u2192 pool"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_naphtha_heavy",
+      "to": "REFORMER",
+      "note": "heavy SR \u2192 reformer"
     },
     {
       "from": "CDU",
       "stream": "cdu_distillate",
       "to": "BLENDER",
-      "note": "distillate to diesel pool"
+      "note": "distillate pool"
     },
     {
       "from": "FCC",
       "stream": "fcc_lco",
       "to": "BLENDER",
-      "note": "LCO to diesel/fuel oil"
+      "note": "LCO"
     },
     {
       "from": "FCC",
       "stream": "fcc_slurry",
       "to": "BLENDER",
-      "note": "slurry to fuel oil"
+      "note": "slurry"
     },
     {
       "from": "COKER",
       "stream": "coker_gasoil",
       "to": "BLENDER",
-      "note": "coker gasoil to diesel/FO blend"
+      "note": "coker GO"
     },
     {
       "from": "REFORMER",
       "stream": "reformate",
       "to": "BLENDER",
-      "note": "reformate to gasoline"
+      "note": "reformate"
     }
   ],
   "linking_streams": [
     "cdu_naphtha",
+    "cdu_naphtha_light",
+    "cdu_naphtha_heavy",
     "cdu_distillate",
     "cdu_gasoil",
     "cdu_resid",

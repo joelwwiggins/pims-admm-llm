@@ -1,7 +1,7 @@
-"""Per-unit PuLP subproblems for ADMM / parallel solves on the full plant.
+"""Per-unit PuLP subproblems for ADMM / parallel solves on the full plant (Wave3).
 
 Each block maximizes local margin given dual prices λ on linking streams.
-Tanks are modeled as pass-through balances with capacity duals.
+Reformer prefers heavy SR naphtha; FCC/coker naphtha are optional non-default feeds.
 """
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 
 import pulp
 
-from .full_plant import build_yield_tables
 from .assay_loader import load_assays_json
+from .full_plant import build_yield_tables
 
 
 def _solve(prob: pulp.LpProblem) -> Tuple[str, float, Dict[str, float], float]:
@@ -45,13 +45,30 @@ def solve_cdu_block(
         prob += prod[s] == pulp.lpSum(
             yields["cdu_by_crude"][c["name"]][s] * crude_v[c["name"]] for c in assays["crudes"]
         )
-    # λ positive = value of producing stream
-    rev = pulp.lpSum(float(prices.get(s, 0.0)) * prod[s] for s in cuts)
+    # light/heavy split reported for linking
+    light = pulp.LpVariable("prod_cdu_naphtha_light", 0)
+    heavy = pulp.LpVariable("prod_cdu_naphtha_heavy", 0)
+    prob += light == 0.40 * prod["cdu_naphtha"]
+    prob += heavy == 0.60 * prod["cdu_naphtha"]
+    rev = (
+        pulp.lpSum(float(prices.get(s, 0.0)) * prod[s] for s in cuts)
+        + float(prices.get("cdu_naphtha_light", prices.get("cdu_naphtha", 0.0))) * light
+        + float(prices.get("cdu_naphtha_heavy", prices.get("cdu_naphtha", 0.0))) * heavy
+    )
     cost = pulp.lpSum(float(c["price_usd_per_bbl"]) * crude_v[c["name"]] for c in assays["crudes"])
     prob += rev - cost
     status, obj, primals, dt = _solve(prob)
     linking = {s: primals.get(f"prod_{s}", 0.0) for s in cuts}
-    return {"block": "CDU", "status": status, "local_obj": obj, "proposal": linking, "primals": primals, "time_s": dt}
+    linking["cdu_naphtha_light"] = primals.get("prod_cdu_naphtha_light", 0.0)
+    linking["cdu_naphtha_heavy"] = primals.get("prod_cdu_naphtha_heavy", 0.0)
+    return {
+        "block": "CDU",
+        "status": status,
+        "local_obj": obj,
+        "proposal": linking,
+        "primals": primals,
+        "time_s": dt,
+    }
 
 
 def solve_fcc_block(
@@ -73,7 +90,7 @@ def solve_fcc_block(
     prob += naph == fy["fcc_naphtha"] * feed
     prob += lco == fy["fcc_lco"] * feed
     prob += slurry == fy["fcc_slurry"] * feed
-    # pay for gasoil feed, get product λ
+    # FCC naph valued as gasoline-pool component (not reformer feed by default)
     prob += (
         float(prices.get("fcc_naphtha", 0)) * naph
         + float(prices.get("fcc_lco", 0)) * lco
@@ -88,7 +105,14 @@ def solve_fcc_block(
         "fcc_lco": primals.get("prod_fcc_lco", 0.0),
         "fcc_slurry": primals.get("prod_fcc_slurry", 0.0),
     }
-    return {"block": "FCC", "status": status, "local_obj": obj, "proposal": proposal, "primals": primals, "time_s": dt}
+    return {
+        "block": "FCC",
+        "status": status,
+        "local_obj": obj,
+        "proposal": proposal,
+        "primals": primals,
+        "time_s": dt,
+    }
 
 
 def solve_coker_block(
@@ -108,6 +132,7 @@ def solve_coker_block(
     go = pulp.LpVariable("prod_coker_gasoil", 0)
     prob += naph == cy["coker_naphtha"] * feed
     prob += go == cy["coker_gasoil"] * feed
+    # Coker naph valued for HDT/gasoline or FO — not reformer default
     prob += (
         float(prices.get("coker_naphtha", 0)) * naph
         + float(prices.get("coker_gasoil", 0)) * go
@@ -120,24 +145,37 @@ def solve_coker_block(
         "coker_naphtha": primals.get("prod_coker_naphtha", 0.0),
         "coker_gasoil": primals.get("prod_coker_gasoil", 0.0),
     }
-    return {"block": "COKER", "status": status, "local_obj": obj, "proposal": proposal, "primals": primals, "time_s": dt}
+    return {
+        "block": "COKER",
+        "status": status,
+        "local_obj": obj,
+        "proposal": proposal,
+        "primals": primals,
+        "time_s": dt,
+    }
 
 
 def solve_reformer_block(
     assays: Dict[str, Any],
     yields: Dict[str, Any],
     prices: Mapping[str, float],
+    heavy_sr_avail: Optional[float] = None,
     fcc_naph_avail: Optional[float] = None,
     coker_naph_avail: Optional[float] = None,
 ) -> Dict[str, Any]:
+    """Reformer: primarily heavy SR naphtha; FCC/coker naph optional non-default."""
     prob = pulp.LpProblem("block_REFORMER", pulp.LpMaximize)
+    h_n = pulp.LpVariable("heavy_sr_naph_in", 0)
     f_n = pulp.LpVariable("fcc_naph_in", 0)
     c_n = pulp.LpVariable("coker_naph_in", 0)
+    if heavy_sr_avail is not None:
+        prob += h_n <= float(heavy_sr_avail)
     if fcc_naph_avail is not None:
         prob += f_n <= float(fcc_naph_avail)
     if coker_naph_avail is not None:
         prob += c_n <= float(coker_naph_avail)
-    feed = f_n + c_n
+    # Soft chemistry: prefer heavy SR — penalize cracked naph feeds
+    feed = h_n + f_n + c_n
     caps = assays.get("capacities") or {}
     prob += feed <= float(caps.get("reformer_kbd", 45))
     ref = pulp.LpVariable("prod_reformate", 0)
@@ -145,17 +183,28 @@ def solve_reformer_block(
     prob += ref == ry * feed
     prob += (
         float(prices.get("reformate", 0)) * ref
+        - float(prices.get("cdu_naphtha_heavy", prices.get("cdu_naphtha", 0))) * h_n
         - float(prices.get("fcc_naphtha", 0)) * f_n
         - float(prices.get("coker_naphtha", 0)) * c_n
         - 1.2 * feed
+        - 3.0 * f_n  # non-default chemistry penalty
+        - 4.0 * c_n
     )
     status, obj, primals, dt = _solve(prob)
     proposal = {
+        "cdu_naphtha_heavy_use": primals.get("heavy_sr_naph_in", 0.0),
         "fcc_naphtha_use": primals.get("fcc_naph_in", 0.0),
         "coker_naphtha_use": primals.get("coker_naph_in", 0.0),
         "reformate": primals.get("prod_reformate", 0.0),
     }
-    return {"block": "REFORMER", "status": status, "local_obj": obj, "proposal": proposal, "primals": primals, "time_s": dt}
+    return {
+        "block": "REFORMER",
+        "status": status,
+        "local_obj": obj,
+        "proposal": proposal,
+        "primals": primals,
+        "time_s": dt,
+    }
 
 
 def solve_all_plant_blocks(
@@ -167,25 +216,33 @@ def solve_all_plant_blocks(
     prices = dict(prices or {})
     # default economic seeds from product netbacks
     prices.setdefault("reformate", 100.0)
-    prices.setdefault("fcc_naphtha", 95.0)
-    prices.setdefault("coker_naphtha", 90.0)
+    prices.setdefault("fcc_naphtha", 98.0)  # gasoline-pool value
+    prices.setdefault("coker_naphtha", 88.0)  # post soft HDT
     prices.setdefault("cdu_gasoil", 85.0)
     prices.setdefault("cdu_resid", 55.0)
     prices.setdefault("fcc_lco", 95.0)
     prices.setdefault("fcc_slurry", 50.0)
     prices.setdefault("coker_gasoil", 90.0)
     prices.setdefault("cdu_naphtha", 92.0)
+    prices.setdefault("cdu_naphtha_light", 90.0)
+    prices.setdefault("cdu_naphtha_heavy", 88.0)
     prices.setdefault("cdu_distillate", 100.0)
 
     cdu = solve_cdu_block(assays, yields, prices)
-    fcc = solve_fcc_block(assays, yields, prices, gasoil_available=cdu["proposal"].get("cdu_gasoil"))
-    coker = solve_coker_block(assays, yields, prices, resid_available=cdu["proposal"].get("cdu_resid"))
+    fcc = solve_fcc_block(
+        assays, yields, prices, gasoil_available=cdu["proposal"].get("cdu_gasoil")
+    )
+    coker = solve_coker_block(
+        assays, yields, prices, resid_available=cdu["proposal"].get("cdu_resid")
+    )
     reformer = solve_reformer_block(
         assays,
         yields,
         prices,
-        fcc_naph_avail=fcc["proposal"].get("fcc_naphtha"),
-        coker_naph_avail=coker["proposal"].get("coker_naphtha"),
+        heavy_sr_avail=cdu["proposal"].get("cdu_naphtha_heavy"),
+        # non-default: allow cracked naph only as optional (seed price path may still zero)
+        fcc_naph_avail=0.0,
+        coker_naph_avail=0.0,
     )
     return {
         "blocks": {

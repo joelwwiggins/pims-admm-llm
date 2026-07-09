@@ -465,6 +465,17 @@ def run_comparison(verbose: bool = False) -> Dict[str, Any]:
     print(f"  objective:       {admm.objective:.6f}")
     print(f"  wall_time_s:     {admm.wall_time_s:.6f}")
     print(f"  iteration_count: {admm.iteration_count}")
+    # Wave3 explicit ADMM metrics (rho / residuals when present on result)
+    _rho = getattr(admm, "rho", None)
+    _r = getattr(admm, "primal_residual", None)
+    _s = getattr(admm, "dual_residual", None)
+    if _rho is not None:
+        print(f"  rho:             {_rho}")
+    if _r is not None:
+        print(f"  ||r|| primal:    {_r:.6e}")
+    if _s is not None:
+        print(f"  ||s|| dual:      {_s:.6e}")
+    print(f"  dual_recovery:   mono-oracle / feas-project hybrid (see architecture.md)")
     print(f"  crude_rates:     {_fmt(admm.crude_rates)}")
     print(f"  product_rates:   {_fmt(admm.product_rates)}")
     print(f"  inter_prod:      {_fmt(admm.intermediate_prod)}")
