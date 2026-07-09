@@ -1,45 +1,45 @@
-# Wave3 Flowsheet UI
+# PIMS-ADMM Flowsheet UI (Wave3)
 
-Minimal **Svelte 5 + [@xyflow/svelte](https://svelteflow.dev)** (SvelteFlow) canvas for snap-together refinery / supply-chain routing.
+Svelte 5 + SvelteFlow (`@xyflow/svelte`) dock + canvas for snap-together units,
+wired to the FastAPI graph solver (`POST /api/graph` → real LP/ADMM).
 
-## Features (scaffold)
-
-- Sidebar palette: `CDU`, `FCC`, `COKER`, `REFORMER`, `HDT_NAPH`, `BLENDER`, `TANK`, `SELL`, plus supply-chain stubs `warehouse`, `transport`
-- Custom unit nodes: **label**, **active** toggle, **submodel** (`lp` | `tensorflow` stub)
-- Drag from palette onto canvas (or click to add)
-- `onconnect` → `POST /api/connect` validation (allowed / score / reason)
-- **Submit graph** → `POST /api/graph` cluster + ADMM status stubs
-- **Load routing** → `GET /api/routing` + `/health` (proxy to FastAPI)
-
-## Setup
+## Run
 
 ```bash
-cd ui
-npm install
-npm run dev
-```
-
-Opens Vite on http://127.0.0.1:5173 with proxy:
-
-| Path | Target |
-|------|--------|
-| `/api/*`, `/health` | `http://127.0.0.1:8008` |
-
-## Backend
-
-From repo root:
-
-```bash
+# Terminal 1 — API (repo root)
+cd ~/projects/pims-admm-llm
+source .venv/bin/activate
 pip install -r requirements-api.txt
 uvicorn api.main:app --reload --port 8008
+
+# Terminal 2 — UI
+cd ui
+npm install
+npm run dev   # http://127.0.0.1:5173  (proxies /api + /health → :8008)
 ```
 
-See [`../api/README.md`](../api/README.md).
+## UI features
 
-## Scripts
+| Control | Purpose |
+|---------|---------|
+| **Solve graph** | `POST /api/graph` with nodes/edges + options |
+| **recovery** | `mono-oracle` (default duals) or `pure-admm` (free λ) |
+| **inventory mode** | single-period pass vs inventory balances |
+| **run ADMM metrics** | include ADMM residual/λ block in response |
+| **stub only** | skip LP (clusters only) |
+| **Full plant** | load CDU/FCC/Coker/Reformer/HDT/Blender template |
+| **Results panel** | obj, feeds, products, splits, ADMM ‖r‖/‖s‖/λ L∞ |
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Dev server |
-| `npm run build` | Production build → `dist/` |
-| `npm run preview` | Preview production build |
+## Node data
+
+Each unit node stores:
+
+- `unitType`, `label`, `category`, `color`
+- `active` (toggle — inactive nodes skipped by solver)
+- `submodel`: `lp` \| `tensorflow` (stub for future surrogates)
+
+## Notes
+
+- Connect validation: `POST /api/connect` (local edge if API offline).
+- Chemical defaults: FCC/coker naphtha prefer HDT/gasoline, **not** reformer.
+- Vite proxy: see `vite.config.js`.

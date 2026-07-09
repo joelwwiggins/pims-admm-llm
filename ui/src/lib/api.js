@@ -31,23 +31,29 @@ export async function postConnect(body) {
 }
 
 /**
- * POST full graph; returns cluster/ADMM stubs.
- * @param {{ nodes: any[], edges: any[] } | any[]} nodesOrGraph
- * @param {any[]} [edges]
+ * POST full graph → LP/ADMM solve.
+ * @param {object} graph { nodes, edges, recovery_path?, inventory_mode?, run_admm?, stub_only? }
  */
-export async function postGraph(nodesOrGraph, edges) {
+export async function postGraph(graph) {
   const body =
-    edges !== undefined
-      ? { nodes: nodesOrGraph, edges }
-      : nodesOrGraph?.nodes
-        ? nodesOrGraph
-        : { nodes: nodesOrGraph, edges: [] };
+    graph?.nodes != null
+      ? graph
+      : { nodes: Array.isArray(graph) ? graph : [], edges: [] };
 
   const r = await fetch(`${BASE}/api/graph`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`graph ${r.status}`);
+  if (!r.ok) {
+    let detail = `${r.status}`;
+    try {
+      const j = await r.json();
+      detail = j.detail || j.message || detail;
+    } catch (_) {
+      /* ignore */
+    }
+    throw new Error(`graph ${detail}`);
+  }
   return r.json();
 }

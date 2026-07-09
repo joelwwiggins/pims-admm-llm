@@ -10,7 +10,8 @@
   import '@xyflow/svelte/dist/style.css';
 
   import UnitNode from './lib/UnitNode.svelte';
-  import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType } from './lib/palette.js';
+  import ResultsPanel from './lib/ResultsPanel.svelte';
+  import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType, fullPlantTemplate } from './lib/palette.js';
   import { postConnect, postGraph, getRouting, getHealth } from './lib/api.js';
 
   const nodeTypes = { unit: UnitNode };
@@ -58,19 +59,24 @@
   ]);
 
   let edges = $state.raw([]);
-  let status = $state('Drag units from palette · connect handles to validate via API');
+  let status = $state('Drag units · connect handles · Solve graph → real LP/ADMM');
   let lastGraph = $state(null);
-  let nodeSeq = $state(1);
+  let nodeSeq = $state(10);
+  let solving = $state(false);
+  let apiOk = $state(false);
+  let routingInfo = $state(null);
+
+  // Solve options (issue #1 / wave3b)
+  let recoveryPath = $state('mono-oracle'); // mono-oracle | pure-admm
+  let inventoryMode = $state(false);
+  let runAdmm = $state(true);
+  let stubOnly = $state(false);
 
   function unitTypeOf(nodeId) {
     const n = nodes.find((x) => x.id === nodeId);
     return n?.data?.unitType || null;
   }
 
-  /**
-   * onConnect stub: POST /api/connect for validation, then add edge if allowed.
-   * @param {import('@xyflow/svelte').Connection} connection
-   */
   async function onconnect(connection) {
     const sourceType = unitTypeOf(connection.source);
     const targetType = unitTypeOf(connection.target);
@@ -97,6 +103,8 @@
           ...connection,
           id: `e-${connection.source}-${connection.target}-${Date.now()}`,
           label: res.score != null ? String(Number(res.score).toFixed(2)) : undefined,
+          type: 'smoothstep',
+          animated: true,
           data: { score: res.score, reason: res.reason },
         },
         edges,
@@ -108,6 +116,8 @@
           ...connection,
           id: `e-${connection.source}-${connection.target}-${Date.now()}`,
           label: 'offline',
+          type: 'smoothstep',
+          animated: true,
           data: { offline: true },
         },
         edges,
@@ -163,14 +173,31 @@
     status = `Dropped ${unitType}`;
   }
 
+  function loadFullPlantTemplate() {
+    const t = fullPlantTemplate();
+    nodes = t.nodes;
+    edges = t.edges;
+    nodeSeq = 20;
+    lastGraph = null;
+    status = 'Loaded full-plant template (chem defaults: FCC/coker naph → HDT/gas, not reformer)';
+  }
+
+  function clearCanvas() {
+    nodes = [];
+    edges = [];
+    lastGraph = null;
+    status = 'Canvas cleared';
+  }
+
   async function submitGraph() {
-    status = 'POST /api/graph…';
+    solving = true;
+    status = stubOnly ? 'POST /api/graph (stub)…' : `POST /api/graph (${recoveryPath})…`;
     try {
       const payloadNodes = nodes.map((n) => ({
         id: n.id,
         type: n.type,
         position: n.position,
-        data: n.data,
+        data: { ...n.data },
       }));
       const payloadEdges = edges.map((e) => ({
         id: e.id,
@@ -180,26 +207,37 @@
         targetHandle: e.targetHandle,
         data: e.data || {},
       }));
-      const res = await postGraph(payloadNodes, payloadEdges);
+      const res = await postGraph({
+        nodes: payloadNodes,
+        edges: payloadEdges,
+        recovery_path: recoveryPath,
+        inventory_mode: inventoryMode,
+        run_admm: runAdmm,
+        stub_only: stubOnly,
+      });
       lastGraph = res;
-      const clusterSummary = (res.clusters || [])
-        .map((c) => `${c.id}[${(c.node_ids || []).length}]`)
-        .join(', ');
-      status = `${res.message} | clusters: ${clusterSummary || 'none'} | admm=${res.admm_status}`;
+      const obj = res.objective != null ? Number(res.objective).toFixed(2) : '—';
+      const path = res.admm?.dual_recovery_path || res.admm_status || '—';
+      status = `${res.feasible || res.ok ? 'OK' : 'FAIL'} obj=${obj} path=${path} · ${res.message || ''}`;
     } catch (err) {
       status = `graph failed: ${err.message}`;
+    } finally {
+      solving = false;
     }
   }
 
   async function loadRouting() {
     try {
       const [health, routing] = await Promise.all([getHealth(), getRouting()]);
+      apiOk = !!health.ok;
+      routingInfo = routing;
       const nArcs = (routing.arcs || []).length;
       status = `API ok (${health.wave || health.ok}) · routing ${routing.version || '?'} · ${nArcs} arcs · ${
         (routing.units || []).length
       } units`;
     } catch (err) {
-      status = `routing load failed: ${err.message} (start uvicorn on :8008)`;
+      apiOk = false;
+      status = `routing load failed: ${err.message} (start: uvicorn api.main:app --reload --port 8008)`;
     }
   }
 
@@ -210,8 +248,42 @@
 
 <div class="layout">
   <aside class="sidebar">
-    <h1>Wave3 Flowsheet</h1>
-    <div class="sub">Snap-together · SvelteFlow + ADMM stubs</div>
+    <h1>PIMS Flowsheet</h1>
+    <div class="sub">
+      Wave3 · SvelteFlow
+      <span class="pill" class:on={apiOk} class:off={!apiOk}>{apiOk ? 'API' : 'API off'}</span>
+    </div>
+
+    <div class="controls">
+      <label>
+        recovery
+        <select bind:value={recoveryPath}>
+          <option value="mono-oracle">mono-oracle (L∞=0 duals)</option>
+          <option value="pure-admm">pure-admm (free λ)</option>
+        </select>
+      </label>
+      <label class="chk">
+        <input type="checkbox" bind:checked={inventoryMode} />
+        inventory mode
+      </label>
+      <label class="chk">
+        <input type="checkbox" bind:checked={runAdmm} />
+        run ADMM metrics
+      </label>
+      <label class="chk">
+        <input type="checkbox" bind:checked={stubOnly} />
+        stub only (no LP)
+      </label>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="primary" disabled={solving} onclick={submitGraph}>
+        {solving ? 'Solving…' : 'Solve graph'}
+      </button>
+      <button type="button" onclick={loadFullPlantTemplate}>Full plant</button>
+      <button type="button" onclick={clearCanvas}>Clear</button>
+      <button type="button" onclick={loadRouting}>Ping API</button>
+    </div>
 
     <div class="palette-section">
       <h2>Process units</h2>
@@ -245,16 +317,23 @@
       {/each}
     </div>
 
-    {#if lastGraph}
-      <pre class="graph-out">{JSON.stringify(lastGraph, null, 2)}</pre>
+    <div class="palette-section">
+      <h2>Results</h2>
+      <ResultsPanel result={lastGraph} />
+    </div>
+
+    {#if routingInfo?.chemical_defaults}
+      <details class="chem">
+        <summary>Chemical defaults</summary>
+        <pre>{JSON.stringify(routingInfo.chemical_defaults, null, 2)}</pre>
+      </details>
     {/if}
   </aside>
 
   <div class="canvas-wrap" role="presentation" {ondragover} {ondrop}>
     <div class="toolbar">
-      <button type="button" onclick={submitGraph}>Submit graph</button>
-      <button type="button" onclick={loadRouting}>Load routing</button>
       <div class="status">{status}</div>
+      <div class="counts">{nodes.length} nodes · {edges.length} edges</div>
     </div>
 
     <SvelteFlow
