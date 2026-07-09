@@ -1,5 +1,5 @@
 {
-  "description": "Wave3 arc-flow superstructure: decision arcs, chemical defaults, optional single-period tanks. Solver chooses fractions within capacities/economics \u2014 not hard single paths.",
+  "description": "Wave3/4 arc-flow superstructure: decision arcs, chemical defaults, optional tanks. Wave4: full unit yield streams (dry gas/LPG/coke/\u2026), feed poolers with direct bypass, process conditions accessible. Solver chooses fractions within capacities/economics.",
   "version": "wave3-superstructure",
   "tanks": {
     "mode": "single_period_pass_optional",
@@ -17,7 +17,18 @@
     "REFORMER",
     "HYDROTREAT_NAPH",
     "BLENDER",
-    "SELL"
+    "SELL",
+    "TANK_REFORMER_FEED",
+    "TANK_HDT_FEED",
+    "POOL_FCC",
+    "POOL_COKER",
+    "POOL_REFORMER",
+    "POOL_HDT",
+    "FUEL_GAS",
+    "LPG",
+    "COKE_SALES",
+    "REGEN_HEAT",
+    "H2_GRID"
   ],
   "chemical_defaults": {
     "cdu_naphtha_heavy": "REFORMER",
@@ -27,7 +38,12 @@
     "coker_naphtha": "BLENDER_gasoline_via_HDT_or_FO",
     "coker_naphtha_note": "Coker naphtha is olefinic/high-S; soft HDT path to gasoline or FO; NOT reformer default.",
     "cdu_gasoil": "swing_FCC_diesel_sell",
-    "cdu_resid": "swing_coker_FO"
+    "cdu_resid": "swing_coker_FO",
+    "fcc_dry_gas": "FUEL_GAS",
+    "fcc_lpg": "LPG",
+    "fcc_coke": "REGEN_HEAT",
+    "coker_coke": "COKE_SALES",
+    "pooler_rule": "feed_pooler_or_direct_in_front_of_each_unit"
   },
   "component_properties": {
     "cdu_naphtha_light": {
@@ -89,6 +105,61 @@
       "ron": 0.0,
       "sulfur_wt": 2.5,
       "source": "resid to FO"
+    },
+    "fcc_dry_gas": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "FCC dry gas (fuel)"
+    },
+    "fcc_lpg": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "FCC LPG C3/C4"
+    },
+    "fcc_coke": {
+      "ron": 0.0,
+      "sulfur_wt": 1.5,
+      "source": "FCC coke (wt, regenerator)"
+    },
+    "coker_dry_gas": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "coker dry gas"
+    },
+    "coker_lpg": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "coker LPG"
+    },
+    "coker_coke": {
+      "ron": 0.0,
+      "sulfur_wt": 3.0,
+      "source": "petcoke"
+    },
+    "reformer_h2": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "reformer net H2"
+    },
+    "reformer_lights": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "reformer C1-C4"
+    },
+    "cdu_offgas": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "CDU overhead fuel gas"
+    },
+    "hdt_naphtha": {
+      "ron": 88.0,
+      "sulfur_wt": 0.008,
+      "source": "HDT naphtha"
+    },
+    "hdt_lights": {
+      "ron": 0.0,
+      "sulfur_wt": 0.0,
+      "source": "HDT lights"
     }
   },
   "product_quality_specs": {
@@ -103,6 +174,9 @@
     },
     "fuel_oil": {
       "max_sulfur_wt": 2.0
+    },
+    "lpg": {
+      "max_sulfur_wt": 0.01
     }
   },
   "naphtha_split": {
@@ -390,6 +464,207 @@
       "decision": true,
       "product_pool": "gasoline",
       "note": "reformate \u2192 gasoline"
+    },
+    {
+      "id": "go_direct_to_fcc",
+      "from": "CDU",
+      "to": "FCC",
+      "stream": "cdu_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.08,
+      "default_open": true,
+      "decision": true,
+      "note": "direct gasoil \u2192 FCC (bypass POOL_FCC / TANK_GASOIL)"
+    },
+    {
+      "id": "resid_direct_to_coker",
+      "from": "CDU",
+      "to": "COKER",
+      "stream": "cdu_resid",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.08,
+      "default_open": true,
+      "decision": true,
+      "note": "direct resid \u2192 coker (bypass POOL_COKER)"
+    },
+    {
+      "id": "sr_heavy_to_ref_pool",
+      "from": "CDU",
+      "to": "TANK_REFORMER_FEED",
+      "stream": "cdu_naphtha_heavy",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "heavy SR naphtha \u2192 reformer feed pooler"
+    },
+    {
+      "id": "ref_pool_to_reformer",
+      "from": "TANK_REFORMER_FEED",
+      "to": "REFORMER",
+      "stream": "cdu_naphtha_heavy",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.02,
+      "default_open": true,
+      "decision": true,
+      "note": "reformer feed pooler \u2192 reformer"
+    },
+    {
+      "id": "fcc_dry_gas_to_fuel",
+      "from": "FCC",
+      "to": "FUEL_GAS",
+      "stream": "fcc_dry_gas",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "FCC dry gas \u2192 fuel gas"
+    },
+    {
+      "id": "fcc_lpg_to_lpg",
+      "from": "FCC",
+      "to": "LPG",
+      "stream": "fcc_lpg",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "FCC LPG \u2192 LPG product",
+      "product_pool": "lpg"
+    },
+    {
+      "id": "fcc_lpg_to_fuel",
+      "from": "FCC",
+      "to": "FUEL_GAS",
+      "stream": "fcc_lpg",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": false,
+      "decision": true,
+      "note": "FCC LPG swing \u2192 fuel"
+    },
+    {
+      "id": "fcc_coke_to_regen",
+      "from": "FCC",
+      "to": "REGEN_HEAT",
+      "stream": "fcc_coke",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "FCC coke \u2192 regenerator heat (credit)"
+    },
+    {
+      "id": "coker_dry_gas_to_fuel",
+      "from": "COKER",
+      "to": "FUEL_GAS",
+      "stream": "coker_dry_gas",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "coker dry gas \u2192 fuel"
+    },
+    {
+      "id": "coker_lpg_to_lpg",
+      "from": "COKER",
+      "to": "LPG",
+      "stream": "coker_lpg",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "coker LPG \u2192 product",
+      "product_pool": "lpg"
+    },
+    {
+      "id": "coker_lpg_to_fuel",
+      "from": "COKER",
+      "to": "FUEL_GAS",
+      "stream": "coker_lpg",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.05,
+      "default_open": false,
+      "decision": true,
+      "note": "coker LPG \u2192 fuel"
+    },
+    {
+      "id": "coker_coke_to_sales",
+      "from": "COKER",
+      "to": "COKE_SALES",
+      "stream": "coker_coke",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "petcoke sales/credit"
+    },
+    {
+      "id": "coker_go_to_fcc_pool",
+      "from": "COKER",
+      "to": "TANK_GASOIL",
+      "stream": "coker_gasoil",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.1,
+      "default_open": false,
+      "decision": true,
+      "note": "coker GO recycle \u2192 FCC feed pool (optional)"
+    },
+    {
+      "id": "reformer_h2_to_grid",
+      "from": "REFORMER",
+      "to": "H2_GRID",
+      "stream": "reformer_h2",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "net H2 make"
+    },
+    {
+      "id": "reformer_lights_to_fuel",
+      "from": "REFORMER",
+      "to": "FUEL_GAS",
+      "stream": "reformer_lights",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "reformer lights \u2192 fuel"
+    },
+    {
+      "id": "reformer_lights_to_lpg",
+      "from": "REFORMER",
+      "to": "LPG",
+      "stream": "reformer_lights",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.02,
+      "default_open": false,
+      "decision": true,
+      "note": "reformer lights \u2192 LPG",
+      "product_pool": "lpg"
+    },
+    {
+      "id": "cdu_offgas_to_fuel",
+      "from": "CDU",
+      "to": "FUEL_GAS",
+      "stream": "cdu_offgas",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.0,
+      "default_open": true,
+      "decision": true,
+      "note": "CDU offgas \u2192 fuel"
+    },
+    {
+      "id": "fcc_slurry_to_coker",
+      "from": "FCC",
+      "to": "TANK_RESID",
+      "stream": "fcc_slurry",
+      "capacity": null,
+      "cost_usd_per_bbl": 0.15,
+      "default_open": false,
+      "decision": true,
+      "note": "optional slurry recycle to resid pool/coker"
     }
   ],
   "routes": [
@@ -512,6 +787,120 @@
       "stream": "reformate",
       "to": "BLENDER",
       "note": "reformate"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_naphtha_heavy",
+      "to": "BLENDER",
+      "note": "compat: sr_heavy_to_gas"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_gasoil",
+      "to": "FCC",
+      "note": "compat: go_direct_to_fcc"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_resid",
+      "to": "COKER",
+      "note": "compat: resid_direct_to_coker"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_naphtha_heavy",
+      "to": "TANK_REFORMER_FEED",
+      "note": "compat: sr_heavy_to_ref_pool"
+    },
+    {
+      "from": "TANK_REFORMER_FEED",
+      "stream": "cdu_naphtha_heavy",
+      "to": "REFORMER",
+      "note": "compat: ref_pool_to_reformer"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_dry_gas",
+      "to": "FUEL_GAS",
+      "note": "compat: fcc_dry_gas_to_fuel"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_lpg",
+      "to": "LPG",
+      "note": "compat: fcc_lpg_to_lpg"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_lpg",
+      "to": "FUEL_GAS",
+      "note": "compat: fcc_lpg_to_fuel"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_coke",
+      "to": "REGEN_HEAT",
+      "note": "compat: fcc_coke_to_regen"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_dry_gas",
+      "to": "FUEL_GAS",
+      "note": "compat: coker_dry_gas_to_fuel"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_lpg",
+      "to": "LPG",
+      "note": "compat: coker_lpg_to_lpg"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_lpg",
+      "to": "FUEL_GAS",
+      "note": "compat: coker_lpg_to_fuel"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_coke",
+      "to": "COKE_SALES",
+      "note": "compat: coker_coke_to_sales"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_gasoil",
+      "to": "TANK_GASOIL",
+      "note": "compat: coker_go_to_fcc_pool"
+    },
+    {
+      "from": "REFORMER",
+      "stream": "reformer_h2",
+      "to": "H2_GRID",
+      "note": "compat: reformer_h2_to_grid"
+    },
+    {
+      "from": "REFORMER",
+      "stream": "reformer_lights",
+      "to": "FUEL_GAS",
+      "note": "compat: reformer_lights_to_fuel"
+    },
+    {
+      "from": "REFORMER",
+      "stream": "reformer_lights",
+      "to": "LPG",
+      "note": "compat: reformer_lights_to_lpg"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_offgas",
+      "to": "FUEL_GAS",
+      "note": "compat: cdu_offgas_to_fuel"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_slurry",
+      "to": "TANK_RESID",
+      "note": "compat: fcc_slurry_to_coker"
     }
   ],
   "linking_streams": [
@@ -526,7 +915,18 @@
     "fcc_slurry",
     "coker_naphtha",
     "coker_gasoil",
-    "reformate"
+    "reformate",
+    "fcc_dry_gas",
+    "fcc_lpg",
+    "fcc_coke",
+    "coker_dry_gas",
+    "coker_lpg",
+    "coker_coke",
+    "reformer_h2",
+    "reformer_lights",
+    "cdu_offgas",
+    "hdt_naphtha",
+    "hdt_lights"
   ],
   "quality_model": {
     "description": "Planning-grade gasoline quality: delta-base RON/S (default); optional RON index.",
@@ -541,6 +941,488 @@
         "index: volume-average Ethyl-style BI(RON); identity recovers linear",
         "Not full PIMS multi-level delta-base recursion \u2014 see docs/quality_blender.md"
       ]
+    }
+  },
+  "wave": "wave4-unit-streams",
+  "feed_poolers": [
+    {
+      "pool": "POOL_FCC",
+      "alias_tank": "TANK_GASOIL",
+      "unit": "FCC",
+      "stream": "cdu_gasoil",
+      "via_pool_arc": "go_to_fcc",
+      "direct_arc": "go_direct_to_fcc",
+      "sources": [
+        "CDU"
+      ],
+      "note": "VGO/gasoil pooler in front of FCC; direct CDU\u2192FCC bypass allowed"
+    },
+    {
+      "pool": "POOL_COKER",
+      "alias_tank": "TANK_RESID",
+      "unit": "COKER",
+      "stream": "cdu_resid",
+      "via_pool_arc": "resid_to_coker",
+      "direct_arc": "resid_direct_to_coker",
+      "sources": [
+        "CDU"
+      ],
+      "note": "Resid pooler in front of coker; direct resid\u2192coker bypass"
+    },
+    {
+      "pool": "POOL_REFORMER",
+      "alias_tank": "TANK_REFORMER_FEED",
+      "unit": "REFORMER",
+      "stream": "cdu_naphtha_heavy",
+      "via_pool_arc": "ref_pool_to_reformer",
+      "direct_arc": "sr_heavy_to_reformer",
+      "sources": [
+        "CDU",
+        "TANK_FCC_NAPH",
+        "TANK_COKER_NAPH"
+      ],
+      "note": "Naphtha feed pooler for reformer; heavy SR default direct also open"
+    },
+    {
+      "pool": "POOL_HDT",
+      "alias_tank": "TANK_HDT_FEED",
+      "unit": "HDT_NAPH",
+      "stream": "cracked_naphtha",
+      "via_pool_arc": "hdt_pool_to_hdt",
+      "direct_arc": "cracked_naph_direct_to_hdt",
+      "sources": [
+        "FCC",
+        "COKER",
+        "TANK_FCC_NAPH",
+        "TANK_COKER_NAPH"
+      ],
+      "note": "Cracked naphtha pooler ahead of HDT"
+    }
+  ],
+  "unit_models": {
+    "BLENDER": {
+      "process_conditions": {
+        "blend_mode": "delta_base",
+        "ron_spec": 87.0,
+        "max_sulfur_wt": 0.01
+      },
+      "feed_quality_keys": [
+        "ron",
+        "sulfur_wt",
+        "rvp",
+        "density_api"
+      ],
+      "yield_streams": []
+    },
+    "CDU": {
+      "process_conditions": {
+        "flash_zone_temp_f": 680.0,
+        "overflash_frac": 0.02,
+        "atm_tower_pressure_psig": 5.0,
+        "cut_points_f": {
+          "naphtha_ep": 350.0,
+          "distillate_ep": 650.0,
+          "gasoil_ep": 1050.0
+        }
+      },
+      "feed_quality_keys": [
+        "api",
+        "sulfur_wt",
+        "ccr_wt",
+        "nitrogen_ppm",
+        "tbp_curve"
+      ],
+      "yield_streams": [
+        {
+          "stream": "cdu_naphtha_light",
+          "basis": "vol",
+          "typical_range_pct": [
+            8,
+            18
+          ],
+          "default_routes": [
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "cdu_naphtha_heavy",
+          "basis": "vol",
+          "typical_range_pct": [
+            8,
+            18
+          ],
+          "default_routes": [
+            "POOL_REFORMER",
+            "REFORMER",
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "cdu_distillate",
+          "basis": "vol",
+          "typical_range_pct": [
+            15,
+            35
+          ],
+          "default_routes": [
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "cdu_gasoil",
+          "basis": "vol",
+          "typical_range_pct": [
+            20,
+            35
+          ],
+          "default_routes": [
+            "POOL_FCC",
+            "FCC",
+            "BLENDER",
+            "SELL"
+          ]
+        },
+        {
+          "stream": "cdu_resid",
+          "basis": "vol",
+          "typical_range_pct": [
+            10,
+            45
+          ],
+          "default_routes": [
+            "POOL_COKER",
+            "COKER",
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "cdu_offgas",
+          "basis": "fuel",
+          "typical_range_pct": [
+            0.5,
+            2
+          ],
+          "default_routes": [
+            "FUEL_GAS"
+          ]
+        }
+      ]
+    },
+    "COKER": {
+      "process_conditions": {
+        "drum_outlet_temp_f": 920.0,
+        "drum_pressure_psig": 25.0,
+        "recycle_ratio": 0.15,
+        "cycle_time_hr": 16.0,
+        "furnace_coil_outlet_temp_f": 920.0
+      },
+      "feed_quality_keys": [
+        "api",
+        "sulfur_wt",
+        "ccr_wt",
+        "asphaltenes_wt",
+        "viscosity_cst_210f"
+      ],
+      "yield_streams": [
+        {
+          "stream": "coker_dry_gas",
+          "basis": "vol",
+          "typical_range_pct": [
+            4,
+            10
+          ],
+          "default_routes": [
+            "FUEL_GAS"
+          ]
+        },
+        {
+          "stream": "coker_lpg",
+          "basis": "vol",
+          "typical_range_pct": [
+            3,
+            8
+          ],
+          "default_routes": [
+            "LPG",
+            "FUEL_GAS"
+          ]
+        },
+        {
+          "stream": "coker_naphtha",
+          "basis": "vol",
+          "typical_range_pct": [
+            12,
+            22
+          ],
+          "default_routes": [
+            "POOL_COKER_NAPH",
+            "HDT_NAPH",
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "coker_gasoil",
+          "basis": "vol",
+          "typical_range_pct": [
+            40,
+            60
+          ],
+          "default_routes": [
+            "BLENDER",
+            "POOL_FCC"
+          ]
+        },
+        {
+          "stream": "coker_coke",
+          "basis": "wt",
+          "typical_range_pct": [
+            15,
+            30
+          ],
+          "default_routes": [
+            "COKE_SALES"
+          ],
+          "note": "petcoke product/credit"
+        }
+      ]
+    },
+    "FCC": {
+      "process_conditions": {
+        "riser_outlet_temp_f": 980.0,
+        "catalyst_to_oil": 6.5,
+        "catalyst_activity": 68.0,
+        "additive_rate_wt_pct_cat": 0.0,
+        "feed_preheat_temp_f": 550.0,
+        "recycle_ratio": 0.0,
+        "regenerator_temp_f": 1320.0
+      },
+      "feed_quality_keys": [
+        "api",
+        "sulfur_wt",
+        "ccr_wt",
+        "uop_k",
+        "aniline_point_f",
+        "metals_ni_v_ppm",
+        "basic_nitrogen_ppm",
+        "tbp_curve"
+      ],
+      "yield_streams": [
+        {
+          "stream": "fcc_dry_gas",
+          "basis": "vol",
+          "typical_range_pct": [
+            3,
+            8
+          ],
+          "default_routes": [
+            "FUEL_GAS"
+          ],
+          "note": "H2, C1\u2013C2"
+        },
+        {
+          "stream": "fcc_lpg",
+          "basis": "vol",
+          "typical_range_pct": [
+            12,
+            25
+          ],
+          "default_routes": [
+            "LPG",
+            "FUEL_GAS"
+          ],
+          "note": "C3/C4 incl. olefins"
+        },
+        {
+          "stream": "fcc_naphtha",
+          "basis": "vol",
+          "typical_range_pct": [
+            40,
+            55
+          ],
+          "default_routes": [
+            "POOL_FCC_NAPH",
+            "BLENDER",
+            "HDT_NAPH"
+          ]
+        },
+        {
+          "stream": "fcc_lco",
+          "basis": "vol",
+          "typical_range_pct": [
+            15,
+            25
+          ],
+          "default_routes": [
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "fcc_slurry",
+          "basis": "vol",
+          "typical_range_pct": [
+            5,
+            15
+          ],
+          "default_routes": [
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "fcc_coke",
+          "basis": "wt",
+          "typical_range_pct": [
+            4,
+            8
+          ],
+          "default_routes": [
+            "REGEN_HEAT"
+          ],
+          "note": "burned in regenerator"
+        }
+      ]
+    },
+    "HDT_NAPH": {
+      "process_conditions": {
+        "reactor_inlet_temp_f": 550.0,
+        "pressure_psig": 600.0,
+        "h2_partial_pressure_psia": 450.0,
+        "lhsv": 2.0,
+        "h2_oil_scf_bbl": 800.0
+      },
+      "feed_quality_keys": [
+        "api",
+        "sulfur_wt",
+        "nitrogen_ppm",
+        "olefins_vol",
+        "ron"
+      ],
+      "yield_streams": [
+        {
+          "stream": "hdt_naphtha",
+          "basis": "vol",
+          "typical_range_pct": [
+            96,
+            99
+          ],
+          "default_routes": [
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "hdt_lights",
+          "basis": "vol",
+          "typical_range_pct": [
+            1,
+            4
+          ],
+          "default_routes": [
+            "FUEL_GAS"
+          ]
+        }
+      ]
+    },
+    "REFORMER": {
+      "process_conditions": {
+        "severity_wait_avg_f": 940.0,
+        "pressure_psig": 150.0,
+        "h2_hc_ratio": 4.0,
+        "space_velocity_whsv": 1.5,
+        "severity_severity_count": 3
+      },
+      "feed_quality_keys": [
+        "api",
+        "sulfur_wt",
+        "nitrogen_ppm",
+        "paraffins_vol",
+        "naphthenes_vol",
+        "aromatics_vol",
+        "n_plus_a"
+      ],
+      "yield_streams": [
+        {
+          "stream": "reformate",
+          "basis": "vol",
+          "typical_range_pct": [
+            78,
+            94
+          ],
+          "default_routes": [
+            "BLENDER"
+          ]
+        },
+        {
+          "stream": "reformer_h2",
+          "basis": "fuel",
+          "typical_range_pct": [
+            2,
+            6
+          ],
+          "default_routes": [
+            "H2_GRID",
+            "FUEL_GAS"
+          ],
+          "note": "net H2 make"
+        },
+        {
+          "stream": "reformer_lights",
+          "basis": "vol",
+          "typical_range_pct": [
+            5,
+            15
+          ],
+          "default_routes": [
+            "FUEL_GAS",
+            "LPG"
+          ]
+        }
+      ]
+    }
+  },
+  "process_conditions": {
+    "BLENDER": {
+      "blend_mode": "delta_base",
+      "ron_spec": 87.0,
+      "max_sulfur_wt": 0.01
+    },
+    "CDU": {
+      "flash_zone_temp_f": 680.0,
+      "overflash_frac": 0.02,
+      "atm_tower_pressure_psig": 5.0,
+      "cut_points_f": {
+        "naphtha_ep": 350.0,
+        "distillate_ep": 650.0,
+        "gasoil_ep": 1050.0
+      }
+    },
+    "COKER": {
+      "drum_outlet_temp_f": 920.0,
+      "drum_pressure_psig": 25.0,
+      "recycle_ratio": 0.15,
+      "cycle_time_hr": 16.0,
+      "furnace_coil_outlet_temp_f": 920.0
+    },
+    "FCC": {
+      "riser_outlet_temp_f": 980.0,
+      "catalyst_to_oil": 6.5,
+      "catalyst_activity": 68.0,
+      "additive_rate_wt_pct_cat": 0.0,
+      "feed_preheat_temp_f": 550.0,
+      "recycle_ratio": 0.0,
+      "regenerator_temp_f": 1320.0
+    },
+    "HDT_NAPH": {
+      "reactor_inlet_temp_f": 550.0,
+      "pressure_psig": 600.0,
+      "h2_partial_pressure_psia": 450.0,
+      "lhsv": 2.0,
+      "h2_oil_scf_bbl": 800.0
+    },
+    "REFORMER": {
+      "severity_wait_avg_f": 940.0,
+      "pressure_psig": 150.0,
+      "h2_hc_ratio": 4.0,
+      "space_velocity_whsv": 1.5,
+      "severity_severity_count": 3
     }
   }
 }

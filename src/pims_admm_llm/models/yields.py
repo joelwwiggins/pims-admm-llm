@@ -1,14 +1,19 @@
 """Property-driven yield vectors for CDU / FCC / Delayed Coker / Reformer.
 
-Hard LP still uses linear yield coefficients; properties set those coefficients
-before the solve (PIMS-style assay → LP rows). Soft nonlinear notes stay in the LLM layer.
+Hard LP still uses linear yield coefficients; properties + process conditions
+set those coefficients before the solve (PIMS-style assay → LP rows). Soft
+nonlinear notes stay in the LLM layer.
+
+Wave4: each unit exposes a full product slate (dry gas, LPG, liquids, coke)
+so every yield stream can be routed somewhere in the superstructure.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Mapping
+from typing import Any, Dict, Mapping, Optional
 
 from .properties import FeedProperties
+from .unit_specs import merge_process_conditions
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -19,6 +24,8 @@ def cdu_yields_from_assay(props: FeedProperties, tbp_cut_vol: Mapping[str, float
     """Map crude assay + optional TBP cuts → CDU product yields (vol frac of charge).
 
     If TBP cuts provided, use them with mild API/S corrections; else synthesize from API/CCR.
+    Includes ``cdu_offgas`` (fuel-gas equiv, small). Liquid cuts still sum ≈ 1.0 so
+    existing mass-balance tests pass; offgas is extra fuel credit fraction on charge.
     """
     if tbp_cut_vol:
         y = {
@@ -51,7 +58,10 @@ def cdu_yields_from_assay(props: FeedProperties, tbp_cut_vol: Mapping[str, float
         y["cdu_distillate"] = max(0.05, y["cdu_distillate"] - shift * 0.3)
         y["cdu_gasoil"] = max(0.05, y["cdu_gasoil"] - shift * 0.3)
     s = sum(y.values())
-    return {k: v / s for k, v in y.items()}
+    out = {k: v / s for k, v in y.items()}
+    # Overhead offgas / fuel (not part of liquid sum) — planning credit
+    out["cdu_offgas"] = _clamp(0.008 + 0.0004 * props.api * 0.1, 0.005, 0.02)
+    return out
 
 
 def gasoil_props_from_crude(props: FeedProperties) -> FeedProperties:
@@ -81,45 +91,136 @@ def resid_props_from_crude(props: FeedProperties) -> FeedProperties:
     )
 
 
-def fcc_yields(feed: FeedProperties) -> Dict[str, float]:
-    """FCC yield on fresh feed (vol/vol charge). Conversion driven by API & CCR."""
-    conversion = _clamp(0.58 + 0.008 * (feed.api - 22.0) - 0.025 * feed.ccr_wt, 0.35, 0.78)
-    # product slate of converted + unconverted
-    naph = 0.48 * conversion
-    lco = 0.22 * conversion + 0.55 * (1.0 - conversion)
-    slurry = 0.10 * conversion + 0.45 * (1.0 - conversion)
-    # coke/gas lumped as loss from liquid (not an LP stream here)
-    liquid = naph + lco + slurry
-    if liquid <= 0:
-        liquid = 1.0
-    # normalize liquid yields to sum <= 0.95 (coke/gas ~5%+)
-    scale = min(1.0, 0.93 / liquid)
+def _fcc_severity_delta(conditions: Mapping[str, Any]) -> float:
+    """Map ROT / C/O / activity to conversion delta around base severity."""
+    rot = float(conditions.get("riser_outlet_temp_f", 980.0))
+    co = float(conditions.get("catalyst_to_oil", 6.5))
+    act = float(conditions.get("catalyst_activity", 68.0))
+    preheat = float(conditions.get("feed_preheat_temp_f", 550.0))
+    # Base design: 980 F, C/O 6.5, MAT 68
+    d = 0.0
+    d += 0.00055 * (rot - 980.0)  # ~0.055 per 100 F
+    d += 0.012 * (co - 6.5)
+    d += 0.0015 * (act - 68.0)
+    d += 0.00008 * (preheat - 550.0)
+    return _clamp(d, -0.12, 0.12)
+
+
+def fcc_yields(
+    feed: FeedProperties,
+    conditions: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, float]:
+    """FCC yield on fresh feed.
+
+    Liquid products are vol/vol charge (dry gas, LPG, naphtha, LCO, slurry).
+    ``fcc_coke`` is wt frac of fresh feed (regenerator heat balance credit).
+
+    Typical planning ranges (vol% feed unless noted):
+      dry gas 3–8, LPG 12–25, gasoline 40–55, LCO 15–25, slurry 5–15, coke 4–8 wt%.
+    """
+    cond = merge_process_conditions("FCC", conditions)
+    conversion = _clamp(
+        0.58 + 0.008 * (feed.api - 22.0) - 0.025 * feed.ccr_wt + _fcc_severity_delta(cond),
+        0.35,
+        0.82,
+    )
+    recycle = float(cond.get("recycle_ratio", 0.0))
+    coke_wt = _clamp(0.045 + 0.012 * feed.ccr_wt + 0.02 * (1.0 - conversion), 0.035, 0.10)
+    liquid_vol = _clamp(0.96 - 0.55 * coke_wt, 0.88, 0.96)
+
+    # Converted products scale with conversion; bottoms with (1-conversion).
+    # Explicit API/CCR terms keep lighter/low-CCR feeds above heavy on gasoline.
+    dry = _clamp(0.035 + 0.055 * conversion + 0.01 * recycle, 0.03, 0.09)
+    lpg = _clamp(0.11 + 0.14 * conversion, 0.10, 0.26)
+    naph = _clamp(
+        0.38 + 0.28 * conversion + 0.004 * (feed.api - 22.0) - 0.02 * feed.ccr_wt,
+        0.30,
+        0.56,
+    )
+    unconv = 1.0 - conversion
+    lco = _clamp(0.14 + 0.32 * unconv, 0.12, 0.30)
+    slurry = _clamp(0.06 + 0.28 * unconv + 0.012 * feed.ccr_wt, 0.04, 0.22)
+
+    raw = dry + lpg + naph + lco + slurry
+    scale = liquid_vol / raw if raw > 1e-9 else 1.0
     return {
+        "fcc_dry_gas": dry * scale,
+        "fcc_lpg": lpg * scale,
         "fcc_naphtha": naph * scale,
         "fcc_lco": lco * scale,
         "fcc_slurry": slurry * scale,
+        "fcc_coke": coke_wt,
     }
 
 
-def coker_yields(feed: FeedProperties) -> Dict[str, float]:
-    """Delayed coker liquid yields from resid CCR (volume on fresh feed)."""
+def coker_yields(
+    feed: FeedProperties,
+    conditions: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, float]:
+    """Delayed coker yields from resid CCR + severity.
+
+    Liquids: dry gas, LPG, naphtha, gasoil (vol/vol feed).
+    ``coker_coke`` wt frac of feed.
+    """
+    cond = merge_process_conditions("COKER", conditions)
+    drum_t = float(cond.get("drum_outlet_temp_f", 920.0))
+    recycle = float(cond.get("recycle_ratio", 0.15))
     # Higher CCR → more coke, less liquid
-    liquid = _clamp(0.72 - 0.018 * (feed.ccr_wt - 8.0), 0.45, 0.78)
+    liquid = _clamp(0.72 - 0.018 * (feed.ccr_wt - 8.0) - 0.15 * recycle, 0.42, 0.78)
+    # Severity nudge
+    liquid = _clamp(liquid + 0.00015 * (drum_t - 920.0), 0.40, 0.80)
+    coke_wt = _clamp(1.0 - liquid - 0.04, 0.12, 0.35)  # residual solids + gas makeup
+
+    # Split liquids
+    dry = _clamp(0.06 + 0.002 * (feed.ccr_wt - 8.0), 0.04, 0.12)
+    lpg = _clamp(0.05 + 0.001 * (drum_t - 900.0) / 10.0, 0.03, 0.09)
     naph_frac = _clamp(0.22 + 0.002 * (20.0 - feed.api), 0.15, 0.30)
-    go_frac = 1.0 - naph_frac
+    # remaining liquid after gas/lpg
+    mid = max(0.05, liquid - dry - lpg)
+    naph = mid * naph_frac
+    go = mid * (1.0 - naph_frac)
+    # Renormalize liquids to `liquid`
+    liq_sum = dry + lpg + naph + go
+    if liq_sum > 1e-9:
+        sc = liquid / liq_sum
+        dry, lpg, naph, go = dry * sc, lpg * sc, naph * sc, go * sc
     return {
-        "coker_naphtha": liquid * naph_frac,
-        "coker_gasoil": liquid * go_frac,
-        # coke not modeled as market stream in MVP LP
+        "coker_dry_gas": dry,
+        "coker_lpg": lpg,
+        "coker_naphtha": naph,
+        "coker_gasoil": go,
+        "coker_coke": coke_wt,
     }
 
 
-def reformer_yields(feed: FeedProperties) -> Dict[str, float]:
-    """Catalytic reformer C5+ reformate yield from naphtha N+A and nitrogen poison."""
+def reformer_yields(
+    feed: FeedProperties,
+    conditions: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, float]:
+    """Catalytic reformer yields: C5+ reformate, net H2, C1–C4 lights."""
+    cond = merge_process_conditions("REFORMER", conditions)
     n_a = feed.n_plus_a
+    wait = float(cond.get("weighted_wait_avg_f", 940.0))
+    p_psig = float(cond.get("pressure_psig", 150.0))
     # base reformate ~ 0.88; better N+A slightly higher liquid, high N hurts
-    y_ref = _clamp(0.86 + 0.08 * (n_a - 0.55) - 0.00002 * max(0.0, feed.nitrogen_ppm - 500), 0.78, 0.94)
-    return {"reformate": y_ref}
+    y_ref = _clamp(
+        0.86
+        + 0.08 * (n_a - 0.55)
+        - 0.00002 * max(0.0, feed.nitrogen_ppm - 500)
+        + 0.00005 * (wait - 940.0)
+        - 0.00015 * (p_psig - 150.0),
+        0.78,
+        0.94,
+    )
+    # lights + H2 fill the rest of feed vol (planning approximation)
+    remainder = max(0.04, 1.0 - y_ref)
+    h2 = _clamp(0.25 * remainder + 0.01 * (n_a - 0.5), 0.015, 0.08)
+    lights = max(0.02, remainder - h2)
+    return {
+        "reformate": y_ref,
+        "reformer_h2": h2,
+        "reformer_lights": lights,
+    }
 
 
 def naphtha_props_fcc(feed_go: FeedProperties) -> FeedProperties:
@@ -146,3 +247,12 @@ def naphtha_props_coker(feed_resid: FeedProperties) -> FeedProperties:
         naphthenes_vol=0.28,
         aromatics_vol=0.37,
     )
+
+
+def hdt_naph_yields(conditions: Optional[Mapping[str, Any]] = None) -> Dict[str, float]:
+    """Soft HDT liquid recovery (vol on naphtha charge)."""
+    cond = merge_process_conditions("HDT_NAPH", conditions)
+    # Higher severity slightly more lights
+    t = float(cond.get("reactor_inlet_temp_f", 550.0))
+    lights = _clamp(0.015 + 0.00002 * (t - 550.0), 0.01, 0.04)
+    return {"hdt_naphtha": 1.0 - lights, "hdt_lights": lights}

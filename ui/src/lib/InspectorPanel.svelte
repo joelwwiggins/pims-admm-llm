@@ -22,6 +22,10 @@
   const data = $derived(selection?.data || {});
   const stream = $derived(data.stream || {});
   const yields = $derived(data.yields || []);
+  const processConditions = $derived(data.processConditions || {});
+  const feedQuality = $derived(data.feedQuality || {});
+  const pcKeys = $derived(Object.keys(processConditions));
+  const fqKeys = $derived(Object.keys(feedQuality));
 
   function setNodeField(key, value) {
     if (!selection || selection.kind !== 'node') return;
@@ -77,6 +81,9 @@
       <button type="button" class:on={tab === 'streams'} onclick={() => (tab = 'streams')}>Streams</button>
       {#if yields.length}
         <button type="button" class:on={tab === 'yields'} onclick={() => (tab = 'yields')}>Yields</button>
+      {/if}
+      {#if pcKeys.length || fqKeys.length}
+        <button type="button" class:on={tab === 'process'} onclick={() => (tab = 'process')}>Process</button>
       {/if}
     </div>
 
@@ -202,7 +209,47 @@
             {/each}
           </tbody>
         </table>
-        <p class="note">Yields feed the LP block context (hard constraints still enforced by solver).</p>
+        <p class="note">Yields feed the LP block context (hard constraints still enforced by solver). Every product row maps to a routed stream.</p>
+      </div>
+    {:else if tab === 'process'}
+      <div class="section">
+        <h4>Operating variables</h4>
+        {#if pcKeys.length}
+          {#each pcKeys as key}
+            <label>{key}
+              <input
+                type="number"
+                step="any"
+                value={processConditions[key]}
+                oninput={(e) => {
+                  const next = { ...processConditions, [key]: Number(e.currentTarget.value) };
+                  setNodeField('processConditions', next);
+                }}
+              />
+            </label>
+          {/each}
+        {:else}
+          <p class="hint">No process conditions on this unit.</p>
+        {/if}
+        <h4>Feed quality vector</h4>
+        {#if fqKeys.length}
+          {#each fqKeys as key}
+            <label>{key}
+              <input
+                type="number"
+                step="any"
+                value={feedQuality[key]}
+                oninput={(e) => {
+                  const next = { ...feedQuality, [key]: Number(e.currentTarget.value) };
+                  setNodeField('feedQuality', next);
+                }}
+              />
+            </label>
+          {/each}
+        {:else}
+          <p class="hint">No feed quality vector on this unit.</p>
+        {/if}
+        <p class="note">Process conditions drive planning yield vectors (ROT, C/O, severity). Solver keeps hard LP constraints.</p>
       </div>
     {/if}
   {:else if isEdge}

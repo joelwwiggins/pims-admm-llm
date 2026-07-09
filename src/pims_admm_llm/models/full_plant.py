@@ -29,11 +29,18 @@ from .quality_blender import (
     add_gasoline_quality_constraints,
     load_component_qualities,
 )
+from .unit_specs import (
+    default_process_conditions,
+    merge_process_conditions,
+    unit_catalog,
+    validate_yields_cover_catalog,
+)
 from .yields import (
     cdu_yields_from_assay,
     coker_yields,
     fcc_yields,
     gasoil_props_from_crude,
+    hdt_naph_yields,
     naphtha_props_coker,
     naphtha_props_fcc,
     reformer_yields,
@@ -68,9 +75,23 @@ def _val(v) -> float:
     return float(x) if x is not None else 0.0
 
 
-def build_yield_tables(assays: Dict[str, Any]) -> Dict[str, Any]:
-    """Per-crude CDU yields + representative conversion-unit yields from feed props."""
-    cdu = {}
+def build_yield_tables(
+    assays: Dict[str, Any],
+    routing: Optional[Dict[str, Any]] = None,
+    process_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Per-crude CDU yields + conversion-unit yields from feed props + process conditions."""
+    routing = routing or {}
+    pc_root = routing.get("process_conditions") or {}
+    overrides = process_overrides or {}
+
+    def _conds(unit: str) -> Dict[str, Any]:
+        base = merge_process_conditions(unit, pc_root.get(unit) or pc_root.get(unit.upper()))
+        if unit in overrides:
+            base.update(overrides[unit])
+        return base
+
+    cdu: Dict[str, Any] = {}
     go_props = []
     resid_props = []
     for c in assays["crudes"]:
@@ -107,21 +128,34 @@ def build_yield_tables(assays: Dict[str, Any]) -> Dict[str, Any]:
 
     go = wavg_props(go_props)
     resid = wavg_props(resid_props)
-    fcc_y = fcc_yields(go)
-    coker_y = coker_yields(resid)
+    fcc_cond = _conds("FCC")
+    coker_cond = _conds("COKER")
+    ref_cond = _conds("REFORMER")
+    hdt_cond = _conds("HDT_NAPH")
+    cdu_cond = _conds("CDU")
+
+    fcc_y = fcc_yields(go, fcc_cond)
+    coker_y = coker_yields(resid, coker_cond)
     # Reformer feed quality: primarily heavy SR naphtha character (not FCC/coker default)
-    # Approximate heavy naphtha props from crude average
     n_heavy = FeedProperties_like_heavy_sr(go)
     n_fcc = naphtha_props_fcc(go)
     n_cok = naphtha_props_coker(resid)
-    # Still report FCC/coker naph props for documentation; reformer yield uses heavy SR-like
-    ref_y = reformer_yields(n_heavy)
+    ref_y = reformer_yields(n_heavy, ref_cond)
+    hdt_y = hdt_naph_yields(hdt_cond)
 
     return {
         "cdu_by_crude": cdu,
         "fcc": fcc_y,
         "coker": coker_y,
         "reformer": ref_y,
+        "hdt_naph": hdt_y,
+        "process_conditions": {
+            "CDU": cdu_cond,
+            "FCC": fcc_cond,
+            "COKER": coker_cond,
+            "REFORMER": ref_cond,
+            "HDT_NAPH": hdt_cond,
+        },
         "feed_props": {
             "gasoil": go.__dict__,
             "resid": resid.__dict__,
@@ -129,6 +163,16 @@ def build_yield_tables(assays: Dict[str, Any]) -> Dict[str, Any]:
             "fcc_naphtha": n_fcc.__dict__,
             "coker_naphtha": n_cok.__dict__,
         },
+        "catalog_gaps": validate_yields_cover_catalog(
+            {
+                "CDU": next(iter(cdu.values())) if cdu else {},
+                "FCC": fcc_y,
+                "COKER": coker_y,
+                "REFORMER": ref_y,
+                "HDT_NAPH": hdt_y,
+            }
+        ),
+        "unit_catalog": unit_catalog(),
     }
 
 
@@ -187,10 +231,20 @@ def solve_full_plant(
     """Monolithic max-margin plant LP with arc-flow superstructure + quality pooling."""
     assays = assays or load_assays_json()
     routing = routing or load_routing()
-    yields = build_yield_tables(assays)
+    yields = build_yield_tables(assays, routing=routing)
     caps = assays.get("capacities") or {}
     tanks = assays.get("tanks") or {}
-    products = assays.get("products") or {}
+    products = dict(assays.get("products") or {})
+    # Planning defaults for gas/coke side products if assay package omits them
+    products.setdefault(
+        "lpg",
+        {"price_usd_per_bbl": 45.0, "max_demand_kbd": 30.0},
+    )
+    credits = dict(assays.get("credits") or {})
+    credits.setdefault("fuel_gas_usd_per_bbl_equiv", 35.0)
+    credits.setdefault("fcc_coke_usd_per_bbl_feed", 12.0)
+    credits.setdefault("coker_coke_usd_per_bbl_feed", 18.0)
+    credits.setdefault("reformer_h2_usd_per_bbl_equiv", 40.0)
 
     # Tank mode: single-period pass-optional by default
     tank_cfg = routing.get("tanks") or {}
@@ -264,52 +318,79 @@ def solve_full_plant(
             return pulp.LpVariable(f"arc_{aid}", lowBound=0)
         return pulp.LpVariable(f"arc_{aid}", lowBound=0, upBound=ub)
 
-    # --- Decision arcs: gasoil swing ---
+    # --- Decision arcs: gasoil swing (pooler TANK_GASOIL / POOL_FCC) + direct bypass ---
     go_to_fcc = _new_arc("go_to_fcc")
     go_to_diesel = _new_arc("go_to_diesel")
     go_to_sell = _new_arc("go_to_sell")
+    go_direct_to_fcc = _new_arc("go_direct_to_fcc")
     end_go = pulp.LpVariable("tank_end_gasoil", lowBound=0)
     if not inventory_mode:
         prob += end_go == 0, "pass_tank_gasoil_end0"
+    # Pool balance: production into pool = via-pool outs + end; direct bypass is separate from CDU
+    go_to_pool = pulp.LpVariable("flow_cdu_gasoil_to_pool", lowBound=0)
+    go_dispose = pulp.LpVariable("dispose_cdu_gasoil", lowBound=0)
     prob += (
-        start_go + cdu_prod["cdu_gasoil"] == go_to_fcc + go_to_diesel + go_to_sell + end_go,
+        go_to_pool + go_direct_to_fcc + go_dispose == cdu_prod["cdu_gasoil"],
+        "bal_cdu_gasoil_split",
+    )
+    prob += (
+        start_go + go_to_pool == go_to_fcc + go_to_diesel + go_to_sell + end_go,
         "bal_tank_gasoil",
     )
     if inventory_mode:
         prob += end_go <= float(tg.get("capacity_kbd", 1e9)), "cap_tank_gasoil"
 
-    # --- Decision arcs: resid swing ---
+    # --- Decision arcs: resid swing (pooler TANK_RESID / POOL_COKER) + direct bypass ---
     resid_to_coker = _new_arc("resid_to_coker")
     resid_to_fo = _new_arc("resid_to_fo")
+    resid_direct_to_coker = _new_arc("resid_direct_to_coker")
     end_resid = pulp.LpVariable("tank_end_resid", lowBound=0)
     if not inventory_mode:
         prob += end_resid == 0, "pass_tank_resid_end0"
+    resid_to_pool = pulp.LpVariable("flow_cdu_resid_to_pool", lowBound=0)
+    resid_dispose = pulp.LpVariable("dispose_cdu_resid", lowBound=0)
     prob += (
-        start_resid + cdu_prod["cdu_resid"] == resid_to_coker + resid_to_fo + end_resid,
+        resid_to_pool + resid_direct_to_coker + resid_dispose == cdu_prod["cdu_resid"],
+        "bal_cdu_resid_split",
+    )
+    prob += (
+        start_resid + resid_to_pool == resid_to_coker + resid_to_fo + end_resid,
         "bal_tank_resid",
     )
     if inventory_mode:
         prob += end_resid <= float(tr.get("capacity_kbd", 1e9)), "cap_tank_resid"
 
-    # --- FCC ---
-    fcc_feed = go_to_fcc
+    # --- FCC (full yield slate) ---
+    fcc_feed = go_to_fcc + go_direct_to_fcc
     prob += fcc_feed <= fcc_cap, "fcc_capacity"
+    fy = yields["fcc"]
+    fcc_dry = pulp.LpVariable("prod_fcc_dry_gas", lowBound=0)
+    fcc_lpg = pulp.LpVariable("prod_fcc_lpg", lowBound=0)
     fcc_naph = pulp.LpVariable("prod_fcc_naphtha", lowBound=0)
     fcc_lco = pulp.LpVariable("prod_fcc_lco", lowBound=0)
     fcc_slurry = pulp.LpVariable("prod_fcc_slurry", lowBound=0)
-    fy = yields["fcc"]
-    prob += fcc_naph == fy["fcc_naphtha"] * fcc_feed, "fcc_y_naph"
-    prob += fcc_lco == fy["fcc_lco"] * fcc_feed, "fcc_y_lco"
-    prob += fcc_slurry == fy["fcc_slurry"] * fcc_feed, "fcc_y_slurry"
+    fcc_coke = pulp.LpVariable("prod_fcc_coke", lowBound=0)
+    prob += fcc_dry == float(fy.get("fcc_dry_gas", 0.0)) * fcc_feed, "fcc_y_dry"
+    prob += fcc_lpg == float(fy.get("fcc_lpg", 0.0)) * fcc_feed, "fcc_y_lpg"
+    prob += fcc_naph == float(fy["fcc_naphtha"]) * fcc_feed, "fcc_y_naph"
+    prob += fcc_lco == float(fy["fcc_lco"]) * fcc_feed, "fcc_y_lco"
+    prob += fcc_slurry == float(fy["fcc_slurry"]) * fcc_feed, "fcc_y_slurry"
+    prob += fcc_coke == float(fy.get("fcc_coke", 0.0)) * fcc_feed, "fcc_y_coke"
 
-    # --- Coker ---
-    coker_feed = resid_to_coker
+    # --- Coker (full yield slate) ---
+    coker_feed = resid_to_coker + resid_direct_to_coker
     prob += coker_feed <= coker_cap, "coker_capacity"
+    cy = yields["coker"]
+    cok_dry = pulp.LpVariable("prod_coker_dry_gas", lowBound=0)
+    cok_lpg = pulp.LpVariable("prod_coker_lpg", lowBound=0)
     cok_naph = pulp.LpVariable("prod_coker_naphtha", lowBound=0)
     cok_go = pulp.LpVariable("prod_coker_gasoil", lowBound=0)
-    cy = yields["coker"]
-    prob += cok_naph == cy["coker_naphtha"] * coker_feed, "coker_y_naph"
-    prob += cok_go == cy["coker_gasoil"] * coker_feed, "coker_y_go"
+    cok_coke = pulp.LpVariable("prod_coker_coke", lowBound=0)
+    prob += cok_dry == float(cy.get("coker_dry_gas", 0.0)) * coker_feed, "coker_y_dry"
+    prob += cok_lpg == float(cy.get("coker_lpg", 0.0)) * coker_feed, "coker_y_lpg"
+    prob += cok_naph == float(cy["coker_naphtha"]) * coker_feed, "coker_y_naph"
+    prob += cok_go == float(cy["coker_gasoil"]) * coker_feed, "coker_y_go"
+    prob += cok_coke == float(cy.get("coker_coke", 0.0)) * coker_feed, "coker_y_coke"
 
     # --- FCC naphtha: default → gasoline (soft HDT); reformer closed unless force/open ---
     fcc_n_to_gas = _new_arc("fcc_naph_to_gas")
@@ -335,24 +416,44 @@ def solve_full_plant(
     if inventory_mode:
         prob += end_cn <= float(tcn.get("capacity_kbd", 1e9)), "cap_tank_coker_naph"
 
-    # --- SR naphtha destinations ---
+    # --- SR naphtha destinations (direct reformer OR via POOL_REFORMER) ---
     light_to_gas = pulp.LpVariable("arc_sr_light_to_gas", lowBound=0)
     heavy_to_ref = pulp.LpVariable("arc_sr_heavy_to_reformer", lowBound=0)
     heavy_to_gas = pulp.LpVariable("arc_sr_heavy_to_gas", lowBound=0)
+    heavy_to_ref_pool = _new_arc("sr_heavy_to_ref_pool")
+    ref_pool_to_reformer = _new_arc("ref_pool_to_reformer")
     # full use of light/heavy production (no free dispose of naphtha; can go to products)
     prob += light_to_gas <= cdu_naph_light, "avail_sr_light"
     # allow unused light as free disposal via FO? Keep ≤ and soft free dispose
     light_dispose = pulp.LpVariable("dispose_sr_light", lowBound=0)
     prob += light_to_gas + light_dispose == cdu_naph_light, "bal_sr_light"
     heavy_dispose = pulp.LpVariable("dispose_sr_heavy", lowBound=0)
-    prob += heavy_to_ref + heavy_to_gas + heavy_dispose == cdu_naph_heavy, "bal_sr_heavy"
+    prob += (
+        heavy_to_ref + heavy_to_gas + heavy_to_ref_pool + heavy_dispose == cdu_naph_heavy,
+        "bal_sr_heavy",
+    )
+    tref_feed = tanks.get("tank_reformer_feed", {"start_kbd": 0, "capacity_kbd": 1e9, "holding_cost": 0})
+    start_ref_feed = float(tref_feed.get("start_kbd", 0)) if inventory_mode else 0.0
+    end_ref_feed = pulp.LpVariable("tank_end_reformer_feed", lowBound=0)
+    if not inventory_mode:
+        prob += end_ref_feed == 0, "pass_tank_reformer_feed_end0"
+    prob += (
+        start_ref_feed + heavy_to_ref_pool == ref_pool_to_reformer + end_ref_feed,
+        "bal_tank_reformer_feed",
+    )
+    if inventory_mode:
+        prob += end_ref_feed <= float(tref_feed.get("capacity_kbd", 1e9)), "cap_tank_reformer_feed"
 
-    # --- Reformer: primarily heavy SR; FCC/coker optional ---
-    reformer_feed = heavy_to_ref + fcc_n_to_ref + cok_n_to_ref
+    # --- Reformer: primarily heavy SR (direct or pool); FCC/coker optional ---
+    reformer_feed = heavy_to_ref + ref_pool_to_reformer + fcc_n_to_ref + cok_n_to_ref
     prob += reformer_feed <= reformer_cap, "reformer_capacity"
+    ry = yields["reformer"]
     reformate = pulp.LpVariable("prod_reformate", lowBound=0)
-    ry = yields["reformer"]["reformate"]
-    prob += reformate == ry * reformer_feed, "reformer_y"
+    ref_h2 = pulp.LpVariable("prod_reformer_h2", lowBound=0)
+    ref_lights = pulp.LpVariable("prod_reformer_lights", lowBound=0)
+    prob += reformate == float(ry["reformate"]) * reformer_feed, "reformer_y"
+    prob += ref_h2 == float(ry.get("reformer_h2", 0.0)) * reformer_feed, "reformer_y_h2"
+    prob += ref_lights == float(ry.get("reformer_lights", 0.0)) * reformer_feed, "reformer_y_lights"
 
     use_ref = pulp.LpVariable("use_reformate", lowBound=0)
     end_ref = pulp.LpVariable("tank_end_reformate", lowBound=0)
@@ -376,9 +477,76 @@ def solve_full_plant(
     lco_dispose = pulp.LpVariable("dispose_lco", lowBound=0)
     prob += use_lco_diesel + use_lco_fo + lco_dispose == fcc_lco, "bal_lco"
     slurry_dispose = pulp.LpVariable("dispose_slurry", lowBound=0)
-    prob += use_slurry + slurry_dispose == fcc_slurry, "bal_slurry"
+    slurry_to_coker = _new_arc("fcc_slurry_to_coker")
+    prob += use_slurry + slurry_dispose + slurry_to_coker == fcc_slurry, "bal_slurry"
     cok_go_dispose = pulp.LpVariable("dispose_coker_go", lowBound=0)
-    prob += use_cok_go_diesel + use_cok_go_fo + cok_go_dispose == cok_go, "bal_coker_go"
+    cok_go_to_fcc_pool = _new_arc("coker_go_to_fcc_pool")
+    prob += use_cok_go_diesel + use_cok_go_fo + cok_go_dispose + cok_go_to_fcc_pool == cok_go, "bal_coker_go"
+    # Optional recycle of coker GO into gasoil pool (closed by default via arc ub)
+    if inventory_mode or True:
+        # keep pool identity: recycle is an extra pool inlet (use auxiliary; ignore end0 pass)
+        pass
+
+    # --- Gas / LPG / coke / H2 / offgas product routing (every yield stream goes somewhere) ---
+    fcc_dry_to_fuel = _new_arc("fcc_dry_gas_to_fuel")
+    fcc_dry_dispose = pulp.LpVariable("dispose_fcc_dry_gas", lowBound=0)
+    prob += fcc_dry_to_fuel + fcc_dry_dispose == fcc_dry, "bal_fcc_dry_gas"
+
+    fcc_lpg_to_lpg = _new_arc("fcc_lpg_to_lpg")
+    fcc_lpg_to_fuel = _new_arc("fcc_lpg_to_fuel")
+    fcc_lpg_dispose = pulp.LpVariable("dispose_fcc_lpg", lowBound=0)
+    prob += fcc_lpg_to_lpg + fcc_lpg_to_fuel + fcc_lpg_dispose == fcc_lpg, "bal_fcc_lpg"
+
+    fcc_coke_to_regen = _new_arc("fcc_coke_to_regen")
+    fcc_coke_dispose = pulp.LpVariable("dispose_fcc_coke", lowBound=0)
+    prob += fcc_coke_to_regen + fcc_coke_dispose == fcc_coke, "bal_fcc_coke"
+
+    cok_dry_to_fuel = _new_arc("coker_dry_gas_to_fuel")
+    cok_dry_dispose = pulp.LpVariable("dispose_coker_dry_gas", lowBound=0)
+    prob += cok_dry_to_fuel + cok_dry_dispose == cok_dry, "bal_coker_dry_gas"
+
+    cok_lpg_to_lpg = _new_arc("coker_lpg_to_lpg")
+    cok_lpg_to_fuel = _new_arc("coker_lpg_to_fuel")
+    cok_lpg_dispose = pulp.LpVariable("dispose_coker_lpg", lowBound=0)
+    prob += cok_lpg_to_lpg + cok_lpg_to_fuel + cok_lpg_dispose == cok_lpg, "bal_coker_lpg"
+
+    cok_coke_to_sales = _new_arc("coker_coke_to_sales")
+    cok_coke_dispose = pulp.LpVariable("dispose_coker_coke", lowBound=0)
+    prob += cok_coke_to_sales + cok_coke_dispose == cok_coke, "bal_coker_coke"
+
+    ref_h2_to_grid = _new_arc("reformer_h2_to_grid")
+    ref_h2_dispose = pulp.LpVariable("dispose_reformer_h2", lowBound=0)
+    prob += ref_h2_to_grid + ref_h2_dispose == ref_h2, "bal_reformer_h2"
+
+    ref_lights_to_fuel = _new_arc("reformer_lights_to_fuel")
+    ref_lights_to_lpg = _new_arc("reformer_lights_to_lpg")
+    ref_lights_dispose = pulp.LpVariable("dispose_reformer_lights", lowBound=0)
+    prob += (
+        ref_lights_to_fuel + ref_lights_to_lpg + ref_lights_dispose == ref_lights,
+        "bal_reformer_lights",
+    )
+
+    # CDU offgas (vol-equivalent credit on charge)
+    cdu_offgas_y = 0.0
+    for c in assays["crudes"]:
+        cdu_offgas_y = max(
+            cdu_offgas_y,
+            float(yields["cdu_by_crude"][c["name"]].get("cdu_offgas", 0.0)),
+        )
+    # Use crude-weighted average offgas yield
+    cdu_offgas_rate = pulp.LpVariable("prod_cdu_offgas", lowBound=0)
+    # Approximate: average offgas frac * total charge via equality on sum crude*yield
+    prob += (
+        cdu_offgas_rate
+        == pulp.lpSum(
+            float(yields["cdu_by_crude"][c["name"]].get("cdu_offgas", 0.0)) * crude_v[c["name"]]
+            for c in assays["crudes"]
+        ),
+        "cdu_y_offgas",
+    )
+    cdu_offgas_to_fuel = _new_arc("cdu_offgas_to_fuel")
+    cdu_offgas_dispose = pulp.LpVariable("dispose_cdu_offgas", lowBound=0)
+    prob += cdu_offgas_to_fuel + cdu_offgas_dispose == cdu_offgas_rate, "bal_cdu_offgas"
 
     # --- Products ---
     prod_v = {name: pulp.LpVariable(f"product_{name}", lowBound=0) for name in products}
@@ -418,6 +586,13 @@ def solve_full_plant(
             sulfur_name="qual_gas_max_s",
         )
         quality_meta = qmeta.as_dict()
+
+    # LPG product pool
+    if "lpg" in prod_v:
+        prob += (
+            prod_v["lpg"] == fcc_lpg_to_lpg + cok_lpg_to_lpg + ref_lights_to_lpg,
+            "blend_lpg_pool",
+        )
 
     # Diesel components: distillate + LCO + coker GO + gasoil swing
     # Diesel: distillate primary; LCO/coker GO secondary; raw gasoil swing diluted (HDT)
@@ -475,9 +650,20 @@ def solve_full_plant(
 
     revenue = pulp.lpSum(float(products[n]["price_usd_per_bbl"]) * prod_v[n] for n in prod_v)
     sell_rev = sell_price_go * go_to_sell
-    # Coke / fuel-gas credit for delayed coker (missing liquid yield otherwise undervalues conversion)
-    coke_credit_per_bbl = float((assays.get("credits") or {}).get("coker_coke_usd_per_bbl_feed", 18.0))
-    coke_credit = coke_credit_per_bbl * coker_feed
+    # Credits for non-liquid / utility streams (every yield stream valued or disposed)
+    fuel_price = float(credits.get("fuel_gas_usd_per_bbl_equiv", 35.0))
+    fuel_credit = fuel_price * (
+        fcc_dry_to_fuel
+        + fcc_lpg_to_fuel
+        + cok_dry_to_fuel
+        + cok_lpg_to_fuel
+        + ref_lights_to_fuel
+        + cdu_offgas_to_fuel
+    )
+    fcc_coke_credit = float(credits.get("fcc_coke_usd_per_bbl_feed", 12.0)) * fcc_coke_to_regen
+    # Petcoke credit on sales stream (wt→bbl-equiv already in yield definition)
+    coker_coke_credit = float(credits.get("coker_coke_usd_per_bbl_feed", 18.0)) * cok_coke_to_sales
+    h2_credit = float(credits.get("reformer_h2_usd_per_bbl_equiv", 40.0)) * ref_h2_to_grid
     crude_cost = pulp.lpSum(
         float(c["price_usd_per_bbl"]) * crude_v[c["name"]] for c in assays["crudes"]
     )
@@ -489,9 +675,27 @@ def solve_full_plant(
             + float(tfn.get("holding_cost", 0)) * end_fn
             + float(tcn.get("holding_cost", 0)) * end_cn
             + float(tref.get("holding_cost", 0)) * end_ref
+            + float(tref_feed.get("holding_cost", 0)) * end_ref_feed
         )
+    routing_opex = routing_opex + (
+        arc_cost_map.get("go_direct_to_fcc", 0.08) * go_direct_to_fcc
+        + arc_cost_map.get("resid_direct_to_coker", 0.08) * resid_direct_to_coker
+        + arc_cost_map.get("ref_pool_to_reformer", 0.02) * ref_pool_to_reformer
+        + arc_cost_map.get("fcc_lpg_to_fuel", 0.05) * fcc_lpg_to_fuel
+        + arc_cost_map.get("coker_lpg_to_fuel", 0.05) * cok_lpg_to_fuel
+    )
     opex = 1.5 * fcc_feed + 2.0 * coker_feed + 1.2 * reformer_feed + routing_opex
-    prob += revenue + sell_rev + coke_credit - crude_cost - holding - opex
+    prob += (
+        revenue
+        + sell_rev
+        + fuel_credit
+        + fcc_coke_credit
+        + coker_coke_credit
+        + h2_credit
+        - crude_cost
+        - holding
+        - opex
+    )
 
     solver = pulp.PULP_CBC_CMD(msg=msg)
     prob.solve(solver)
@@ -528,9 +732,11 @@ def solve_full_plant(
 
     arc_flows = {
         "go_to_fcc": _val(go_to_fcc),
+        "go_direct_to_fcc": _val(go_direct_to_fcc),
         "go_to_diesel": _val(go_to_diesel),
         "go_to_sell": _val(go_to_sell),
         "resid_to_coker": _val(resid_to_coker),
+        "resid_direct_to_coker": _val(resid_direct_to_coker),
         "resid_to_fo": _val(resid_to_fo),
         "fcc_naph_to_gas": _val(fcc_n_to_gas),
         "fcc_naph_to_reformer": _val(fcc_n_to_ref),
@@ -539,7 +745,21 @@ def solve_full_plant(
         "coker_naph_to_reformer": _val(cok_n_to_ref),
         "sr_light_to_gas": _val(light_to_gas),
         "sr_heavy_to_reformer": _val(heavy_to_ref),
+        "sr_heavy_to_ref_pool": _val(heavy_to_ref_pool),
+        "ref_pool_to_reformer": _val(ref_pool_to_reformer),
         "sr_heavy_to_gas": _val(heavy_to_gas),
+        "fcc_dry_gas_to_fuel": _val(fcc_dry_to_fuel),
+        "fcc_lpg_to_lpg": _val(fcc_lpg_to_lpg),
+        "fcc_lpg_to_fuel": _val(fcc_lpg_to_fuel),
+        "fcc_coke_to_regen": _val(fcc_coke_to_regen),
+        "coker_dry_gas_to_fuel": _val(cok_dry_to_fuel),
+        "coker_lpg_to_lpg": _val(cok_lpg_to_lpg),
+        "coker_lpg_to_fuel": _val(cok_lpg_to_fuel),
+        "coker_coke_to_sales": _val(cok_coke_to_sales),
+        "reformer_h2_to_grid": _val(ref_h2_to_grid),
+        "reformer_lights_to_fuel": _val(ref_lights_to_fuel),
+        "reformer_lights_to_lpg": _val(ref_lights_to_lpg),
+        "cdu_offgas_to_fuel": _val(cdu_offgas_to_fuel),
     }
 
     # Fractional splits (for VERDICT)
@@ -575,9 +795,20 @@ def solve_full_plant(
         crude_rates={k: _val(v) for k, v in crude_v.items()},
         unit_feeds={
             "cdu_charge": sum(_val(v) for v in crude_v.values()),
-            "fcc_feed": _val(go_to_fcc),
-            "coker_feed": _val(resid_to_coker),
-            "reformer_feed": _val(heavy_to_ref) + _val(fcc_n_to_ref) + _val(cok_n_to_ref),
+            "fcc_feed": _val(go_to_fcc) + _val(go_direct_to_fcc),
+            "fcc_feed_via_pool": _val(go_to_fcc),
+            "fcc_feed_direct": _val(go_direct_to_fcc),
+            "coker_feed": _val(resid_to_coker) + _val(resid_direct_to_coker),
+            "coker_feed_via_pool": _val(resid_to_coker),
+            "coker_feed_direct": _val(resid_direct_to_coker),
+            "reformer_feed": (
+                _val(heavy_to_ref)
+                + _val(ref_pool_to_reformer)
+                + _val(fcc_n_to_ref)
+                + _val(cok_n_to_ref)
+            ),
+            "reformer_feed_via_pool": _val(ref_pool_to_reformer),
+            "reformer_feed_direct": _val(heavy_to_ref),
         },
         streams={
             "cdu_naphtha": _val(cdu_prod["cdu_naphtha"]),
@@ -586,15 +817,24 @@ def solve_full_plant(
             "cdu_distillate": _val(cdu_prod["cdu_distillate"]),
             "cdu_gasoil": _val(cdu_prod["cdu_gasoil"]),
             "cdu_resid": _val(cdu_prod["cdu_resid"]),
+            "cdu_offgas": _val(cdu_offgas_rate),
+            "fcc_dry_gas": _val(fcc_dry),
+            "fcc_lpg": _val(fcc_lpg),
             "fcc_naphtha": _val(fcc_naph),
             "fcc_lco": _val(fcc_lco),
             "fcc_slurry": _val(fcc_slurry),
+            "fcc_coke": _val(fcc_coke),
+            "coker_dry_gas": _val(cok_dry),
+            "coker_lpg": _val(cok_lpg),
             "coker_naphtha": _val(cok_naph),
             "coker_gasoil": _val(cok_go),
+            "coker_coke": _val(cok_coke),
             "reformate": _val(reformate),
+            "reformer_h2": _val(ref_h2),
+            "reformer_lights": _val(ref_lights),
             # backward-compatible keys used by wave2 tests/demos
-            "go_to_fcc": _val(go_to_fcc),
-            "resid_to_coker": _val(resid_to_coker),
+            "go_to_fcc": _val(go_to_fcc) + _val(go_direct_to_fcc),
+            "resid_to_coker": _val(resid_to_coker) + _val(resid_direct_to_coker),
             "fcc_naph_to_reformer": _val(fcc_n_to_ref),
             "coker_naph_to_reformer": _val(cok_n_to_ref),
             "fcc_naph_to_gas": _val(fcc_n_to_gas),
@@ -602,7 +842,7 @@ def solve_full_plant(
             "go_to_diesel": _val(go_to_diesel),
             "go_to_sell": _val(go_to_sell),
             "resid_to_fo": _val(resid_to_fo),
-            "sr_heavy_to_reformer": _val(heavy_to_ref),
+            "sr_heavy_to_reformer": _val(heavy_to_ref) + _val(ref_pool_to_reformer),
         },
         products={k: _val(v) for k, v in prod_v.items()},
         tank_end={
@@ -611,6 +851,7 @@ def solve_full_plant(
             "fcc_naph": _val(end_fn),
             "coker_naph": _val(end_cn),
             "reformate": _val(end_ref),
+            "reformer_feed": _val(end_ref_feed),
         },
         duals=duals,
         economic_shadows=econ,
@@ -623,9 +864,16 @@ def solve_full_plant(
         inventory_mode=bool(inventory_mode),
         meta={
             "routing_version": routing.get("version"),
+            "wave": routing.get("wave"),
             "naphtha_split": {"light": light_frac, "heavy": heavy_frac},
             "gas_components": list(gas_comp.keys()) if "gasoline" in products else [],
             "quality": quality_meta,
+            "process_conditions": yields.get("process_conditions") or {},
+            "catalog_gaps": yields.get("catalog_gaps") or [],
+            "feed_poolers": (yields.get("unit_catalog") or {}).get("feed_poolers")
+            or routing.get("feed_poolers")
+            or [],
+            "credits_used": credits,
         },
     )
 
@@ -652,7 +900,7 @@ def admm_price_directed_plant(
 
     assays = assays or load_assays_json()
     routing = routing or load_routing()
-    yields = build_yield_tables(assays)
+    yields = build_yield_tables(assays, routing=routing)
     mono = solve_full_plant(assays, routing=routing)
 
     links = list(

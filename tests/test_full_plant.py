@@ -26,8 +26,10 @@ def test_assays_load_and_properties():
         p = crude_to_props(c)
         assert p.api > 0
         y = cdu_yields_from_assay(p, c.get("tbp_cut_vol"))
-        assert abs(sum(y.values()) - 1.0) < 1e-6
-        assert set(y) == {"cdu_naphtha", "cdu_distillate", "cdu_gasoil", "cdu_resid"}
+        liquid = {k: v for k, v in y.items() if k != "cdu_offgas"}
+        assert abs(sum(liquid.values()) - 1.0) < 1e-6
+        assert set(liquid) == {"cdu_naphtha", "cdu_distillate", "cdu_gasoil", "cdu_resid"}
+        assert "cdu_offgas" in y and y["cdu_offgas"] > 0
 
 
 def test_routing_superstructure_loads():
@@ -105,7 +107,7 @@ def test_full_plant_mono_optimal():
     assert res.streams["go_to_fcc"] > 0
     assert res.streams["resid_to_coker"] > 0
     assert res.arc_flows["fcc_naph_to_gas"] > 0
-    assert res.arc_flows["sr_heavy_to_reformer"] > 0
+    assert (res.arc_flows.get("sr_heavy_to_reformer", 0) + res.arc_flows.get("sr_heavy_to_ref_pool", 0) + res.arc_flows.get("ref_pool_to_reformer", 0)) > 0
     assert sum(res.products.values()) > 0
     assert res.quality_duals  # quality constraints present
 

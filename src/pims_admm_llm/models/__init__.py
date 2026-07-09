@@ -57,6 +57,11 @@ from .yields import (
     fcc_yields,
     reformer_yields,
 )
+from .unit_specs import (
+    default_process_conditions,
+    unit_catalog,
+    unit_yield_stream_names,
+)
 
 # Optional wave2 plant modules (may land while W1/W2 run in parallel)
 try:
@@ -126,6 +131,9 @@ __all__ = [
     "coker_yields",
     "fcc_yields",
     "reformer_yields",
+    "default_process_conditions",
+    "unit_catalog",
+    "unit_yield_stream_names",
     "FullPlantResult",
     "admm_price_directed_plant",
     "solve_full_plant",
