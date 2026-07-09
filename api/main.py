@@ -91,6 +91,23 @@ class ConnectPayload(BaseModel):
     portAttrs: dict[str, Any] = Field(default_factory=dict)
 
 
+class AutoWirePayload(BaseModel):
+    """When units are added to the flowsheet, invent feed + product edges."""
+
+    active_units: list[str] = Field(default_factory=lambda: ["CDU", "FCC"])
+    existing_edges: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class BaseDeltaSolvePayload(BaseModel):
+    """Solve base-delta cascade for enabled units (CDU+FCC[+COKER])."""
+
+    active_units: list[str] = Field(default_factory=lambda: ["CDU", "FCC"])
+    max_crude_kbd: float = 100.0
+    crude_api: float = 30.0
+    enable_coker: bool = False
+    drawn_edges: list[dict[str, Any]] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Palette + soft connect rules
 # ---------------------------------------------------------------------------
@@ -378,6 +395,45 @@ def post_connect(payload: ConnectPayload) -> dict[str, Any]:
     return out
 
 
+@app.post("/api/auto_wire")
+def post_auto_wire(payload: AutoWirePayload) -> dict[str, Any]:
+    """Return feed + product edges when a unit (e.g. COKER) is added."""
+    try:
+        from pims_admm_llm.models.base_delta import auto_wire_edges_for_units
+
+        edges = auto_wire_edges_for_units(payload.active_units, payload.existing_edges)
+        return {
+            "ok": True,
+            "active_units": [u.upper() for u in payload.active_units],
+            "edges": edges,
+            "count": len(edges),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e), "edges": [], "count": 0}
+
+
+@app.post("/api/base_delta/solve")
+def post_base_delta_solve(payload: BaseDeltaSolvePayload) -> dict[str, Any]:
+    """Solve base-delta LP cascade for enabled flowsheet units."""
+    try:
+        from pims_admm_llm.models.cdu_fcc import solve_cdu_fcc
+
+        units = [u.upper() for u in payload.active_units]
+        enable_coker = payload.enable_coker or ("COKER" in units)
+        r = solve_cdu_fcc(
+            crude_api=payload.crude_api,
+            max_crude_kbd=payload.max_crude_kbd,
+            enable_coker=enable_coker,
+            active_units=units,
+            drawn_edges=payload.drawn_edges,
+        )
+        d = r.to_dict()
+        d["ok"] = r.status == "Optimal" and bool(r.mass_balance.get("ok", False))
+        return d
+    except Exception as e:
+        return {"ok": False, "status": "Error", "error": str(e)}
+
+
 @app.get("/")
 def root() -> dict[str, str]:
     return {
@@ -386,4 +442,6 @@ def root() -> dict[str, str]:
         "routing": "/api/routing",
         "graph": "POST /api/graph",
         "connect": "POST /api/connect",
+        "auto_wire": "POST /api/auto_wire",
+        "base_delta_solve": "POST /api/base_delta/solve",
     }

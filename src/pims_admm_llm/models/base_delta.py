@@ -11,7 +11,8 @@ Process conditions are first-class drivers of the yield vector (not just
 decorative meta). For LP embedding, use ``process_modes()`` (SOS1 discrete
 severity bands) or ``evaluate()`` at fixed conditions.
 
-Scope note: CDU + FCC are complete; other units can reuse the same pattern.
+Scope note: CDU + FCC + COKER are complete base-delta blocks; add more units
+only after mass balances on the enabled cascade are verified.
 """
 
 from __future__ import annotations
@@ -776,13 +777,263 @@ def assert_every_product_has_exit(model: BaseDeltaModel) -> None:
         raise ValueError(f"{model.unit}: products without exit: {missing}")
 
 
+# ---------------------------------------------------------------------------
+# Delayed coker
+# ---------------------------------------------------------------------------
+
+COKER_PRODUCTS = [
+    "coker_dry_gas",
+    "coker_lpg",
+    "coker_naphtha",
+    "coker_gasoil",
+    "coker_coke",
+]
+
+COKER_EXITS: List[ProductExit] = [
+    ProductExit("coker_dry_gas", "FUEL_GAS", alt_sinks=["SELL"], note="coker dry gas"),
+    ProductExit("coker_lpg", "LPG", alt_sinks=["FUEL_GAS", "SELL"], note="coker LPG"),
+    ProductExit(
+        "coker_naphtha",
+        "HDT_NAPH",
+        alt_sinks=["FO", "GASOLINE", "BLENDER", "SELL"],
+        note="olefinic high-S → HDT; not reformer",
+    ),
+    ProductExit(
+        "coker_gasoil",
+        "DIESEL",
+        alt_sinks=["FO", "FCC", "POOL_FCC", "SELL"],
+        note="coker GO — diesel/FO first; FCC optional later",
+    ),
+    ProductExit(
+        "coker_coke",
+        "COKE_SALES",
+        basis="wt",
+        alt_sinks=["SELL"],
+        note="petcoke",
+    ),
+]
+
+
+def build_coker_base_delta(
+    reference_feed: Optional[Mapping[str, float]] = None,
+    reference_conditions: Optional[Mapping[str, Any]] = None,
+) -> BaseDeltaModel:
+    """Delayed coker BASE/DELTA — feed is atmospheric/vacuum resid."""
+    ref_feed = {
+        "api": 12.0,
+        "sulfur_wt": 2.5,
+        "ccr_wt": 8.0,
+        "nitrogen_ppm": 1500.0,
+        "asphaltenes_wt": 6.0,
+    }
+    if reference_feed:
+        ref_feed.update({k: float(v) for k, v in reference_feed.items() if isinstance(v, (int, float))})
+
+    ref_cond = merge_process_conditions("COKER", reference_conditions)
+
+    # Base liquids + coke at drum 920 F, recycle 0.15
+    base = {
+        "coker_dry_gas": 0.06,
+        "coker_lpg": 0.05,
+        "coker_naphtha": 0.16,
+        "coker_gasoil": 0.42,
+        "coker_coke": 0.22,
+    }
+    # Renorm liquids to ~0.70, keep coke
+    liq = ["coker_dry_gas", "coker_lpg", "coker_naphtha", "coker_gasoil"]
+    s = sum(base[p] for p in liq)
+    sc = 0.70 / s
+    for p in liq:
+        base[p] *= sc
+
+    deltas: Dict[str, Dict[str, float]] = {p: {} for p in COKER_PRODUCTS}
+    for p, coef in {
+        "coker_coke": 0.018,
+        "coker_gasoil": -0.010,
+        "coker_naphtha": -0.005,
+        "coker_lpg": -0.002,
+        "coker_dry_gas": -0.001,
+    }.items():
+        deltas[p]["ccr_wt"] = coef
+    for p, coef in {
+        "coker_naphtha": 0.003,
+        "coker_gasoil": 0.002,
+        "coker_coke": -0.004,
+        "coker_lpg": 0.001,
+        "coker_dry_gas": 0.0005,
+    }.items():
+        deltas[p]["api"] = coef
+    for p, coef in {
+        "coker_coke": 0.004,
+        "coker_gasoil": -0.002,
+        "coker_naphtha": -0.001,
+        "coker_lpg": 0.0,
+        "coker_dry_gas": 0.0,
+    }.items():
+        deltas[p]["sulfur_wt"] = coef
+
+    # Process: drum temp, recycle, pressure
+    for p, coef in {
+        "coker_naphtha": 0.00020,
+        "coker_lpg": 0.00008,
+        "coker_dry_gas": 0.00005,
+        "coker_gasoil": -0.00015,
+        "coker_coke": -0.00010,
+    }.items():
+        deltas[p]["drum_outlet_temp_f"] = coef
+    for p, coef in {
+        "coker_gasoil": -0.20,
+        "coker_naphtha": -0.05,
+        "coker_coke": 0.15,
+        "coker_lpg": -0.02,
+        "coker_dry_gas": -0.02,
+    }.items():
+        deltas[p]["recycle_ratio"] = coef
+    for p, coef in {
+        "coker_coke": 0.0004,
+        "coker_gasoil": -0.0002,
+        "coker_naphtha": -0.0001,
+        "coker_lpg": 0.0,
+        "coker_dry_gas": 0.0,
+    }.items():
+        deltas[p]["drum_pressure_psig"] = coef
+
+    comps = {p: get_stream(p).to_dict() for p in COKER_PRODUCTS}
+    drivers = [
+        "api",
+        "sulfur_wt",
+        "ccr_wt",
+        "drum_outlet_temp_f",
+        "recycle_ratio",
+        "drum_pressure_psig",
+    ]
+
+    return _CokerModel(
+        unit="COKER",
+        products=list(COKER_PRODUCTS),
+        base_yields=base,
+        deltas=deltas,
+        reference_feed=ref_feed,
+        reference_conditions=ref_cond,
+        exits=list(COKER_EXITS),
+        drivers=drivers,
+        product_compositions=comps,
+        notes=[
+            "Liquids renormalized; coker_coke is wt frac of resid feed (COKE_SALES).",
+            "Drum T / recycle / pressure are optimizable process modes.",
+            "Feed expected from CDU resid (auto-route when COKER unit is active).",
+        ],
+    )
+
+
+class _CokerModel(BaseDeltaModel):
+    def evaluate(
+        self,
+        feed: Optional[Mapping[str, float]] = None,
+        conditions: Optional[Mapping[str, Any]] = None,
+        clamp_products: bool = True,
+    ) -> Dict[str, float]:
+        feed_m = dict(self.reference_feed if feed is None else feed)
+        cond = merge_process_conditions(self.unit, conditions)
+        flat = dict(feed_m)
+        for k, v in cond.items():
+            if isinstance(v, (int, float)):
+                flat[k] = float(v)
+        ref_flat = dict(self.reference_feed)
+        for k, v in self.reference_conditions.items():
+            if isinstance(v, (int, float)):
+                ref_flat[k] = float(v)
+
+        y: Dict[str, float] = {}
+        for p in self.products:
+            base = float(self.base_yields.get(p, 0.0))
+            dy = 0.0
+            for drv, coef in self.deltas.get(p, {}).items():
+                x0 = float(ref_flat.get(drv, 0.0))
+                xv = float(flat.get(drv, x0))
+                dy += float(coef) * (xv - x0)
+            val = base + dy
+            if clamp_products:
+                val = max(0.0, val)
+            y[p] = val
+        return self._postprocess_yields(y, cond)
+
+    def _postprocess_yields(
+        self, y: Dict[str, float], cond: Mapping[str, Any]
+    ) -> Dict[str, float]:
+        coke = _clamp(y.get("coker_coke", 0.22), 0.12, 0.40)
+        liquids = ["coker_dry_gas", "coker_lpg", "coker_naphtha", "coker_gasoil"]
+        # Planning: liquids + coke ≈ 0.95–1.0 of feed (small unaccounted loss)
+        liquid_vol = _clamp(0.96 - coke, 0.50, 0.80)
+        s = sum(max(0.0, y[p]) for p in liquids)
+        if s > 1e-12:
+            sc = liquid_vol / s
+            for p in liquids:
+                y[p] = max(0.0, y[p]) * sc
+        y["coker_coke"] = coke
+        return y
+
+    def _adjust_composition(
+        self,
+        product: str,
+        comp: StreamComposition,
+        feed: Mapping[str, float],
+        cond: Mapping[str, Any],
+    ) -> StreamComposition:
+        if product == "coker_naphtha":
+            comp.sulfur_wt = max(0.05, float(feed.get("sulfur_wt", 2.5)) * 0.12)
+            comp.olefins_vol = _clamp(comp.olefins_vol, 0.25, 0.50)
+        if product in ("coker_gasoil", "coker_coke"):
+            comp.sulfur_wt = float(feed.get("sulfur_wt", 2.5)) * (0.2 if product == "coker_gasoil" else 1.0)
+            if product == "coker_gasoil":
+                comp.ccr_wt = max(0.3, float(feed.get("ccr_wt", 8.0)) * 0.1)
+        return comp
+
+
+def process_modes_coker(
+    model: Optional[BaseDeltaModel] = None,
+    feed: Optional[Mapping[str, float]] = None,
+) -> List[Dict[str, Any]]:
+    """SOS1 coker process modes: recycle bands + mild drum T couple."""
+    m = model or build_coker_base_delta()
+    feed = dict(m.reference_feed if feed is None else feed)
+    modes = []
+    specs = [
+        ("rec_low", 0.05, 930.0),
+        ("rec_mid", 0.15, 920.0),
+        ("rec_high", 0.30, 910.0),
+    ]
+    for mid, rec, drum_t in specs:
+        cond = {
+            "drum_outlet_temp_f": drum_t,
+            "recycle_ratio": rec,
+            "drum_pressure_psig": float(m.reference_conditions.get("drum_pressure_psig", 25.0)),
+            "cycle_time_hr": float(m.reference_conditions.get("cycle_time_hr", 16.0)),
+            "furnace_coil_outlet_temp_f": drum_t,
+        }
+        y = m.evaluate(feed=feed, conditions=cond)
+        comps = {k: v.to_dict() for k, v in m.compositions_at(feed=feed, conditions=cond).items()}
+        modes.append(
+            {
+                "id": mid,
+                "unit": "COKER",
+                "conditions": cond,
+                "yields": y,
+                "compositions": comps,
+                "exits": [e.__dict__ for e in m.exits],
+            }
+        )
+    return modes
+
+
 def unit_submodels_cdu_fcc(
     crude_feed: Optional[Mapping[str, float]] = None,
     gasoil_feed: Optional[Mapping[str, float]] = None,
+    resid_feed: Optional[Mapping[str, float]] = None,
+    include_coker: bool = False,
 ) -> Dict[str, Any]:
-    """Convenience: build both submodels + modes + validate exits."""
+    """Build validated submodels for enabled units (CDU+FCC[+COKER])."""
     cdu = build_cdu_base_delta(reference_feed=crude_feed)
-    # Gasoil feed for FCC from CDU gasoil composition defaults
     go = get_stream("cdu_gasoil")
     go_feed = {
         "api": go.api,
@@ -796,10 +1047,133 @@ def unit_submodels_cdu_fcc(
     fcc = build_fcc_base_delta(reference_feed=go_feed)
     assert_every_product_has_exit(cdu)
     assert_every_product_has_exit(fcc)
-    return {
+    out: Dict[str, Any] = {
         "CDU": cdu.to_dict(),
         "FCC": fcc.to_dict(),
         "CDU_modes": process_modes_cdu(cdu, crude_feed),
         "FCC_modes": process_modes_fcc(fcc, go_feed),
         "models": {"CDU": cdu, "FCC": fcc},
+        "enabled": ["CDU", "FCC"],
     }
+    if include_coker:
+        resid = get_stream("cdu_resid")
+        r_feed = {
+            "api": resid.api,
+            "sulfur_wt": resid.sulfur_wt,
+            "ccr_wt": resid.ccr_wt,
+            "nitrogen_ppm": resid.nitrogen_ppm,
+            "asphaltenes_wt": 6.0,
+        }
+        if resid_feed:
+            r_feed.update({k: float(v) for k, v in resid_feed.items() if isinstance(v, (int, float))})
+        coker = build_coker_base_delta(reference_feed=r_feed)
+        assert_every_product_has_exit(coker)
+        out["COKER"] = coker.to_dict()
+        out["COKER_modes"] = process_modes_coker(coker, r_feed)
+        out["models"]["COKER"] = coker
+        out["enabled"] = ["CDU", "FCC", "COKER"]
+    return out
+
+
+def auto_wire_edges_for_units(
+    active_units: Sequence[str],
+    existing_edges: Optional[Sequence[Mapping[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """When a unit is added to the flowsheet, invent feed + product edges.
+
+    Rules (base-delta cascade, no reformer yet):
+      - Always: each unit product → default/auto sink if no edge
+      - If FCC active: cdu_gasoil → FCC
+      - If COKER active: cdu_resid → COKER (feed); coker products exit
+    """
+    from .auto_route import complete_missing_edges, best_route
+
+    active = {u.upper() for u in active_units}
+    existing = list(existing_edges or [])
+    edges: List[Dict[str, Any]] = []
+
+    # Structural feed arcs
+    if "FCC" in active:
+        if not any(e.get("stream") == "cdu_gasoil" and str(e.get("to", "")).upper() in ("FCC", "POOL_FCC") for e in existing):
+            edges.append(
+                {
+                    "id": "auto_cdu_gasoil_to_fcc",
+                    "from": "CDU",
+                    "to": "FCC",
+                    "stream": "cdu_gasoil",
+                    "auto": True,
+                    "score": 1.0,
+                    "reason": "VGO → FCC feed (base-delta cascade)",
+                }
+            )
+    if "COKER" in active:
+        if not any(e.get("stream") == "cdu_resid" and str(e.get("to", "")).upper() in ("COKER", "POOL_COKER") for e in existing):
+            edges.append(
+                {
+                    "id": "auto_cdu_resid_to_coker",
+                    "from": "CDU",
+                    "to": "COKER",
+                    "stream": "cdu_resid",
+                    "auto": True,
+                    "score": 1.0,
+                    "reason": "resid → coker feed when COKER unit added",
+                }
+            )
+
+    # Product exits for enabled conversion units
+    products = list(build_cdu_base_delta().products)
+    if "FCC" in active:
+        products.extend(build_fcc_base_delta().products)
+    if "COKER" in active:
+        products.extend(build_coker_base_delta().products)
+
+    for s in products:
+        if s == "cdu_gasoil" and "FCC" in active:
+            continue  # feed-wired
+        if s == "cdu_resid" and "COKER" in active:
+            continue  # feed-wired; FO swing is LP decision
+        if any(e.get("stream") == s for e in existing):
+            continue
+        if any(e.get("stream") == s for e in edges):
+            continue
+        # Only route to active conversion units or product terminals (do not invent units)
+        candidates = [
+            "GASOLINE",
+            "DIESEL",
+            "FO",
+            "LPG",
+            "FUEL_GAS",
+            "REGEN_HEAT",
+            "COKE_SALES",
+            "H2_GRID",
+            "SELL",
+            "BLENDER",
+            "HDT_NAPH",
+        ]
+        if "FCC" in active:
+            candidates.extend(["FCC", "POOL_FCC"])
+        if "COKER" in active:
+            candidates.extend(["COKER", "POOL_COKER"])
+        if "REFORMER" in active:
+            candidates.extend(["REFORMER", "POOL_REFORMER"])
+        g = best_route(s, candidates=candidates)
+        edges.append(
+            {
+                "id": f"auto_exit_{s}",
+                "from": (
+                    "CDU"
+                    if s.startswith("cdu_")
+                    else "FCC"
+                    if s.startswith("fcc_")
+                    else "COKER"
+                    if s.startswith("coker_")
+                    else "UNIT"
+                ),
+                "to": g.sink,
+                "stream": s,
+                "auto": True,
+                "score": g.score,
+                "reason": g.reason,
+            }
+        )
+    return edges

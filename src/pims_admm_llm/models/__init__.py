@@ -114,23 +114,30 @@ except ImportError:  # pragma: no cover
 # Base-delta CDU/FCC submodels + auto-route (stream compositions first)
 try:
     from .base_delta import (
+        auto_wire_edges_for_units,
         build_cdu_base_delta,
+        build_coker_base_delta,
         build_fcc_base_delta,
         process_modes_cdu,
+        process_modes_coker,
         process_modes_fcc,
         unit_submodels_cdu_fcc,
     )
-    from .cdu_fcc import CduFccResult, solve_cdu_fcc
+    from .cdu_fcc import CduFccResult, solve_cdu_fcc, solve_cdu_fcc_coker
     from .auto_route import best_route, complete_missing_edges, guess_route
     from .stream_composition import StreamComposition, get_stream
 except ImportError:  # pragma: no cover
+    auto_wire_edges_for_units = None  # type: ignore
     build_cdu_base_delta = None  # type: ignore
+    build_coker_base_delta = None  # type: ignore
     build_fcc_base_delta = None  # type: ignore
     process_modes_cdu = None  # type: ignore
+    process_modes_coker = None  # type: ignore
     process_modes_fcc = None  # type: ignore
     unit_submodels_cdu_fcc = None  # type: ignore
     CduFccResult = None  # type: ignore
     solve_cdu_fcc = None  # type: ignore
+    solve_cdu_fcc_coker = None  # type: ignore
     best_route = None  # type: ignore
     complete_missing_edges = None  # type: ignore
     guess_route = None  # type: ignore
@@ -203,13 +210,17 @@ __all__ = [
     "build_process_pool_yield_library",
     "process_pool_once",
     "solve_process_pool_mip",
+    "auto_wire_edges_for_units",
     "build_cdu_base_delta",
+    "build_coker_base_delta",
     "build_fcc_base_delta",
     "process_modes_cdu",
+    "process_modes_coker",
     "process_modes_fcc",
     "unit_submodels_cdu_fcc",
     "CduFccResult",
     "solve_cdu_fcc",
+    "solve_cdu_fcc_coker",
     "best_route",
     "complete_missing_edges",
     "guess_route",

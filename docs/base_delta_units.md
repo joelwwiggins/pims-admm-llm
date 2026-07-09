@@ -1,81 +1,70 @@
-# Base-delta unit submodels (CDU → FCC first)
+# Base-delta unit submodels (incremental cascade)
 
-Planning-grade **BASE + DELTA** LP submodels for conversion units, with:
+Planning-grade **BASE + DELTA** LP submodels. Add units only after yields, optimization,
+and **mass balances** pass on the enabled set.
 
-1. **Every product yield has an exit stream** (default sink + alternates)
-2. **Process conditions inside the unit block** (SOS1 severity / cut modes)
-3. **Stream compositions** (API, S, CCR, RON, PNA, TBP markers, metals, …)
-4. **Property-based auto-route** when the flowsheet has no drawn edge
+## Enabled set (current)
 
-Paper PDFs are **not** stored in the repo. This is the operational pattern used in industry PIMS-style unit vectors.
+| Units | Status |
+|-------|--------|
+| CDU + FCC | verified |
+| CDU + FCC + **COKER** | verified (optional enable) |
+| Reformer / HDT / full multi-unit | **not yet** — wait for balances |
+
+## Pattern per unit
+
+1. Product yield vector (every product has an **exit sink**)
+2. BASE + DELTA (feed attrs + **process conditions**)
+3. Stream **compositions** (API, S, CCR, RON, PNA, TBP, metals, …)
+4. SOS1 **process modes** inside the unit block LP
+5. **Auto-wire** feed + product edges when the unit is added to the flowsheet
+
+## Coker
+
+When `COKER` is active:
+
+- Auto-wire: `cdu_resid → COKER` (feed)
+- Resid swing remains: `resid_to_coker + resid_to_fo = cdu_resid`
+- Products: dry gas, LPG, naphtha, gasoil, coke — each with exit
+- Process modes: `rec_low` / `rec_mid` / `rec_high` (recycle + drum T)
+- Coker naphtha auto-route prefers **HDT**, not reformer
+
+## Mass-balance checks (hard gate)
+
+`solve_cdu_fcc(...).mass_balance.ok` must be true:
+
+- CDU liquids ≈ crude charge
+- FCC feed = cdu_gasoil
+- FCC liquids / coke match mode yields × feed
+- If coker: resid split, coker feed, liquids + coke yields
+
+## API / run
+
+```bash
+PYTHONPATH=src pytest tests/test_base_delta_cdu_fcc.py -q
+PYTHONPATH=src python -m demos.run_cdu_fcc_demo
+PYTHONPATH=src python -m demos.run_cdu_fcc_demo --coker
+```
+
+| Endpoint | Role |
+|----------|------|
+| `POST /api/auto_wire` | body `{active_units, existing_edges}` → new edges |
+| `POST /api/base_delta/solve` | body `{active_units, enable_coker, ...}` → LP + mass_balance |
+| `POST /api/connect` | property scorer (+ guesses) |
 
 ## Modules
 
 | Path | Role |
 |------|------|
-| `models/stream_composition.py` | Property bag + library for CDU/FCC products |
-| `models/base_delta.py` | BASE/DELTA builders, process modes, exit catalogs |
-| `models/auto_route.py` | Guess destination from composition |
-| `models/cdu_fcc.py` | Focused plant: crude → CDU → FCC |
+| `models/stream_composition.py` | Property library |
+| `models/base_delta.py` | CDU/FCC/COKER BASE+DELTA, modes, auto_wire |
+| `models/auto_route.py` | Property destination guess |
+| `models/cdu_fcc.py` | Cascade LP + mass_balance |
 
-## Unit contract
+## Next unit rule
 
-```
-feed attrs + process conditions
-        ↓
- BASE + Σ DELTA_j · (x_j − x_j0)
-        ↓
- yield vector (every key has ProductExit)
-        ↓
- compositions + auto_route if no edge
-```
+Do **not** add reformer (or more) until:
 
-### CDU products / exits
-
-| Stream | Default exit |
-|--------|----------------|
-| `cdu_offgas` | FUEL_GAS |
-| `cdu_naphtha_light` | GASOLINE |
-| `cdu_naphtha_heavy` | REFORMER |
-| `cdu_distillate` | DIESEL |
-| `cdu_gasoil` | FCC |
-| `cdu_resid` | FO |
-
-Process modes: `cuts_light` / `cuts_mid` / `cuts_heavy` (flash zone + cut points).
-
-### FCC products / exits
-
-| Stream | Default exit |
-|--------|----------------|
-| `fcc_dry_gas` | FUEL_GAS |
-| `fcc_lpg` | LPG |
-| `fcc_naphtha` | GASOLINE (not reformer) |
-| `fcc_lco` | DIESEL |
-| `fcc_slurry` | FO |
-| `fcc_coke` | REGEN_HEAT |
-
-Process modes: `rot_low` / `rot_mid` / `rot_high` (ROT + C/O couple).
-
-## Run
-
-```bash
-cd ~/projects/pims-admm-llm && source .venv/bin/activate
-PYTHONPATH=src pytest tests/test_base_delta_cdu_fcc.py -q
-PYTHONPATH=src python -m demos.run_cdu_fcc_demo
-```
-
-## Auto-route rules (high level)
-
-- Family affinity (light ends → fuel/LPG, gasoil → FCC, resid → coker/FO, solids → regen/coke sales)
-- Property boosts: high RON + olefins **block** reformer default; high CCR/metals **penalize** FCC feed; SR heavy low RON **prefers** reformer
-- `POST /api/connect` uses the same scorer when `stream` is set; response may include `guesses` + `best`
-
-## Scope discipline
-
-Do **not** expand to coker/reformer/full multi-unit until:
-
-1. Stream composition library is trusted for CDU/FCC
-2. Base-delta + process modes solve cleanly on CDU→FCC
-3. Auto-exits cover every product without orphan production
-
-Then copy the same `BaseDeltaModel` pattern per unit.
+1. `mass_balance.ok` on CDU+FCC+COKER
+2. Every product has exit + composition
+3. Auto-wire covers feed when unit is dropped on the sheet
