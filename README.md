@@ -98,7 +98,7 @@ MVP (wave 1): runnable toy refinery (crude → CDU → intermediates → blender
 
 **Wave 2:** full plant assays (`data/assays/`), conversion units + staging, dual recovery demo path — `python -m demos.run_full_plant_demo`.
 
-**Wave 3:** arc-flow **superstructure** routing (no hard fixed paths) — decision arcs, chemical defaults (FCC/coker naphtha → gasoline/HDT/FO not reformer; heavy SR → reformer; gasoil/resid swings), optional single-period tanks vs multi-period inventory, quality blender MVP (linear **RON + S**), ADMM demos report **ρ / primal residual / dual residual / max_iter** with mono-oracle dual recovery labeled, LLM remains **advisory only**. Source of truth: `data/routing.json`.
+**Wave 3:** arc-flow **superstructure** routing (no hard fixed paths) — decision arcs, chemical defaults (FCC/coker naphtha → gasoline/HDT/FO not reformer; heavy SR → reformer; gasoil/resid swings), optional single-period tanks vs multi-period inventory, quality blender (**delta-base / optional index RON + S**; see `docs/quality_blender.md`), ADMM demos report **ρ / primal residual / dual residual / max_iter** with mono-oracle dual recovery labeled, LLM remains **advisory only**. Source of truth: `data/routing.json`.
 
 Kanban board: `pims-admm-llm-wave3-20260709`  
 Backup: `/home/joel/backups/pims-admm-llm-wave3-20260709-102737`

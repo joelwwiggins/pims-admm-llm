@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Full plant demo (Wave3): arc-flow superstructure + quality blender + dual recovery metrics."""
+"""Full plant demo (Wave3): arc-flow superstructure + quality blender + dual recovery metrics.
+
+Optional multi-period inventory smoke:
+  PYTHONPATH=src python -m demos.run_full_plant_demo --multi-period
+  PYTHONPATH=src python -m demos.run_full_plant_demo --multi-period --periods 3
+"""
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -22,7 +28,33 @@ from pims_admm_llm.models.full_plant import (  # noqa: E402
 from pims_admm_llm.models.plant_blocks import solve_all_plant_blocks  # noqa: E402
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Full plant / multi-period inventory demo")
+    parser.add_argument(
+        "--multi-period",
+        action="store_true",
+        help="Run coupled multi-period inventory tanks smoke (W4) instead of single-period plant",
+    )
+    parser.add_argument("--periods", type=int, default=2, help="Periods when --multi-period")
+    parser.add_argument(
+        "--inventory-mode",
+        default="multi_period",
+        help="Inventory mode for --multi-period (multi_period|pass)",
+    )
+    args, _unknown = parser.parse_known_args(argv)
+
+    if args.multi_period:
+        from demos.run_multi_period_demo import main as mp_main
+
+        return mp_main(
+            [
+                "--periods",
+                str(args.periods),
+                "--inventory-mode",
+                args.inventory_mode,
+            ]
+        )
+
     assays = load_assays_json()
     routing = load_routing()
     out_dir = ROOT / "demos" / "output"

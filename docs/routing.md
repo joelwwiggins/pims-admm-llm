@@ -12,7 +12,7 @@ Wave2 “hard single-path” language is **deprecated**. Prefer this document an
 1. **Decision arcs** — destinations for gasoil, resid, naphtha, LCO, etc. are optimization variables (`decision: true`), not fixed edges.
 2. **Chemical defaults, not hard laws** — preferred chemistry is encoded as open/cheap arcs and closed/expensive non-preferred arcs; the solver may still open alternatives under economics or `force_all_arcs_open`.
 3. **Tanks optional (philosophy)** — single-period mode collapses tanks to pure balances; inventory/heels only when multi-period or capacity binds.
-4. **Quality blender MVP** — linear **RON + sulfur** pooling on product pools (`component_properties` + `product_quality_specs`). Full delta-base recursion is **not** in this wave.
+4. **Quality blender** — planning-grade **delta-base** (optional **index**) RON + sulfur on gasoline (`quality_blender.py` + `component_properties` + `quality_model`). Full multi-level PIMS delta-base recursion is **not** implemented — see `docs/quality_blender.md`.
 5. **ADMM consensus** still prices linking streams; demos report **ρ, primal residual, dual residual, max_iter**, and label dual recovery (**mono-oracle** vs pure λ).
 6. **LLM is advisory only** — never overrides arc balances, capacity, or quality constraints.
 
@@ -66,9 +66,23 @@ Production into tank balances is typically non-decision (bookkeeping). Downstrea
 | Mode | Behavior |
 |------|----------|
 | **Single-period (default)** | `tanks.mode = single_period_pass_optional`. Tanks collapse to **pure balances** — optional staging nodes, not mandatory 1:1 pass-through blocks. `inventory_mode=false` unless capacity/heels force inventory. |
-| **Multi-period / capacity-bound** | Inventory, heels, and swing space matter. Tank capacities and time-coupling become first-class (future / when inventory_mode binds). |
+| **Multi-period / capacity-bound** | Inventory, heels, and swing space matter. Tank capacities and **time-coupling** are first-class via `solve_multi_period` (`src/pims_admm_llm/models/multi_period.py`). |
 
 **Tanks are not hard fences.** They are optional inventory/balance nodes so the same superstructure can grow into multi-period without rewriting chemistry. In single-period demos, expect “tank” labels mainly as balance points for gasoil, resid, FCC naphtha, and coker naphtha.
+
+### Multi-period inventory smoke (Wave3b W4)
+
+Coupled mono LP (not independent n copies):
+
+- Opening inventory `I[k,0]` from `data/assays/crudes.json` tanks (`start_kbd`) when `inventory_mode=multi_period`
+- Carry: `I[k,t+1] = I[k,t] + prod[k,t] − use[k,t]` with capacity bounds
+- Default smoke: `n_periods=2`, crude max_supply scaled `[1.0, 0.35]` so later-period draws make carries valuable
+
+```bash
+PYTHONPATH=src python -m demos.run_multi_period_demo
+PYTHONPATH=src python -m demos.run_full_plant_demo --multi-period --periods 2
+PYTHONPATH=src python -m pytest tests/test_multi_period.py -q
+```
 
 ---
 
@@ -108,11 +122,11 @@ Solver chooses **fractions** on decision arcs within capacities and costs.
 
 ---
 
-## Quality blender MVP (RON + S)
+## Quality blender (delta-base / index MVP)
 
-| Product | Specs (MVP) | Pooling model |
-|---------|-------------|----------------|
-| **Gasoline** | `min_ron`, `max_sulfur_wt` | Linear volume blend of component RON and sulfur |
+| Product | Specs | Pooling model |
+|---------|-------|----------------|
+| **Gasoline** | `min_ron`, `max_sulfur_wt` | **Delta-base** RON+S (default base = reformate). Optional **index** RON (`ethyl` BI). |
 | **Diesel** | `max_sulfur_wt` | Linear S; soft HDT credit factors where modeled |
 | **Fuel oil** | `max_sulfur_wt` | Linear S |
 
@@ -120,8 +134,16 @@ Component properties (`ron`, `sulfur_wt`) and product specs live in `routing.jso
 
 - `component_properties` — planning-grade RON/S by stream (FCC naphtha post soft-HDT assumption, raw vs HDT coker naphtha, reformate, etc.)
 - `product_quality_specs` — e.g. gasoline min RON 87, max S 0.01 wt
+- `quality_model.gasoline` — `model` (`delta_base` \| `index` \| `linear`), `base_stream`, index params
 
-**Out of scope this wave:** full delta-base / recursive property models, multi-property octane engines, nonlinear blending indices beyond linear RON+S MVP.
+**Algebra (delta-base):** \(\delta_i = Q_i - Q_{\text{base}}\),  
+\(\sum \delta_i x_i \ge (Q_{\min}-Q_{\text{base}})V\) (min) / \(\le\) for max S.  
+Identical to linear pooling when deltas are absolute-minus-base; PIMS-style matrix form.
+
+**Module:** `src/pims_admm_llm/models/quality_blender.py`  
+**Limitations vs full Aspen PIMS multi-level delta-base recursion:** `docs/quality_blender.md`
+
+**Still out of scope:** recursive intermediate quality re-estimation, multi-property octane engines (MON, RVP, aromatics), mass-basis S with density, ADMM quality consensus dimensions.
 
 ---
 

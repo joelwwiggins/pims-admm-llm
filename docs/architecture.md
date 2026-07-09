@@ -56,7 +56,7 @@ Routing is **decision-arc based**, not hard single paths. Source of truth: [`dat
 
 **Tanks:** single-period → optional pass-through balances; inventory/heels when multi-period or capacity binds.
 
-**Blender MVP:** linear **RON + sulfur** on gasoline/diesel/FO pools.
+**Blender:** planning-grade **delta-base** (optional index) **RON + sulfur** on gasoline; diesel soft-HDT linear S (`docs/quality_blender.md`).
 
 ```
  Crude
@@ -105,7 +105,7 @@ Routing is **decision-arc based**, not hard single paths. Source of truth: [`dat
 Each block is a **small optimization problem**:
 
 - **Local decisions** — e.g. crude rates (CDU), FCC/coker charge, product rates (blender), arc flow fractions where owned
-- **Local constraints** — capacity, yield vectors, blend specs (RON+S MVP), demand caps
+- **Local constraints** — capacity, yield vectors, blend specs (delta-base/index RON+S on gasoline), demand caps
 - **Linking variables** — intermediate flows that must match other blocks
 - **Local objective** — margin contribution **adjusted by prices λ** and (in ADMM) a penalty for drifting from consensus z
 
@@ -118,7 +118,7 @@ Each block is a **small optimization problem**:
 | **FCC** | Gasoil charge (swing-selected) | Consumes gasoil arc flow; produces naphtha → pool default, LCO, slurry |
 | **Coker** | Resid charge (swing-selected) | Consumes resid arc flow; produces naphtha (HDT/gas or FO), gasoil |
 | **Reformer** | Heavy SR naphtha feed (preferred) | Reformate to gasoline; FCC/coker naphtha reformer arcs non-default |
-| **Blender** | Finished product slate + RON/S MVP | Intermediate **consumption** into gasoline / diesel / FO under linear quality |
+| **Blender** | Finished product slate + RON/S | Intermediate **consumption** into gasoline (delta-base/index) / diesel / FO (soft-HDT linear S) |
 
 ### Natural extensions
 
@@ -127,7 +127,7 @@ Each block is a **small optimization problem**:
 | Utilities | Fuel gas, steam, power, emission caps |
 | Hydrotreaters | Soft HDT path for cracked naphthas (attribute/`via` today; full block later) |
 | Multi-period | Inventory + turnaround windows (activates tank inventory mode) |
-| Delta-base quality | Beyond linear RON+S MVP |
+| Full PIMS delta-base recursion | Multi-level intermediate quality re-estimation / SLP (MVP is single-level; see `docs/quality_blender.md`) |
 
 ---
 

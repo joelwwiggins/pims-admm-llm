@@ -3,7 +3,8 @@
   "version": "wave3-superstructure",
   "tanks": {
     "mode": "single_period_pass_optional",
-    "notes": "Single-period default collapses tanks to pure balances (inventory_mode=false). Inventory/heels only when multi-period or capacity binds."
+    "notes": "Single-period default collapses tanks to pure balances (inventory_mode=false). Inventory/heels only when multi-period or capacity binds. Multi-period: solve_multi_period (start_kbd + end carries).",
+    "mode_notes_multi_period": "Use solve_multi_period / demos.run_multi_period_demo for coupled carries (W4)."
   },
   "units": [
     "CDU",
@@ -93,7 +94,9 @@
   "product_quality_specs": {
     "gasoline": {
       "min_ron": 87.0,
-      "max_sulfur_wt": 0.01
+      "max_sulfur_wt": 0.01,
+      "model": "delta_base",
+      "base_stream": "reformate"
     },
     "diesel": {
       "max_sulfur_wt": 0.05
@@ -524,5 +527,20 @@
     "coker_naphtha",
     "coker_gasoil",
     "reformate"
-  ]
+  ],
+  "quality_model": {
+    "description": "Planning-grade gasoline quality: delta-base RON/S (default); optional RON index.",
+    "gasoline": {
+      "model": "delta_base",
+      "base_stream": "reformate",
+      "ron_index_mode": "ethyl",
+      "ron_floor": 0.0,
+      "ron_ceiling": 120.0,
+      "notes": [
+        "delta_base: \u03a3 \u03b4_i x_i \u2277 (Q_spec - Q_base)*V with \u03b4_i = Q_i - Q_base",
+        "index: volume-average Ethyl-style BI(RON); identity recovers linear",
+        "Not full PIMS multi-level delta-base recursion \u2014 see docs/quality_blender.md"
+      ]
+    }
+  }
 }

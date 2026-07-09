@@ -207,9 +207,142 @@ def solve_reformer_block(
     }
 
 
+def solve_blender_block(
+    assays: Dict[str, Any],
+    prices: Mapping[str, float],
+    available: Optional[Mapping[str, float]] = None,
+) -> Dict[str, Any]:
+    """Sink / product block: buy linking streams at λ, sell products.
+
+    Without this block free-disposal streams have use≡0 and pure ADMM λ diverges.
+    Recipe is a planning-grade linear map (not quality pooling) for dual iteration.
+    """
+    products = assays.get("products") or {}
+    recipes = assays.get("blend_recipes") or {}
+    # Wave3-aware defaults (light/heavy SR, FCC naph as gasoline, etc.)
+    default_recipes = {
+        "gasoline": {
+            "cdu_naphtha_light": 0.20,
+            "cdu_naphtha": 0.15,
+            "fcc_naphtha": 0.30,
+            "reformate": 0.25,
+            "coker_naphtha": 0.10,
+        },
+        "diesel": {
+            "cdu_distillate": 0.50,
+            "fcc_lco": 0.25,
+            "coker_gasoil": 0.15,
+            "cdu_gasoil": 0.10,
+        },
+        "fuel_oil": {
+            "fcc_slurry": 0.30,
+            "cdu_resid": 0.35,
+            "coker_gasoil": 0.20,
+            "coker_naphtha": 0.15,
+        },
+    }
+    # Merge assay recipes with defaults so wave3 streams stay consumable
+    use_recipes: Dict[str, Dict[str, float]] = {}
+    for pname in set(default_recipes) | set(recipes):
+        merged = dict(default_recipes.get(pname) or {})
+        merged.update(recipes.get(pname) or {})
+        use_recipes[pname] = merged
+
+    # streams the blender can consume
+    stream_set = set()
+    for rec in use_recipes.values():
+        stream_set.update(rec.keys())
+    # always allow common free-disposal / product streams
+    for s in (
+        "cdu_naphtha",
+        "cdu_naphtha_light",
+        "cdu_naphtha_heavy",
+        "cdu_distillate",
+        "cdu_gasoil",
+        "cdu_resid",
+        "fcc_naphtha",
+        "fcc_lco",
+        "fcc_slurry",
+        "coker_naphtha",
+        "coker_gasoil",
+        "reformate",
+    ):
+        stream_set.add(s)
+
+    prob = pulp.LpProblem("block_BLENDER", pulp.LpMaximize)
+    prod_v = {}
+    for name, spec in products.items():
+        ub = float(spec.get("max_demand_kbd", 1e6)) if isinstance(spec, dict) else 1e6
+        price = float(spec.get("price_usd_per_bbl", 0.0)) if isinstance(spec, dict) else 0.0
+        prod_v[name] = pulp.LpVariable(f"prod_{name}", 0, ub)
+        # attach price later
+        prod_v[name]._price = price  # type: ignore[attr-defined]
+
+    # component use variables
+    use_v = {s: pulp.LpVariable(f"use_{s}", 0) for s in sorted(stream_set)}
+    if available is not None:
+        for s, var in use_v.items():
+            if s in available:
+                prob += var <= float(available[s]) + 1e-9
+
+    # material balance per product recipe (sum recipe coeffs ~ 1)
+    for pname, var in prod_v.items():
+        rec = use_recipes.get(pname) or default_recipes.get(pname) or {}
+        if not rec:
+            continue
+        # allocate use via recipe * product
+        for stream, frac in rec.items():
+            if stream not in use_v:
+                use_v[stream] = pulp.LpVariable(f"use_{stream}", 0)
+            # accumulate later; enforce total use >= recipe needs via summed constraint
+        # soft recipe: sum over streams of use attributed; build equality on each stream contribution
+        # Use aggregated: for each product, require use covers recipe fractions
+        # Implemented as: for each (product, stream) create attributed use and sum
+    # Attribute uses product-by-product
+    attributed = {s: [] for s in use_v}
+    for pname, pvar in prod_v.items():
+        rec = use_recipes.get(pname) or default_recipes.get(pname) or {}
+        for stream, frac in rec.items():
+            if stream not in use_v:
+                use_v[stream] = pulp.LpVariable(f"use_{stream}", 0)
+                attributed[stream] = []
+            u_ps = pulp.LpVariable(f"use_{pname}_{stream}", 0)
+            prob += u_ps == float(frac) * pvar
+            attributed.setdefault(stream, []).append(u_ps)
+    for stream, parts in attributed.items():
+        if parts:
+            prob += use_v[stream] == pulp.lpSum(parts)
+
+    rev = pulp.lpSum(
+        float(
+            (products[n].get("price_usd_per_bbl", 0.0) if isinstance(products[n], dict) else 0.0)
+        )
+        * prod_v[n]
+        for n in prod_v
+    )
+    cost = pulp.lpSum(float(prices.get(s, 0.0)) * use_v[s] for s in use_v)
+    # light opex
+    prob += rev - cost - 0.1 * pulp.lpSum(prod_v.values())
+    status, obj, primals, dt = _solve(prob)
+    stream_use = {s: float(primals.get(f"use_{s}", 0.0)) for s in use_v}
+    product_rates = {n: float(primals.get(f"prod_{n}", 0.0)) for n in prod_v}
+    return {
+        "block": "BLENDER",
+        "status": status,
+        "local_obj": obj,
+        "proposal": stream_use,
+        "product_rates": product_rates,
+        "primals": primals,
+        "time_s": dt,
+    }
+
+
 def solve_all_plant_blocks(
     prices: Optional[Mapping[str, float]] = None,
     assays: Optional[Dict[str, Any]] = None,
+    *,
+    include_blender: bool = True,
+    reformer_take_cracked: bool = False,
 ) -> Dict[str, Any]:
     assays = assays or load_assays_json()
     yields = build_yield_tables(assays)
@@ -229,28 +362,29 @@ def solve_all_plant_blocks(
     prices.setdefault("cdu_distillate", 100.0)
 
     cdu = solve_cdu_block(assays, yields, prices)
-    fcc = solve_fcc_block(
-        assays, yields, prices, gasoil_available=cdu["proposal"].get("cdu_gasoil")
-    )
-    coker = solve_coker_block(
-        assays, yields, prices, resid_available=cdu["proposal"].get("cdu_resid")
-    )
+    # Unconstrained unit blocks for pure ADMM (capacity only); availability enforced via λ
+    fcc = solve_fcc_block(assays, yields, prices, gasoil_available=None)
+    coker = solve_coker_block(assays, yields, prices, resid_available=None)
     reformer = solve_reformer_block(
         assays,
         yields,
         prices,
-        heavy_sr_avail=cdu["proposal"].get("cdu_naphtha_heavy"),
-        # non-default: allow cracked naph only as optional (seed price path may still zero)
-        fcc_naph_avail=0.0,
-        coker_naph_avail=0.0,
+        heavy_sr_avail=None,
+        # non-default chemistry: cracked naph only if explicitly allowed
+        fcc_naph_avail=None if reformer_take_cracked else 0.0,
+        coker_naph_avail=None if reformer_take_cracked else 0.0,
     )
+    blocks: Dict[str, Any] = {
+        "CDU": cdu,
+        "FCC": fcc,
+        "COKER": coker,
+        "REFORMER": reformer,
+    }
+    if include_blender:
+        # Soft availability: none — pure price-directed consumption for dual path
+        blocks["BLENDER"] = solve_blender_block(assays, prices, available=None)
     return {
-        "blocks": {
-            "CDU": cdu,
-            "FCC": fcc,
-            "COKER": coker,
-            "REFORMER": reformer,
-        },
+        "blocks": blocks,
         "prices": prices,
         "yields": yields,
     }
