@@ -44,6 +44,7 @@ def _default_nodes_edges():
         {"source": "cdu-1", "target": "cok-1"},
         {"source": "cdu-1", "target": "ref-1"},
         {"source": "fcc-1", "target": "bl-1"},
+        {"source": "cok-1", "target": "bl-1"},
         {"source": "ref-1", "target": "bl-1"},
         {"source": "bl-1", "target": "sell-1"},
     ]
