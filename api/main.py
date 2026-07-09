@@ -205,21 +205,110 @@ def get_routing() -> dict[str, Any]:
     }
 
 
-@app.post("/api/graph")
-def post_graph(payload: GraphPayload) -> dict[str, Any]:
-    """Accept {nodes, edges}; return clusters + admm_status stub."""
-    clusters = _stub_clusters(payload.nodes)
+class GraphSolvePayload(GraphPayload):
+    """Graph plus optional solver flags (issue #1 wire-up)."""
+
+    recovery_path: str = "mono-oracle"  # mono-oracle | pure-admm
+    inventory_mode: Optional[bool] = None
+    run_admm: bool = True
+    stub_only: bool = False
+
+
+def _stub_graph_response(
+    payload: GraphSolvePayload,
+    clusters: list[dict[str, Any]],
+    *,
+    reason: str,
+) -> dict[str, Any]:
     return {
         "ok": True,
         "clusters": clusters,
+        "node_count": len(payload.nodes),
+        "edge_count": len(payload.edges),
         "admm_status": "stub",
         "message": (
             f"Accepted {len(payload.nodes)} nodes, {len(payload.edges)} edges; "
-            f"{len(clusters)} cluster(s) stubbed. ADMM not run."
+            f"{len(clusters)} cluster(s) stubbed. {reason}"
         ),
-        "node_count": len(payload.nodes),
-        "edge_count": len(payload.edges),
+        "objective": None,
+        "unit_feeds": {},
+        "products": {},
+        "routing_splits": {},
+        "duals": {},
+        "rho": None,
+        "residuals": {"primal": None, "dual": None},
+        "dual_recovery_path": None,
     }
+
+
+@app.post("/api/graph")
+def post_graph(payload: GraphSolvePayload) -> dict[str, Any]:
+    """Accept {nodes, edges}; map to routing overlay; solve full plant LP + ADMM.
+
+    Returns objective, unit_feeds, products, routing_splits, duals, rho,
+    residuals, dual_recovery_path. Inactive nodes skipped in clusters.
+    Falls back to stub if plant package import fails.
+    """
+    clusters = _stub_clusters(payload.nodes)
+    if payload.stub_only:
+        return _stub_graph_response(payload, clusters, reason="ADMM not run (stub_only).")
+
+    # Real solve path
+    try:
+        import sys
+
+        src = str(REPO_ROOT / "src")
+        if src not in sys.path:
+            sys.path.insert(0, src)
+        from pims_admm_llm.models.graph_solve import solve_from_graph
+
+        nodes = [n.model_dump() for n in payload.nodes]
+        edges = [e.model_dump() for e in payload.edges]
+        result = solve_from_graph(
+            nodes,
+            edges,
+            recovery_path=payload.recovery_path,
+            inventory_mode=payload.inventory_mode,
+            run_admm=payload.run_admm,
+        )
+        base = {
+            "ok": True,
+            "clusters": clusters,
+            "node_count": len(payload.nodes),
+            "edge_count": len(payload.edges),
+        }
+        base.update(result)
+        base["clusters"] = clusters
+        return base
+    except ImportError as e:
+        # Task contract: fallback stub if plant import fails
+        out = _stub_graph_response(
+            payload,
+            clusters,
+            reason=f"ADMM not run (plant import failed: {e}).",
+        )
+        out["fallback"] = "plant_import_failed"
+        out["error"] = str(e)
+        return out
+    except Exception as e:
+        base = {
+            "ok": False,
+            "clusters": clusters,
+            "node_count": len(payload.nodes),
+            "edge_count": len(payload.edges),
+            "admm_status": "error",
+            "message": f"graph solve failed: {type(e).__name__}: {e}",
+            "error": str(e),
+            "objective": None,
+            "unit_feeds": {},
+            "products": {},
+            "routing_splits": {},
+            "duals": {},
+            "rho": None,
+            "residuals": {"primal": None, "dual": None},
+            "dual_recovery_path": None,
+        }
+        return base
 
 
 @app.post("/api/connect")

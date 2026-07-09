@@ -8,7 +8,9 @@ Routing is economic, not hard-coded:
   - Coker naphtha → HDT/gasoline or FO; NOT reformer default
   - Optional tanks: inventory_mode=False collapses to pure balances
 
-Quality blender MVP: linear RON + sulfur pooling on gasoline/diesel.
+Quality blender: planning-grade delta-base / optional index pooling for
+gasoline RON + sulfur (see quality_blender.py and docs/quality_blender.md).
+Diesel still uses soft-HDT linear sulfur credits.
 """
 
 from __future__ import annotations
@@ -21,6 +23,12 @@ import pulp
 
 from .assay_loader import load_assays_json, load_routing
 from .properties import crude_to_props
+from .quality_blender import (
+    GASOLINE_COMPONENT_DEFAULTS,
+    GasolineQualityConfig,
+    add_gasoline_quality_constraints,
+    load_component_qualities,
+)
 from .yields import (
     cdu_yields_from_assay,
     coker_yields,
@@ -385,6 +393,7 @@ def solve_full_plant(
         "fcc_naphtha": fcc_n_to_gas,
         "coker_naphtha_hdt": cok_n_to_hdt_gas,
     }
+    quality_meta: Dict[str, Any] = {}
     if "gasoline" in prod_v:
         # product volume = sum of components (volumetric pooling)
         prob += (
@@ -392,27 +401,23 @@ def solve_full_plant(
             == use_ref + light_to_gas + heavy_to_gas + fcc_n_to_gas + cok_n_to_hdt_gas,
             "blend_gas_pool",
         )
-        # Linear RON: sum(ron_i * x_i) >= min_ron * gasoline
-        gspec = _quality_spec(routing, "gasoline")
-        min_ron = float(gspec.get("min_ron", 87.0))
-        max_s = float(gspec.get("max_sulfur_wt", 0.01))
-        ron_expr = (
-            _comp_prop(routing, "reformate", "ron", 100.0) * use_ref
-            + _comp_prop(routing, "cdu_naphtha_light", "ron", 72.0) * light_to_gas
-            + _comp_prop(routing, "cdu_naphtha_heavy", "ron", 58.0) * heavy_to_gas
-            + _comp_prop(routing, "fcc_naphtha", "ron", 93.0) * fcc_n_to_gas
-            + _comp_prop(routing, "coker_naphtha_hdt", "ron", 74.0) * cok_n_to_hdt_gas
+        # Delta-base / optional index RON + delta-base S (planning-grade)
+        gas_cfg = GasolineQualityConfig.from_routing(routing)
+        gas_qualities = load_component_qualities(
+            routing,
+            list(gas_comp.keys()),
+            defaults=GASOLINE_COMPONENT_DEFAULTS,
         )
-        # sum(ron * x) - min_ron * gas >= 0
-        prob += ron_expr >= min_ron * prod_v["gasoline"], "qual_gas_min_ron"
-        s_expr = (
-            _comp_prop(routing, "reformate", "sulfur_wt", 0.0005) * use_ref
-            + _comp_prop(routing, "cdu_naphtha_light", "sulfur_wt", 0.02) * light_to_gas
-            + _comp_prop(routing, "cdu_naphtha_heavy", "sulfur_wt", 0.04) * heavy_to_gas
-            + _comp_prop(routing, "fcc_naphtha", "sulfur_wt", 0.008) * fcc_n_to_gas
-            + _comp_prop(routing, "coker_naphtha_hdt", "sulfur_wt", 0.01) * cok_n_to_hdt_gas
+        qmeta = add_gasoline_quality_constraints(
+            prob,
+            product_var=prod_v["gasoline"],
+            volume_vars=gas_comp,
+            components=gas_qualities,
+            cfg=gas_cfg,
+            ron_name="qual_gas_min_ron",
+            sulfur_name="qual_gas_max_s",
         )
-        prob += s_expr <= max_s * prod_v["gasoline"], "qual_gas_max_s"
+        quality_meta = qmeta.as_dict()
 
     # Diesel components: distillate + LCO + coker GO + gasoil swing
     # Diesel: distillate primary; LCO/coker GO secondary; raw gasoil swing diluted (HDT)
@@ -620,6 +625,7 @@ def solve_full_plant(
             "routing_version": routing.get("version"),
             "naphtha_split": {"light": light_frac, "heavy": heavy_frac},
             "gas_components": list(gas_comp.keys()) if "gasoline" in products else [],
+            "quality": quality_meta,
         },
     )
 
@@ -631,36 +637,263 @@ def admm_price_directed_plant(
     rho: float = 0.35,
     dual_step: float = 0.9,
     tol: float = 1e-2,
+    recovery_path: str = "mono-oracle",
+    routing: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Price-directed multi-block coordination with primal recovery for duals.
+    """Price-directed multi-block coordination.
 
-    Dual recovery path label: mono-oracle (exact mono duals after price loop).
-    Reports rho, max_iter, primal residual ||r||, dual residual ||s|| explicitly.
+    recovery_path:
+      - "mono-oracle" (default): economic duals from mono solve (L∞ gap 0 by construction).
+      - "pure-admm": free λ from block price iteration (no mono dual injection for λ);
+        report L∞ |λ| vs mono bal_* duals honestly — may be large on free-disposal faces.
     """
-    from pims_admm_llm.admm.residuals import residual_norms
+    from pims_admm_llm.admm.residuals import linf_dual_gap, residual_norms
+    from pims_admm_llm.models.plant_blocks import solve_all_plant_blocks
 
     assays = assays or load_assays_json()
+    routing = routing or load_routing()
     yields = build_yield_tables(assays)
-    mono = solve_full_plant(assays)
+    mono = solve_full_plant(assays, routing=routing)
 
-    links = [
-        "cdu_gasoil",
-        "cdu_resid",
-        "fcc_naphtha",
-        "coker_naphtha",
-        "reformate",
-        "cdu_naphtha",
-        "cdu_naphtha_light",
-        "cdu_naphtha_heavy",
-        "cdu_distillate",
-        "fcc_lco",
-        "fcc_slurry",
-        "coker_gasoil",
-    ]
+    links = list(
+        routing.get("linking_streams")
+        or [
+            "cdu_gasoil",
+            "cdu_resid",
+            "fcc_naphtha",
+            "coker_naphtha",
+            "reformate",
+            "cdu_naphtha",
+            "cdu_naphtha_light",
+            "cdu_naphtha_heavy",
+            "cdu_distillate",
+            "fcc_lco",
+            "fcc_slurry",
+            "coker_gasoil",
+        ]
+    )
+
+    path = (recovery_path or "mono-oracle").strip().lower().replace("_", "-")
+    if path in ("pure", "pure-admm", "admm", "free-lambda"):
+        path = "pure-admm"
+    else:
+        path = "mono-oracle"
+
+    history: List[Dict[str, Any]] = []
+    final_r_norm = 0.0
+    final_s_norm = 0.0
+    lam: Dict[str, float] = {s: 0.0 for s in links}
+    mono_bal = {k: float(v) for k, v in mono.duals.items() if k.startswith("bal_")}
+
+    if path == "pure-admm":
+        # Free λ: seed from planning product netbacks (NOT mono duals / oracle).
+        # Mono bal_* duals are used only for honest L∞ comparison after the free loop.
+        seed = {
+            "reformate": 100.0,
+            "fcc_naphtha": 98.0,
+            "coker_naphtha": 88.0,
+            "cdu_gasoil": 85.0,
+            "cdu_resid": 55.0,
+            "fcc_lco": 95.0,
+            "fcc_slurry": 50.0,
+            "coker_gasoil": 90.0,
+            "cdu_naphtha": 92.0,
+            "cdu_naphtha_light": 90.0,
+            "cdu_naphtha_heavy": 88.0,
+            "cdu_distillate": 100.0,
+        }
+        lam = {s: float(seed.get(s, 0.0)) for s in links}
+        z = {s: 0.0 for s in links}
+        last_blocks: Optional[Dict[str, Any]] = None
+        last_residual: Dict[str, float] = {s: 0.0 for s in links}
+
+        for it in range(max_iter):
+            blocks = solve_all_plant_blocks(
+                prices=dict(lam),
+                assays=assays,
+                include_blender=True,
+                reformer_take_cracked=False,
+            )
+            last_blocks = blocks
+            b = blocks["blocks"]
+            cdu_p = b["CDU"]["proposal"]
+            fcc_p = b["FCC"]["proposal"]
+            cok_p = b["COKER"]["proposal"]
+            ref_p = b["REFORMER"]["proposal"]
+            blend_p = (b.get("BLENDER") or {}).get("proposal") or {}
+
+            prod_map = {
+                "cdu_gasoil": float(cdu_p.get("cdu_gasoil", 0.0)),
+                "cdu_resid": float(cdu_p.get("cdu_resid", 0.0)),
+                "cdu_naphtha": float(cdu_p.get("cdu_naphtha", 0.0)),
+                "cdu_naphtha_light": float(cdu_p.get("cdu_naphtha_light", 0.0)),
+                "cdu_naphtha_heavy": float(cdu_p.get("cdu_naphtha_heavy", 0.0)),
+                "cdu_distillate": float(cdu_p.get("cdu_distillate", 0.0)),
+                "fcc_naphtha": float(fcc_p.get("fcc_naphtha", 0.0)),
+                "fcc_lco": float(fcc_p.get("fcc_lco", 0.0)),
+                "fcc_slurry": float(fcc_p.get("fcc_slurry", 0.0)),
+                "coker_naphtha": float(cok_p.get("coker_naphtha", 0.0)),
+                "coker_gasoil": float(cok_p.get("coker_gasoil", 0.0)),
+                "reformate": float(ref_p.get("reformate", 0.0)),
+            }
+            # Unit uses + blender sink uses (critical for free-disposal balance)
+            use_map = {
+                "cdu_gasoil": float(fcc_p.get("cdu_gasoil_use", 0.0))
+                + float(blend_p.get("cdu_gasoil", 0.0)),
+                "cdu_resid": float(cok_p.get("cdu_resid_use", 0.0))
+                + float(blend_p.get("cdu_resid", 0.0)),
+                "cdu_naphtha_heavy": float(ref_p.get("cdu_naphtha_heavy_use", 0.0))
+                + float(blend_p.get("cdu_naphtha_heavy", 0.0)),
+                "fcc_naphtha": float(ref_p.get("fcc_naphtha_use", 0.0))
+                + float(blend_p.get("fcc_naphtha", 0.0)),
+                "coker_naphtha": float(ref_p.get("coker_naphtha_use", 0.0))
+                + float(blend_p.get("coker_naphtha", 0.0)),
+                "cdu_naphtha": float(blend_p.get("cdu_naphtha", 0.0)),
+                "cdu_naphtha_light": float(blend_p.get("cdu_naphtha_light", 0.0)),
+                "cdu_distillate": float(blend_p.get("cdu_distillate", 0.0)),
+                "fcc_lco": float(blend_p.get("fcc_lco", 0.0)),
+                "fcc_slurry": float(blend_p.get("fcc_slurry", 0.0)),
+                "coker_gasoil": float(blend_p.get("coker_gasoil", 0.0)),
+                "reformate": float(blend_p.get("reformate", 0.0)),
+            }
+            z_old = dict(z)
+            for s in links:
+                p = prod_map.get(s, 0.0)
+                u = use_map.get(s, 0.0)
+                z[s] = 0.5 * (p + u)
+            r_norm, s_norm, r = residual_norms(links, prod_map, use_map, z, z_old, rho)
+            last_residual = dict(r)
+            for s in links:
+                # damped dual ascent on material imbalance (prod - use)
+                lam[s] = float(lam[s] + dual_step * rho * r.get(s, 0.0))
+            history.append(
+                {
+                    "iter": it,
+                    "primal_residual_norm": r_norm,
+                    "dual_residual_norm": s_norm,
+                    "rho": rho,
+                    "lam": dict(lam),
+                    "residual": dict(r),
+                }
+            )
+            final_r_norm, final_s_norm = r_norm, s_norm
+            if r_norm < tol and s_norm < tol and it > 2:
+                break
+
+        unit_feeds = {
+            "cdu_charge": sum(
+                float(v)
+                for k, v in (last_blocks or {})
+                .get("blocks", {})
+                .get("CDU", {})
+                .get("primals", {})
+                .items()
+                if str(k).startswith("crude_")
+            )
+            if last_blocks
+            else 0.0,
+            "fcc_feed": float(
+                (last_blocks or {})
+                .get("blocks", {})
+                .get("FCC", {})
+                .get("proposal", {})
+                .get("cdu_gasoil_use", 0.0)
+            ),
+            "coker_feed": float(
+                (last_blocks or {})
+                .get("blocks", {})
+                .get("COKER", {})
+                .get("proposal", {})
+                .get("cdu_resid_use", 0.0)
+            ),
+            "reformer_feed": float(
+                (last_blocks or {})
+                .get("blocks", {})
+                .get("REFORMER", {})
+                .get("proposal", {})
+                .get("cdu_naphtha_heavy_use", 0.0)
+            )
+            + float(
+                (last_blocks or {})
+                .get("blocks", {})
+                .get("REFORMER", {})
+                .get("proposal", {})
+                .get("fcc_naphtha_use", 0.0)
+            )
+            + float(
+                (last_blocks or {})
+                .get("blocks", {})
+                .get("REFORMER", {})
+                .get("proposal", {})
+                .get("coker_naphtha_use", 0.0)
+            ),
+        }
+
+        linf, per_stream_gaps = linf_dual_gap(lam, mono_bal)
+        economic = {s: abs(float(lam.get(s, 0.0))) for s in links}
+        # Block-level objective estimate (not claimed equal to mono)
+        block_obj_hat = 0.0
+        if last_blocks:
+            for blk in (last_blocks.get("blocks") or {}).values():
+                block_obj_hat += float(blk.get("local_obj") or 0.0)
+
+        return {
+            "status": "pure_admm_iterated",
+            "feasible": bool(final_r_norm < max(tol * 10, 1.0)),
+            "objective": block_obj_hat,
+            "objective_mono_plan_truth": mono.objective,
+            "objective_gap_vs_mono": abs(block_obj_hat - mono.objective),
+            "objective_note": (
+                "pure-admm objective is sum of local block objs (not mono); "
+                "λ is free ADMM iterate — not mono-oracle dual recovery"
+            ),
+            "iterations": len(history),
+            "max_iter": max_iter,
+            "rho": rho,
+            "dual_step": dual_step,
+            "primal_residual_norm": final_r_norm,
+            "dual_residual_norm": final_s_norm,
+            "residual": last_residual,
+            "dual_recovery_path": "pure-admm",
+            "lambda": lam,
+            "lambda_vs_mono_Linf": linf,
+            "lambda_vs_mono_bal_gaps": per_stream_gaps,
+            "mono_bal_duals": mono_bal,
+            "duals_like_monolithic": {},  # intentionally empty — not mono-oracle
+            "economic_shadow_prices": economic,
+            "quality_duals": {},  # pure path has no mono quality dual injection
+            "crude_rates": {
+                k.replace("crude_", ""): float(v)
+                for k, v in (
+                    (last_blocks or {}).get("blocks", {}).get("CDU", {}).get("primals") or {}
+                ).items()
+                if str(k).startswith("crude_")
+            },
+            "products": ((last_blocks or {}).get("blocks", {}).get("BLENDER") or {}).get(
+                "product_rates", {}
+            ),
+            "streams": {s: float((last_blocks or {}).get("blocks", {}).get("CDU", {}).get("proposal", {}).get(s, 0.0))
+                        if s.startswith("cdu_")
+                        else 0.0 for s in links},
+            "unit_feeds": unit_feeds,
+            "routing_splits": {},
+            "arc_flows": {},
+            "mono_time_s": mono.solve_time_s,
+            "history": history,
+            "yields_used": yields,
+            "routing": routing.get("arcs") or routing.get("routes", []),
+            "block_proposals": {
+                k: v.get("proposal") for k, v in ((last_blocks or {}).get("blocks") or {}).items()
+            },
+            "honesty": (
+                f"pure-admm free λ vs mono bal_* L∞={linf:.4f}; "
+                "do not claim dual recovery; default path remains mono-oracle"
+            ),
+        }
+
+    # --- mono-oracle path (default) ---
     lam = {s: 0.0 for s in links}
-    history = []
     z = {s: mono.streams.get(s, 0.0) for s in links}
-    # uses from arc decisions (planning consensus)
     use_map = {
         "cdu_gasoil": mono.streams.get("go_to_fcc", 0)
         + mono.streams.get("go_to_diesel", 0)
@@ -681,16 +914,12 @@ def admm_price_directed_plant(
         "coker_gasoil": mono.streams.get("coker_gasoil", 0),
     }
     prod_map = {s: mono.streams.get(s, 0.0) for s in links}
-    # For gasoil/resid production vs use: production is stream amount
     prod_map["cdu_gasoil"] = mono.streams.get("cdu_gasoil", 0.0)
     prod_map["cdu_resid"] = mono.streams.get("cdu_resid", 0.0)
 
     z_old = dict(z)
-    final_r_norm = 0.0
-    final_s_norm = 0.0
     for it in range(max_iter):
         r_norm, s_norm, r = residual_norms(links, prod_map, use_map, z, z_old, rho)
-        # dual ascent on residual (mono path residual ~0 by construction on balanced streams)
         for s in links:
             lam[s] = lam[s] + dual_step * rho * r.get(s, 0.0)
         history.append(
@@ -710,7 +939,10 @@ def admm_price_directed_plant(
     recovered_duals = {
         k: v
         for k, v in mono.duals.items()
-        if k.startswith("bal_") or k.endswith("_capacity") or k.startswith("cap_") or k.startswith("qual_")
+        if k.startswith("bal_")
+        or k.endswith("_capacity")
+        or k.startswith("cap_")
+        or k.startswith("qual_")
     }
     economic = {k: abs(v) for k, v in mono.economic_shadows.items()}
 
@@ -726,6 +958,9 @@ def admm_price_directed_plant(
         "dual_residual_norm": final_s_norm,
         "dual_recovery_path": "mono-oracle",
         "lambda": lam,
+        "lambda_vs_mono_Linf": 0.0,  # recovery duals = mono by construction
+        "lambda_vs_mono_bal_gaps": {},
+        "mono_bal_duals": mono_bal,
         "duals_like_monolithic": recovered_duals,
         "economic_shadow_prices": economic,
         "quality_duals": mono.quality_duals,
@@ -738,5 +973,6 @@ def admm_price_directed_plant(
         "mono_time_s": mono.solve_time_s,
         "history": history,
         "yields_used": yields,
-        "routing": load_routing().get("arcs") or load_routing().get("routes", []),
+        "routing": routing.get("arcs") or routing.get("routes", []),
+        "honesty": "mono-oracle: duals_like_monolithic from mono bal_*; L∞ dual gap 0 by construction",
     }
