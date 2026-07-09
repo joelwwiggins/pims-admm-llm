@@ -16,8 +16,13 @@
   import ResultsPanel from './lib/ResultsPanel.svelte';
   import { createFullPlantPfd, UNIT_COLORS, UNIT_PORTS } from './lib/data/plantTemplate.js';
   import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType } from './lib/palette.js';
-  import { postConnect, postGraph, getRouting, getHealth } from './lib/api.js';
+  import { postConnect, postGraph, postAutoWire, postBaseDeltaSolve, getRouting, getHealth } from './lib/api.js';
   import { emptyStream } from './lib/data/plantTemplate.js';
+  import {
+    activeUnitTypes,
+    edgesForApi,
+    applyAutoWireToGraph,
+  } from './lib/autoWire.js';
 
   const nodeTypes = { pfdUnit: PfdUnitNode };
   const edgeTypes = { streamEdge: StreamEdge };
@@ -29,6 +34,7 @@
   let selection = $state(null); // { kind, id, data }
   let status = $state('HYSYS-style PFD · click unit or stream to inspect');
   let solving = $state(false);
+  let autoWiring = $state(false);
   let apiOk = $state(false);
   let lastGraph = $state(null);
   let showResults = $state(false);
@@ -112,6 +118,10 @@
     let reason = 'local';
     let score = 0.7;
     try {
+      const streamGuess =
+        connection.sourceHandle ||
+        connection.targetHandle ||
+        undefined;
       const res = await postConnect({
         source: connection.source,
         target: connection.target,
@@ -119,6 +129,7 @@
         targetHandle: connection.targetHandle,
         sourceType,
         targetType,
+        stream: streamGuess,
       });
       allowed = res.allowed;
       reason = res.reason;
@@ -179,10 +190,51 @@
     };
   }
 
-  function addFromPalette(unitType) {
+  /** Call /api/auto_wire after a process unit is dropped/added; map edges onto canvas. */
+  async function runAutoWire(hintType = '') {
+    const units = activeUnitTypes(nodes);
+    // Base-delta cascade only auto-wires conversion units we support
+    const wireUnits = units.filter((u) =>
+      ['CDU', 'FCC', 'COKER', 'REFORMER', 'HDT_NAPH', 'BLENDER'].includes(u),
+    );
+    if (!wireUnits.length) return;
+    autoWiring = true;
+    status = `Auto-wiring streams for ${hintType || wireUnits.join('+')}…`;
+    try {
+      const res = await postAutoWire({
+        active_units: wireUnits,
+        existing_edges: edgesForApi(edges),
+      });
+      if (!res.ok) {
+        status = `Auto-wire failed: ${res.error || 'unknown'}`;
+        return;
+      }
+      const applied = applyAutoWireToGraph(nodes, edges, res.edges || []);
+      nodes = applied.nodes;
+      edges = applied.edges;
+      const nAdd = applied.added.length;
+      const nTerm = applied.createdTerminals.length;
+      status =
+        nAdd > 0
+          ? `Auto-wired ${nAdd} stream(s)` +
+            (nTerm ? ` · created ${nTerm} terminal(s)` : '') +
+            (hintType ? ` after adding ${hintType}` : '')
+          : `No new wires (already connected)` + (hintType ? ` · ${hintType}` : '');
+    } catch (err) {
+      status = `Auto-wire offline: ${err.message}`;
+    } finally {
+      autoWiring = false;
+    }
+  }
+
+  async function addFromPalette(unitType) {
     const offset = (nodes.length % 6) * 28;
     nodes = [...nodes, makePfdNode(unitType, { x: 100 + offset, y: 80 + offset })];
     status = `Added ${unitType}`;
+    // Process conversion units trigger auto_wire (esp. COKER / FCC)
+    if (['CDU', 'FCC', 'COKER', 'REFORMER', 'HDT_NAPH'].includes(unitType)) {
+      await runAutoWire(unitType);
+    }
   }
 
   function ondragstart(evt, unitType) {
@@ -193,7 +245,7 @@
     evt.preventDefault();
     evt.dataTransfer.dropEffect = 'move';
   }
-  function ondrop(evt) {
+  async function ondrop(evt) {
     evt.preventDefault();
     const unitType = evt.dataTransfer.getData('application/pims-unit');
     if (!unitType) return;
@@ -205,6 +257,38 @@
         y: evt.clientY - bounds.top - 40,
       }),
     ];
+    status = `Dropped ${unitType}`;
+    if (['CDU', 'FCC', 'COKER', 'REFORMER', 'HDT_NAPH'].includes(unitType)) {
+      await runAutoWire(unitType);
+    }
+  }
+
+  async function baseDeltaSolve() {
+    solving = true;
+    status = 'Base-delta cascade solve…';
+    try {
+      const units = activeUnitTypes(nodes);
+      const res = await postBaseDeltaSolve({
+        active_units: units.length ? units : ['CDU', 'FCC'],
+        enable_coker: units.includes('COKER'),
+        max_crude_kbd: 100,
+        drawn_edges: edgesForApi(edges),
+      });
+      lastGraph = {
+        ...res,
+        admm_status: 'base-delta',
+        feasible: res.status === 'Optimal',
+        ok: res.ok,
+        message: `base-delta ${res.status} mb_ok=${res.mass_balance?.ok}`,
+      };
+      showResults = true;
+      const obj = res.objective != null ? Number(res.objective).toFixed(2) : '—';
+      status = `Base-delta ${res.status} · obj ${obj} · mb ${res.mass_balance?.ok ? 'ok' : 'FAIL'} · ${res.enabled_units?.join('+') || ''}`;
+    } catch (err) {
+      status = `Base-delta failed: ${err.message}`;
+    } finally {
+      solving = false;
+    }
   }
 
   function loadFullPlant() {
@@ -297,6 +381,12 @@
       <label class="chk"><input type="checkbox" bind:checked={runAdmm} /> ADMM</label>
       <button type="button" class="primary" disabled={solving} onclick={solve}>
         {solving ? 'Running…' : 'Run'}
+      </button>
+      <button type="button" disabled={solving} onclick={baseDeltaSolve} title="CDU→FCC[+COKER] base-delta LP">
+        Base-δ
+      </button>
+      <button type="button" disabled={autoWiring} onclick={() => runAutoWire('manual')} title="POST /api/auto_wire">
+        {autoWiring ? 'Wiring…' : 'Auto-wire'}
       </button>
       <button type="button" onclick={pingApi}>Validate</button>
       <button type="button" onclick={loadFullPlant}>Reset PFD</button>

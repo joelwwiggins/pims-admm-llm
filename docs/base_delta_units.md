@@ -68,3 +68,17 @@ Do **not** add reformer (or more) until:
 1. `mass_balance.ok` on CDU+FCC+COKER
 2. Every product has exit + composition
 3. Auto-wire covers feed when unit is dropped on the sheet
+
+
+## UI auto-wire (SvelteFlow)
+
+When a process unit is **clicked or dropped** from the palette (`CDU`, `FCC`, `COKER`, …):
+
+1. UI POSTs `/api/auto_wire` with `active_units` on the canvas + existing edges
+2. Response edges are mapped onto the PFD (`ui/src/lib/autoWire.js`)
+3. Missing product sinks become lightweight terminal nodes (`term-fuel_gas`, …)
+4. Structural feeds: `cdu_gasoil→FCC`, `cdu_resid→COKER` when those units exist
+
+Toolbar:
+- **Auto-wire** — re-run wire for current units
+- **Base-δ** — `POST /api/base_delta/solve` (cascade LP + mass_balance)

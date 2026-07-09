@@ -18,7 +18,7 @@ export async function getRouting() {
 
 /**
  * POST edge attempt for connect validation.
- * @returns {{ allowed: boolean, score: number, reason: string }}
+ * @returns {{ allowed: boolean, score: number, reason: string, guesses?: any[], best?: any }}
  */
 export async function postConnect(body) {
   const r = await fetch(`${BASE}/api/connect`, {
@@ -27,6 +27,34 @@ export async function postConnect(body) {
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`connect ${r.status}`);
+  return r.json();
+}
+
+/**
+ * When units are added, invent feed + product edges.
+ * @param {{ active_units: string[], existing_edges?: object[] }} body
+ */
+export async function postAutoWire(body) {
+  const r = await fetch(`${BASE}/api/auto_wire`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`auto_wire ${r.status}`);
+  return r.json();
+}
+
+/**
+ * Base-delta cascade solve (CDU+FCC[+COKER]).
+ * @param {{ active_units?: string[], enable_coker?: boolean, max_crude_kbd?: number, crude_api?: number, drawn_edges?: object[] }} body
+ */
+export async function postBaseDeltaSolve(body) {
+  const r = await fetch(`${BASE}/api/base_delta/solve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`base_delta ${r.status}`);
   return r.json();
 }
 
