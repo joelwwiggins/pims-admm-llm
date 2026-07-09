@@ -4,84 +4,113 @@
     Background,
     Controls,
     MiniMap,
-    addEdge,
     BackgroundVariant,
+    MarkerType,
+    ConnectionMode,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
 
-  import UnitNode from './lib/UnitNode.svelte';
+  import PfdUnitNode from './lib/nodes/PfdUnitNode.svelte';
+  import StreamEdge from './lib/edges/StreamEdge.svelte';
+  import InspectorPanel from './lib/InspectorPanel.svelte';
   import ResultsPanel from './lib/ResultsPanel.svelte';
-  import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType, fullPlantTemplate } from './lib/palette.js';
+  import { createFullPlantPfd, UNIT_COLORS, UNIT_PORTS } from './lib/data/plantTemplate.js';
+  import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType } from './lib/palette.js';
   import { postConnect, postGraph, getRouting, getHealth } from './lib/api.js';
+  import { emptyStream } from './lib/data/plantTemplate.js';
 
-  const nodeTypes = { unit: UnitNode };
+  const nodeTypes = { pfdUnit: PfdUnitNode };
+  const edgeTypes = { streamEdge: StreamEdge };
 
-  let nodes = $state.raw([
-    {
-      id: 'cdu-1',
-      type: 'unit',
-      position: { x: 80, y: 160 },
-      data: {
-        label: 'CDU',
-        unitType: 'CDU',
-        category: 'process',
-        color: '#4a90d9',
-        submodel: 'lp',
-        active: true,
-      },
-    },
-    {
-      id: 'fcc-1',
-      type: 'unit',
-      position: { x: 360, y: 80 },
-      data: {
-        label: 'FCC',
-        unitType: 'FCC',
-        category: 'process',
-        color: '#e07a3d',
-        submodel: 'lp',
-        active: true,
-      },
-    },
-    {
-      id: 'blender-1',
-      type: 'unit',
-      position: { x: 640, y: 160 },
-      data: {
-        label: 'Blender',
-        unitType: 'BLENDER',
-        category: 'process',
-        color: '#9b59b6',
-        submodel: 'lp',
-        active: true,
-      },
-    },
-  ]);
+  const plant = createFullPlantPfd();
+  let nodes = $state.raw(plant.nodes);
+  let edges = $state.raw(plant.edges);
 
-  let edges = $state.raw([]);
-  let status = $state('Drag units · connect handles · Solve graph → real LP/ADMM');
-  let lastGraph = $state(null);
-  let nodeSeq = $state(10);
+  let selection = $state(null); // { kind, id, data }
+  let status = $state('HYSYS-style PFD · click unit or stream to inspect');
   let solving = $state(false);
   let apiOk = $state(false);
-  let routingInfo = $state(null);
+  let lastGraph = $state(null);
+  let showResults = $state(false);
+  let nodeSeq = $state(50);
 
-  // Solve options (issue #1 / wave3b)
-  let recoveryPath = $state('mono-oracle'); // mono-oracle | pure-admm
+  let recoveryPath = $state('mono-oracle');
   let inventoryMode = $state(false);
   let runAdmm = $state(true);
-  let stubOnly = $state(false);
 
-  function unitTypeOf(nodeId) {
-    const n = nodes.find((x) => x.id === nodeId);
-    return n?.data?.unitType || null;
+  const defaultEdgeOptions = {
+    type: 'streamEdge',
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 18,
+      height: 18,
+      color: '#6a8fb0',
+    },
+  };
+
+  function findNode(id) {
+    return nodes.find((n) => n.id === id);
+  }
+  function findEdge(id) {
+    return edges.find((e) => e.id === id);
+  }
+
+  function onNodeClick({ node }) {
+    selection = { kind: 'node', id: node.id, data: { ...node.data } };
+    status = `Unit ${node.data?.tag || ''} ${node.data?.label || node.id}`;
+  }
+
+  function onEdgeClick({ edge }) {
+    selection = {
+      kind: 'edge',
+      id: edge.id,
+      data: { label: edge.data?.label, stream: { ...(edge.data?.stream || {}) } },
+    };
+    status = `Stream ${edge.data?.label || edge.id}`;
+  }
+
+  function onPaneClick() {
+    selection = null;
+  }
+
+  function onUpdateNode(id, patch) {
+    nodes = nodes.map((n) =>
+      n.id === id ? { ...n, data: { ...n.data, ...patch } } : n,
+    );
+    if (selection?.kind === 'node' && selection.id === id) {
+      selection = { ...selection, data: { ...selection.data, ...patch } };
+    }
+  }
+
+  function onUpdateEdge(id, patch) {
+    edges = edges.map((e) => {
+      if (e.id !== id) return e;
+      const data = { ...e.data, ...patch };
+      if (patch.stream) data.stream = { ...e.data?.stream, ...patch.stream };
+      return { ...e, data, label: data.label };
+    });
+    if (selection?.kind === 'edge' && selection.id === id) {
+      selection = {
+        ...selection,
+        data: {
+          ...selection.data,
+          ...patch,
+          stream: { ...selection.data.stream, ...(patch.stream || {}) },
+        },
+      };
+    }
   }
 
   async function onconnect(connection) {
-    const sourceType = unitTypeOf(connection.source);
-    const targetType = unitTypeOf(connection.target);
-    status = `Validating ${sourceType || connection.source} → ${targetType || connection.target}…`;
+    const src = findNode(connection.source);
+    const tgt = findNode(connection.target);
+    const sourceType = src?.data?.unitType;
+    const targetType = tgt?.data?.unitType;
+    status = `Validating ${sourceType} → ${targetType}…`;
 
+    let allowed = true;
+    let reason = 'local';
+    let score = 0.7;
     try {
       const res = await postConnect({
         source: connection.source,
@@ -90,63 +119,69 @@
         targetHandle: connection.targetHandle,
         sourceType,
         targetType,
-        portAttrs: { sourceType, targetType },
       });
-
-      if (!res.allowed) {
-        status = `Rejected (score=${res.score}): ${res.reason}`;
+      allowed = res.allowed;
+      reason = res.reason;
+      score = res.score;
+      if (!allowed) {
+        status = `Rejected: ${reason}`;
         return;
       }
-
-      edges = addEdge(
-        {
-          ...connection,
-          id: `e-${connection.source}-${connection.target}-${Date.now()}`,
-          label: res.score != null ? String(Number(res.score).toFixed(2)) : undefined,
-          type: 'smoothstep',
-          animated: true,
-          data: { score: res.score, reason: res.reason },
-        },
-        edges,
-      );
-      status = `Connected (score=${res.score}): ${res.reason}`;
     } catch (err) {
-      edges = addEdge(
-        {
-          ...connection,
-          id: `e-${connection.source}-${connection.target}-${Date.now()}`,
-          label: 'offline',
-          type: 'smoothstep',
-          animated: true,
-          data: { offline: true },
-        },
-        edges,
-      );
-      status = `API offline — edge added locally (${err.message})`;
+      reason = `offline (${err.message})`;
     }
+
+    const label = connection.sourceHandle || connection.targetHandle || 'stream';
+    const id = `s-${connection.source}-${connection.target}-${Date.now()}`;
+    edges = [
+      ...edges,
+      {
+        id,
+        type: 'streamEdge',
+        source: connection.source,
+        target: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+        markerEnd: defaultEdgeOptions.markerEnd,
+        data: {
+          label: String(label).replace(/_/g, ' '),
+          stream: emptyStream(String(label)),
+          score,
+          reason,
+        },
+      },
+    ];
+    status = `Connected: ${reason}`;
   }
 
-  function makeNode(unitType, position) {
+  function makePfdNode(unitType, position) {
+    const colors = UNIT_COLORS[unitType] || UNIT_COLORS.CDU;
     const p = paletteByType(unitType);
     const id = `${String(unitType).toLowerCase()}-${nodeSeq++}`;
     return {
       id,
-      type: 'unit',
+      type: 'pfdUnit',
       position,
       data: {
+        tag: `U-${nodeSeq}`,
         label: p?.label || unitType,
         unitType,
-        category: p?.category || 'process',
-        color: p?.color || '#4a90d9',
-        submodel: p?.submodel || 'lp',
         active: true,
+        submodel: 'lp',
+        status: 'idle',
+        headerColor: colors.header,
+        accentColor: colors.accent,
+        description: '',
+        charge_kbd: 0,
+        yields: [],
+        ports: UNIT_PORTS[unitType] || UNIT_PORTS.TANK,
       },
     };
   }
 
   function addFromPalette(unitType) {
-    const offset = nodes.length * 24;
-    nodes = [...nodes, makeNode(unitType, { x: 120 + offset, y: 80 + offset })];
+    const offset = (nodes.length % 6) * 28;
+    nodes = [...nodes, makePfdNode(unitType, { x: 100 + offset, y: 80 + offset })];
     status = `Added ${unitType}`;
   }
 
@@ -154,201 +189,200 @@
     evt.dataTransfer.setData('application/pims-unit', unitType);
     evt.dataTransfer.effectAllowed = 'move';
   }
-
   function ondragover(evt) {
     evt.preventDefault();
     evt.dataTransfer.dropEffect = 'move';
   }
-
   function ondrop(evt) {
     evt.preventDefault();
     const unitType = evt.dataTransfer.getData('application/pims-unit');
     if (!unitType) return;
     const bounds = evt.currentTarget.getBoundingClientRect();
-    const position = {
-      x: evt.clientX - bounds.left - 70,
-      y: evt.clientY - bounds.top - 30,
-    };
-    nodes = [...nodes, makeNode(unitType, position)];
-    status = `Dropped ${unitType}`;
+    nodes = [
+      ...nodes,
+      makePfdNode(unitType, {
+        x: evt.clientX - bounds.left - 80,
+        y: evt.clientY - bounds.top - 40,
+      }),
+    ];
   }
 
-  function loadFullPlantTemplate() {
-    const t = fullPlantTemplate();
+  function loadFullPlant() {
+    const t = createFullPlantPfd();
     nodes = t.nodes;
     edges = t.edges;
-    nodeSeq = 20;
+    selection = null;
     lastGraph = null;
-    status = 'Loaded full-plant template (chem defaults: FCC/coker naph → HDT/gas, not reformer)';
+    status = 'Loaded full-plant PFD template';
   }
 
   function clearCanvas() {
     nodes = [];
     edges = [];
+    selection = null;
     lastGraph = null;
     status = 'Canvas cleared';
   }
 
-  async function submitGraph() {
+  async function solve() {
     solving = true;
-    status = stubOnly ? 'POST /api/graph (stub)…' : `POST /api/graph (${recoveryPath})…`;
+    status = `Solving (${recoveryPath})…`;
     try {
-      const payloadNodes = nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: { ...n.data },
-      }));
-      const payloadEdges = edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
-        data: e.data || {},
-      }));
       const res = await postGraph({
-        nodes: payloadNodes,
-        edges: payloadEdges,
+        nodes: nodes.map((n) => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          data: n.data,
+        })),
+        edges: edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          data: e.data || {},
+        })),
         recovery_path: recoveryPath,
         inventory_mode: inventoryMode,
         run_admm: runAdmm,
-        stub_only: stubOnly,
+        stub_only: false,
       });
       lastGraph = res;
+      showResults = true;
       const obj = res.objective != null ? Number(res.objective).toFixed(2) : '—';
-      const path = res.admm?.dual_recovery_path || res.admm_status || '—';
-      status = `${res.feasible || res.ok ? 'OK' : 'FAIL'} obj=${obj} path=${path} · ${res.message || ''}`;
+      status = `${res.feasible || res.ok ? 'Optimal' : 'Fail'} · obj ${obj} · ${res.admm_status || ''}`;
     } catch (err) {
-      status = `graph failed: ${err.message}`;
+      status = `Solve failed: ${err.message}`;
     } finally {
       solving = false;
     }
   }
 
-  async function loadRouting() {
+  async function pingApi() {
     try {
-      const [health, routing] = await Promise.all([getHealth(), getRouting()]);
-      apiOk = !!health.ok;
-      routingInfo = routing;
-      const nArcs = (routing.arcs || []).length;
-      status = `API ok (${health.wave || health.ok}) · routing ${routing.version || '?'} · ${nArcs} arcs · ${
-        (routing.units || []).length
-      } units`;
-    } catch (err) {
+      const h = await getHealth();
+      apiOk = !!h.ok;
+      const r = await getRouting();
+      status = `API ok · routing ${r.version || '?'} · ${(r.arcs || []).length} arcs`;
+    } catch (e) {
       apiOk = false;
-      status = `routing load failed: ${err.message} (start: uvicorn api.main:app --reload --port 8008)`;
+      status = `API offline: ${e.message}`;
     }
   }
 
   $effect(() => {
-    loadRouting();
+    pingApi();
   });
 </script>
 
-<div class="layout">
-  <aside class="sidebar">
-    <h1>PIMS Flowsheet</h1>
-    <div class="sub">
-      Wave3 · SvelteFlow
+<div class="pfd-app">
+  <!-- TOP TOOLBAR -->
+  <header class="toolbar">
+    <div class="brand">
+      <span class="logo">PFD</span>
+      <div>
+        <div class="brand-title">PIMS-ADMM Flowsheet</div>
+        <div class="brand-sub">HYSYS-style · Wave3 superstructure</div>
+      </div>
       <span class="pill" class:on={apiOk} class:off={!apiOk}>{apiOk ? 'API' : 'API off'}</span>
     </div>
 
-    <div class="controls">
-      <label>
-        recovery
-        <select bind:value={recoveryPath}>
-          <option value="mono-oracle">mono-oracle (L∞=0 duals)</option>
-          <option value="pure-admm">pure-admm (free λ)</option>
-        </select>
-      </label>
-      <label class="chk">
-        <input type="checkbox" bind:checked={inventoryMode} />
-        inventory mode
-      </label>
-      <label class="chk">
-        <input type="checkbox" bind:checked={runAdmm} />
-        run ADMM metrics
-      </label>
-      <label class="chk">
-        <input type="checkbox" bind:checked={stubOnly} />
-        stub only (no LP)
-      </label>
-    </div>
-
-    <div class="btn-row">
-      <button type="button" class="primary" disabled={solving} onclick={submitGraph}>
-        {solving ? 'Solving…' : 'Solve graph'}
+    <div class="actions">
+      <select bind:value={recoveryPath} title="ADMM dual recovery path">
+        <option value="mono-oracle">mono-oracle</option>
+        <option value="pure-admm">pure-admm</option>
+      </select>
+      <label class="chk"><input type="checkbox" bind:checked={inventoryMode} /> inventory</label>
+      <label class="chk"><input type="checkbox" bind:checked={runAdmm} /> ADMM</label>
+      <button type="button" class="primary" disabled={solving} onclick={solve}>
+        {solving ? 'Running…' : 'Run'}
       </button>
-      <button type="button" onclick={loadFullPlantTemplate}>Full plant</button>
+      <button type="button" onclick={pingApi}>Validate</button>
+      <button type="button" onclick={loadFullPlant}>Reset PFD</button>
       <button type="button" onclick={clearCanvas}>Clear</button>
-      <button type="button" onclick={loadRouting}>Ping API</button>
+      <button type="button" class:on={showResults} onclick={() => (showResults = !showResults)}>
+        Results
+      </button>
     </div>
+  </header>
 
-    <div class="palette-section">
-      <h2>Process units</h2>
+  <div class="main">
+    <!-- LEFT DOCK -->
+    <aside class="dock">
+      <h2>Unit palette</h2>
+      <div class="palette-group">Process</div>
       {#each PROCESS_UNITS as u}
         <button
           type="button"
-          class="palette-item"
+          class="pal"
           draggable="true"
           ondragstart={(e) => ondragstart(e, u.type)}
           onclick={() => addFromPalette(u.type)}
         >
-          <span class="dot" style:background={u.color}></span>
+          <span class="swatch" style:background={UNIT_COLORS[u.type]?.accent || u.color}></span>
           {u.label}
         </button>
       {/each}
-    </div>
-
-    <div class="palette-section">
-      <h2>Supply chain</h2>
+      <div class="palette-group">Supply chain</div>
       {#each SUPPLY_UNITS as u}
         <button
           type="button"
-          class="palette-item"
+          class="pal"
           draggable="true"
           ondragstart={(e) => ondragstart(e, u.type)}
           onclick={() => addFromPalette(u.type)}
         >
-          <span class="dot" style:background={u.color}></span>
+          <span class="swatch" style:background={UNIT_COLORS[u.type]?.accent || u.color}></span>
           {u.label}
         </button>
       {/each}
+
+      {#if showResults && lastGraph}
+        <div class="res-wrap">
+          <h2>Solve results</h2>
+          <ResultsPanel result={lastGraph} />
+        </div>
+      {/if}
+    </aside>
+
+    <!-- CANVAS -->
+    <div class="canvas" role="presentation" {ondragover} {ondrop}>
+      <div class="status-bar">{status}</div>
+      <SvelteFlow
+        bind:nodes
+        bind:edges
+        {nodeTypes}
+        {edgeTypes}
+        {defaultEdgeOptions}
+        {onconnect}
+        onnodeclick={onNodeClick}
+        onedgeclick={onEdgeClick}
+        onpaneclick={onPaneClick}
+        fitView
+        colorMode="dark"
+        connectionMode={ConnectionMode.Loose}
+        connectionRadius={24}
+        style="width:100%;height:100%;"
+      >
+        <Background variant={BackgroundVariant.Lines} gap={24} color="#1a2430" />
+        <Controls position="bottom-left" />
+        <MiniMap
+          position="bottom-right"
+          pannable
+          zoomable
+          nodeColor={(n) => n.data?.accentColor || '#4a90d9'}
+          maskColor="rgba(8,12,18,0.75)"
+        />
+      </SvelteFlow>
     </div>
 
-    <div class="palette-section">
-      <h2>Results</h2>
-      <ResultsPanel result={lastGraph} />
-    </div>
-
-    {#if routingInfo?.chemical_defaults}
-      <details class="chem">
-        <summary>Chemical defaults</summary>
-        <pre>{JSON.stringify(routingInfo.chemical_defaults, null, 2)}</pre>
-      </details>
-    {/if}
-  </aside>
-
-  <div class="canvas-wrap" role="presentation" {ondragover} {ondrop}>
-    <div class="toolbar">
-      <div class="status">{status}</div>
-      <div class="counts">{nodes.length} nodes · {edges.length} edges</div>
-    </div>
-
-    <SvelteFlow
-      bind:nodes
-      bind:edges
-      {nodeTypes}
-      {onconnect}
-      fitView
-      colorMode="dark"
-      defaultEdgeOptions={{ type: 'smoothstep', animated: true }}
-      style="width:100%;height:100%;"
-    >
-      <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
-      <Controls />
-      <MiniMap pannable zoomable />
-    </SvelteFlow>
+    <!-- RIGHT INSPECTOR -->
+    <InspectorPanel
+      {selection}
+      {onUpdateNode}
+      {onUpdateEdge}
+      onClose={() => (selection = null)}
+    />
   </div>
 </div>

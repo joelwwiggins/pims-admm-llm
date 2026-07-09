@@ -142,7 +142,6 @@
     padding: 0.2rem 0;
     border-bottom: 1px solid #243040;
   }
-  .metric label,
   .metric .k {
     color: #8a9bb0;
   }

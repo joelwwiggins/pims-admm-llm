@@ -1,45 +1,50 @@
-# PIMS-ADMM Flowsheet UI (Wave3)
+# PIMS-ADMM HYSYS-style PFD
 
-Svelte 5 + SvelteFlow (`@xyflow/svelte`) dock + canvas for snap-together units,
-wired to the FastAPI graph solver (`POST /api/graph` → real LP/ADMM).
+Professional process-flow diagram UI (Svelte 5 + `@xyflow/svelte`) for the
+wave3 arc-flow plant. Designed to feel like Aspen HYSYS: multi-port unit
+blocks, piping streams, right-side property inspector.
 
 ## Run
 
 ```bash
-# Terminal 1 — API (repo root)
+# API (repo root)
 cd ~/projects/pims-admm-llm
 source .venv/bin/activate
-pip install -r requirements-api.txt
 uvicorn api.main:app --reload --port 8008
 
-# Terminal 2 — UI
+# UI
 cd ui
 npm install
-npm run dev   # http://127.0.0.1:5173  (proxies /api + /health → :8008)
+npm run dev    # http://127.0.0.1:5173
 ```
 
-## UI features
+## Layout
 
-| Control | Purpose |
-|---------|---------|
-| **Solve graph** | `POST /api/graph` with nodes/edges + options |
-| **recovery** | `mono-oracle` (default duals) or `pure-admm` (free λ) |
-| **inventory mode** | single-period pass vs inventory balances |
-| **run ADMM metrics** | include ADMM residual/λ block in response |
-| **stub only** | skip LP (clusters only) |
-| **Full plant** | load CDU/FCC/Coker/Reformer/HDT/Blender template |
-| **Results panel** | obj, feeds, products, splits, ADMM ‖r‖/‖s‖/λ L∞ |
+| Zone | Role |
+|------|------|
+| **Top toolbar** | Run / Validate / Reset PFD / recovery path |
+| **Left dock** | Unit palette + optional solve results |
+| **Canvas** | HYSYS-style PFD (nodes + stream edges) |
+| **Right inspector** | Unit or stream properties (click to select) |
 
-## Node data
+## Custom components
 
-Each unit node stores:
+- `lib/nodes/PfdUnitNode.svelte` — multi-handle PFD block, yield preview
+- `lib/edges/StreamEdge.svelte` — thick piping + label + flow kbd
+- `lib/InspectorPanel.svelte` — General / Streams / Yields / Composition
+- `lib/data/plantTemplate.js` — full-plant mock (CDU→FCC/Coker/Reformer/HDT→Blender)
 
-- `unitType`, `label`, `category`, `color`
-- `active` (toggle — inactive nodes skipped by solver)
-- `submodel`: `lp` \| `tensorflow` (stub for future surrogates)
+## Interaction
 
-## Notes
+1. **Click unit** → inspector: tag, active, submodel, yields (editable)
+2. **Click stream** → inspector: flow, T, P, VF, S, RON, composition table
+3. **Drag palette** → drop new units
+4. **Connect handles** → `POST /api/connect` validation
+5. **Run** → `POST /api/graph` real LP/ADMM; Results panel shows obj/feeds/duals
 
-- Connect validation: `POST /api/connect` (local edge if API offline).
-- Chemical defaults: FCC/coker naphtha prefer HDT/gasoline, **not** reformer.
-- Vite proxy: see `vite.config.js`.
+## Chemical defaults (template)
+
+- Gasoil → FCC; Resid → Coker
+- Heavy SR naph → Reformer
+- FCC / coker naph → **HDT** (not reformer)
+- Reformate + HDT naph + LCO + coker GO → Blender
