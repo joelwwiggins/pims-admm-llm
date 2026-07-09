@@ -31,11 +31,11 @@ Imagine a standing planning crew:
 |------|----------------|---------------|
 | **Boss (Master Coordinator)** | Plant / planning manager persona | Linking streams, balance, stop/go, final plan |
 | **CDU Agent** | Crude unit expert | Crude slate, yields, CDU capacity |
-| **Tank Farm Agent** | Storage & timing expert | Intermediate tanks **between** units (gasoil, resid, conversion naphthas), heels, swing space |
-| **FCC Agent** | Cat cracker expert | Gasoil feed, FCC capacity, naphtha / LCO / slurry yields |
-| **Coker Agent** | Delayed coker expert | Resid feed, coker capacity, naphtha / gasoil yields |
-| **Reformer Agent** | Reforming expert | Naphtha feed quality & rate, reformate to gasoline |
-| **Blender Agent** | Product quality & recipes | Specs, blend recipes, product demand |
+| **Tank Farm Agent** | Storage & timing expert | Optional intermediate balances (gasoil, resid, cracked naphthas); heels / inventory mainly when multi-period or capacity binds |
+| **FCC Agent** | Cat cracker expert | Gasoil feed (when swing chooses FCC), capacity, naphtha / LCO / slurry yields |
+| **Coker Agent** | Delayed coker expert | Resid feed (when swing chooses coker), capacity, naphtha / gasoil yields |
+| **Reformer Agent** | Reforming expert | Heavy SR naphtha feed (preferred chemistry), reformate to gasoline |
+| **Blender Agent** | Product quality & recipes | Specs (delta-base/index RON + S), blend recipes, product demand |
 | **Utilities Agent** | Energy / fuel gas expert | Steam, fuel, power limits *(scaffold / future)* |
 
 Each department expert is really **two things working together**:
@@ -47,21 +47,25 @@ The Boss does **not** re-solve the whole plant alone. He sets **price signals** 
 
 ---
 
-## How molecules move (routing story)
+## How molecules move (routing story — Wave3 superstructure)
 
-Think of the plant as a **relay**, not one black box. Crude comes in; each unit does one job; **tanks sit between conversion steps** so inventory and timing stay honest.
+Think of the plant as a **decision network**, not one black box and not one fixed pipe map. Crude comes in; each unit does one job; **decision arcs** choose where intermediates go under economics and **chemical defaults**. Optional tanks are balance / inventory nodes — not hard fences that force a single path.
 
-1. **Crude → CDU.** The crude unit splits the barrel into straight-run naphtha, distillate, gasoil, and resid.
-2. **Light cuts go to blending.** Straight-run naphtha and distillate head toward the **blender** (gasoline / diesel pools).
-3. **Gasoil does not jump the fence.** CDU gasoil goes into a **gasoil tank**, then into the **FCC**. Hard rule: *CDU gasoil → tank → FCC*.
-4. **Resid does not jump the fence.** CDU resid goes into a **resid tank**, then into the **coker**. Hard rule: *CDU resid → tank → coker*.
-5. **Conversion naphthas also stage.** FCC naphtha and coker naphtha each land in their **own tanks**, then feed the **reformer**. Hard rules: *FCC naphtha → tank → reformer* and *coker naphtha → tank → reformer*.
-6. **Everything useful finishes at the blender.** Reformate, FCC LCO and slurry, coker gasoil, and the light straight-run cuts meet in the **blender** for finished products.
+1. **Crude → CDU.** The crude unit splits the barrel into light and heavy straight-run naphtha, distillate, gasoil, and resid.
+2. **Naphtha chemistry (defaults, not hard laws).**
+   - **Light SR** → gasoline pool.
+   - **Heavy SR** → **reformer** (preferred) → reformate → gasoline; optional bypass to pool.
+   - **FCC naphtha** → **gasoline** (soft HDT for sulfur) — **not** reformer by default.
+   - **Coker naphtha** → soft **HDT → gasoline** or **FO** — **not** reformer by default.
+3. **Gasoil swing.** CDU gasoil can go to **FCC**, to the **diesel / distillate pool**, or (optionally) **sell** as intermediate. The solver picks fractions; sell is closed by default.
+4. **Resid swing.** CDU resid can go to the **coker** or to **fuel oil**. Conversion margin usually favors the coker; FO remains available.
+5. **Tanks (optional philosophy).** In a **single-period** plan, tanks collapse to pure balances (no mandatory inventory). **Inventory, heels, and swing capacity** matter when you go multi-period or when tank limits bind.
+6. **Blender quality (delta-base MVP).** Finished gasoline meets **delta-base RON + sulfur** (optional RON index); diesel uses soft-HDT linear S. Not full multi-level PIMS delta-base recursion — see `docs/quality_blender.md`. Reformate, cracked naphthas, and SR cuts meet in the gasoline pool under those specs.
 
 So the story in one breath:  
-**crude → CDU → (gasoil tank → FCC, resid tank → coker) → naphtha tanks → reformer → blender**, with light CDU cuts and secondary products joining the blender along the way.
+**crude → CDU → decision arcs (gasoil: FCC \| diesel \| sell; resid: coker \| FO; naphthas by chemistry) → blender**, with tanks as optional staging when inventory matters.
 
-That is the same map the model enforces in [`data/routing.json`](../data/routing.json) and the one-pager [routing.md](routing.md).
+That map lives in [`data/routing.json`](../data/routing.json) (source of truth) and the one-pager [routing.md](routing.md).
 
 ---
 
@@ -76,11 +80,11 @@ Those numbers are not guesses. They come from the coordination math (ADMM duals 
 ### Step 2 — Each department makes its plan (in parallel)
 
 - **CDU** picks crude rates and produces intermediates under yield and capacity limits.
-- **Tanks** hold gasoil, resid, and conversion naphthas between units (capacity / swing).
-- **FCC** takes tanked gasoil and makes naphtha, LCO, and slurry.
-- **Coker** takes tanked resid and makes naphtha and gasoil.
-- **Reformer** takes tanked FCC and coker naphthas and makes reformate.
-- **Blender** consumes intermediates into finished products under specs and demand caps.
+- **Tanks** (when used) balance gasoil, resid, and cracked naphthas — pass-through in single-period; inventory when multi-period / capacity binds.
+- **FCC** takes gasoil that the **swing** sends its way and makes naphtha, LCO, and slurry (FCC naphtha prefers the gasoline pool).
+- **Coker** takes resid that the swing sends its way and makes naphtha and gasoil (coker naphtha prefers HDT/gasoline or FO).
+- **Reformer** upgrades **heavy SR naphtha** (chemical default) to reformate — not the default home for FCC/coker naphtha.
+- **Blender** consumes intermediates into finished products under **RON + sulfur** MVP specs and demand caps.
 - (Utilities, when live, do the same for energy.)
 
 Each agent returns:
@@ -146,11 +150,11 @@ One boss. Specialist agents per unit. Real LP math + LLM judgment.
 
 - **Boss** — prices the connecting streams, keeps the plant balanced  
 - **CDU** — crudes & yields  
-- **Tanks** — inventory between units (gasoil, resid, naphthas)  
-- **FCC** — gasoil cracker  
-- **Coker** — resid conversion  
-- **Reformer** — naphtha → reformate  
-- **Blender** — specs & products  
+- **Tanks** — optional balances / inventory (single-period pass-through vs multi-period)  
+- **FCC** — gasoil cracker (when swing chooses FCC)  
+- **Coker** — resid conversion (when swing chooses coker)  
+- **Reformer** — heavy SR naphtha → reformate  
+- **Blender** — specs & products (MVP: RON + S)  
 - **Utilities** — energy balance  
 
 Each expert = **solver (rules)** + **LLM (judgment)**
@@ -186,14 +190,14 @@ Usually a few rounds. Humans can interrupt anytime.
 
 ## 60-second elevator version
 
-> We broke the planning model into the same pieces your plant already has — crude unit, intermediate tanks, FCC, coker, reformer, blender, utilities. Molecules follow real routing: gasoil and resid stage in tanks before conversion; conversion naphthas stage again before the reformer. Each piece has a specialist agent with a real optimizer and an AI co-pilot. A master coordinator sets prices on the streams that connect them, same idea as shadow prices in PIMS. They talk for a few quick rounds until the plant balances. You get a solid plan, make-buy-sell values, and explanations — faster, and easier to extend when yields aren’t perfectly linear.
+> We broke the planning model into the same pieces your plant already has — crude unit, optional intermediate tanks, FCC, coker, reformer, blender, utilities. Molecules follow an **arc-flow superstructure**: gasoil and resid **swing** by economics; naphtha paths follow **chemical defaults** (FCC/coker naphtha → gasoline or FO, not reformer; heavy SR → reformer). The blender enforces **delta-base RON + sulfur** (planning-grade; optional index). Each piece has a specialist agent with a real optimizer and an AI co-pilot (advisory only). A master coordinator sets prices on the streams that connect them, same idea as shadow prices in PIMS, and demos report ρ and residuals clearly. They talk for a few quick rounds until the plant balances. You get a solid plan, make-buy-sell values, and explanations — faster, and easier to extend when yields aren’t perfectly linear.
 
 ---
 
 ## Related docs
 
 - [Architecture (planners / managers)](architecture.md) — components, data flow, who owns what  
-- [Plant routing one-pager](routing.md) — hard routes from `data/routing.json`  
+- [Plant routing one-pager](routing.md) — Wave3 arc-flow superstructure from `data/routing.json`  
 - [ADMM vs Dantzig–Wolfe one-pager](admm-vs-dantzig-wolfe.md) — why we lead with ADMM, when DW still matters  
 - [README](../README.md) — install, demo, repo layout  
 

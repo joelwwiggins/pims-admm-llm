@@ -62,7 +62,7 @@
     "status": "Optimal",
     "feasible": true,
     "objective": 1405.966410000001,
-    "wall_time_s": 0.005729145836085081,
+    "wall_time_s": 0.006364685948938131,
     "iteration_count": 1,
     "crude_rates": {
       "Mars_medium": 40.0,
@@ -112,7 +112,7 @@
     "status": "stable_feasible",
     "feasible": true,
     "objective": 1405.966410000001,
-    "wall_time_s": 0.2976282727904618,
+    "wall_time_s": 0.3333103689365089,
     "iteration_count": 21,
     "primal_residual": 0.0,
     "crude_rates": {
@@ -148,8 +148,8 @@
   "comparison": {
     "objective_gap_abs": 0.0,
     "objective_gap_rel": 0.0,
-    "time_mono_s": 0.005729145836085081,
-    "time_admm_s": 0.2976282727904618,
+    "time_mono_s": 0.006364685948938131,
+    "time_admm_s": 0.3333103689365089,
     "mono_iterations": 1,
     "admm_iterations": 21
   }

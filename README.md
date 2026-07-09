@@ -36,6 +36,7 @@ python -m demos.run_full_plant_demo
                  ┌─────────────────────────┐
                  │   Master / ADMM loop    │
                  │  duals λ = shadow prices│
+                 │  ρ, residuals, max_iter │
                  └───────────┬─────────────┘
            λ, z  ↓           ↑  x_i proposals
      ┌───────────┴───────────┴───────────┐
@@ -45,12 +46,12 @@ python -m demos.run_full_plant_demo
                        │ linking streams
 ```
 
-**Material path:** crude → CDU → (gasoil→tank→FCC, resid→tank→coker) → naphthas→tanks→reformer → blender  
-(Hard rules in [`data/routing.json`](data/routing.json); one-pager [`docs/routing.md`](docs/routing.md).)
+**Material path (Wave3):** crude → CDU → **decision arcs** (gasoil: FCC \| diesel \| sell; resid: coker \| FO; naphtha by chemical defaults) → blender, with optional tank balances.  
+Source of truth: [`data/routing.json`](data/routing.json); one-pager: [`docs/routing.md`](docs/routing.md).
 
 - **Hard constraints**: always enforced by PuLP/CBC (or Gurobi if licensed) inside each block.
-- **ADMM**: updates duals λ and consensus z; λ are the economic shadow prices.
-- **LLM layer**: optional suggestions (nonlinearity, uncertainty, business notes) that never bypass the solver.
+- **ADMM**: updates duals λ and consensus z; λ are the economic shadow prices; demos report ρ and residuals.
+- **LLM layer**: optional suggestions (nonlinearity, uncertainty, business notes) that never bypass the solver (**advisory only**).
 
 ## Comparison to PIMS
 
@@ -76,10 +77,10 @@ demos/
 docs/
   story.md                   # non-math stakeholder narrative + carousel
   architecture.md            # planners/managers architecture
-  routing.md                 # plant routing one-pager
+  routing.md                 # Wave3 arc-flow superstructure one-pager
   admm-vs-dantzig-wolfe.md   # one-pager: ADMM vs DW for coordination
 data/
-  routing.json
+  routing.json               # superstructure source of truth
   assays/crudes.json
   synthetic_crudes.json
 ```
@@ -88,17 +89,19 @@ data/
 
 - [docs/story.md](docs/story.md) — Smart Refinery Planning Team narrative + 6-slide carousel (non-math)
 - [docs/architecture.md](docs/architecture.md) — planners/managers architecture
-- [docs/routing.md](docs/routing.md) — full plant routing (FCC, coker, reformer, tanks)
+- [docs/routing.md](docs/routing.md) — Wave3 routing superstructure (decision arcs, chemical defaults, tanks, RON+S blender)
 - [docs/admm-vs-dantzig-wolfe.md](docs/admm-vs-dantzig-wolfe.md) — ADMM vs Dantzig–Wolfe one-pager
 
 ## Status
 
 MVP (wave 1): runnable toy refinery (crude → CDU → intermediates → blender) with ADMM duals comparable to a monolithic PuLP solve, timing report, and LLM agent stubs.
 
-**Wave 2:** full plant assays (`data/assays/`), routing with tanks between conversion units, dual recovery demo path — `python -m demos.run_full_plant_demo`.
+**Wave 2:** full plant assays (`data/assays/`), conversion units + staging, dual recovery demo path — `python -m demos.run_full_plant_demo`.
 
-Kanban board: `pims-admm-llm-20260708`  
-Backup: `/home/joel/backups/pims-admm-llm-20260708-191130`
+**Wave 3:** arc-flow **superstructure** routing (no hard fixed paths) — decision arcs, chemical defaults (FCC/coker naphtha → gasoline/HDT/FO not reformer; heavy SR → reformer; gasoil/resid swings), optional single-period tanks vs multi-period inventory, quality blender (**delta-base / optional index RON + S**; see `docs/quality_blender.md`), ADMM demos report **ρ / primal residual / dual residual / max_iter** with mono-oracle dual recovery labeled, LLM remains **advisory only**. Source of truth: `data/routing.json`.
+
+Kanban board: `pims-admm-llm-wave3-20260709`  
+Backup: `/home/joel/backups/pims-admm-llm-wave3-20260709-102737`
 
 ## License
 
