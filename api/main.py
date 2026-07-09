@@ -1,25 +1,27 @@
 """
-Wave3 UI API scaffold — graph → cluster stub + ADMM status stub.
+Minimal FastAPI backend for wave3 snap-together flowsheet UI.
 
 Run from repo root:
-  uvicorn api.main:app --reload --port 8000
-
-Or:
-  cd api && uvicorn main:app --reload --port 8000
+  uvicorn api.main:app --reload --port 8008
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+ROUTING_PATH = REPO_ROOT / "data" / "routing.json"
+
 app = FastAPI(
-    title="pims-admm-llm UI API",
-    description="Wave3 scaffold: accept SvelteFlow graph, return cluster + ADMM stubs",
+    title="pims-admm-llm flowsheet API",
     version="0.1.0-wave3",
+    description="Stub endpoints for SvelteFlow snap-together routing UI.",
 )
 
 app.add_middleware(
@@ -31,23 +33,20 @@ app.add_middleware(
 )
 
 
-class PortAttrs(BaseModel):
-    """Port / handle attributes used for connect validation."""
-
-    stream: Optional[str] = None
-    direction: Optional[str] = None  # "in" | "out"
-    quality: Optional[dict[str, Any]] = None
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
 
 class GraphNode(BaseModel):
     id: str
-    type: Optional[str] = "unit"
-    position: dict[str, float] = Field(default_factory=dict)
+    type: Optional[str] = None
+    position: Optional[dict[str, float]] = None
     data: dict[str, Any] = Field(default_factory=dict)
 
 
 class GraphEdge(BaseModel):
-    id: str
+    id: Optional[str] = None
     source: str
     target: str
     sourceHandle: Optional[str] = None
@@ -58,197 +57,204 @@ class GraphEdge(BaseModel):
 class GraphPayload(BaseModel):
     nodes: list[GraphNode] = Field(default_factory=list)
     edges: list[GraphEdge] = Field(default_factory=list)
-    meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class ClusterStub(BaseModel):
-    id: str
-    unit_ids: list[str]
-    submodel_types: list[str]
+class ConnectPayload(BaseModel):
+    """Edge attempt + optional port attributes for validation."""
+
+    source: str
+    target: str
+    sourceHandle: Optional[str] = None
+    targetHandle: Optional[str] = None
+    sourceType: Optional[str] = None
+    targetType: Optional[str] = None
+    stream: Optional[str] = None
+    portAttrs: dict[str, Any] = Field(default_factory=dict)
 
 
-class AdmmStatusStub(BaseModel):
-    status: str
-    rho: float
-    primal_residual: float
-    dual_residual: float
-    max_iter: int
-    iteration: int
-    message: str
+# ---------------------------------------------------------------------------
+# Palette + soft connect rules
+# ---------------------------------------------------------------------------
+
+UNIT_PALETTE = [
+    {"type": "CDU", "label": "CDU", "category": "process", "submodel": "lp"},
+    {"type": "FCC", "label": "FCC", "category": "process", "submodel": "lp"},
+    {"type": "COKER", "label": "Coker", "category": "process", "submodel": "lp"},
+    {"type": "REFORMER", "label": "Reformer", "category": "process", "submodel": "lp"},
+    {"type": "HDT_NAPH", "label": "HDT Naphtha", "category": "process", "submodel": "lp"},
+    {"type": "BLENDER", "label": "Blender", "category": "process", "submodel": "lp"},
+    {"type": "TANK", "label": "Tank", "category": "process", "submodel": "lp"},
+    {"type": "SELL", "label": "Sell", "category": "process", "submodel": "lp"},
+    {"type": "warehouse", "label": "Warehouse", "category": "supply_chain", "submodel": "lp"},
+    {"type": "transport", "label": "Transport", "category": "supply_chain", "submodel": "lp"},
+]
+
+COMPAT: dict[str, set[str]] = {
+    "CDU": {"TANK", "FCC", "COKER", "REFORMER", "HDT_NAPH", "BLENDER", "SELL", "warehouse", "transport"},
+    "FCC": {"TANK", "BLENDER", "SELL", "HDT_NAPH", "REFORMER", "warehouse"},
+    "COKER": {"TANK", "BLENDER", "SELL", "HDT_NAPH", "REFORMER", "warehouse"},
+    "REFORMER": {"BLENDER", "SELL", "TANK"},
+    "HDT_NAPH": {"BLENDER", "SELL", "TANK", "REFORMER"},
+    "BLENDER": {"SELL", "warehouse", "transport"},
+    "TANK": {"FCC", "COKER", "REFORMER", "HDT_NAPH", "BLENDER", "SELL", "warehouse", "transport"},
+    "SELL": {"warehouse", "transport"},
+    "warehouse": {"transport", "SELL", "BLENDER", "TANK"},
+    "transport": {"warehouse", "SELL", "TANK", "BLENDER"},
+}
 
 
-class GraphResponse(BaseModel):
-    ok: bool
-    node_count: int
-    edge_count: int
-    active_units: list[str]
-    clusters: list[ClusterStub]
-    admm: AdmmStatusStub
-    notes: list[str] = Field(default_factory=list)
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "pims-admm-llm-ui-api"}
-
-
-@app.get("/api/units")
-def list_unit_palette() -> dict[str, Any]:
-    """Palette of unit pieces for the UI dock (matches routing.json unit names)."""
-    return {
-        "units": [
-            {
-                "submodel": "CDU",
-                "label": "CDU",
-                "ports": {
-                    "in": [{"id": "crude", "stream": "crude"}],
-                    "out": [
-                        {"id": "naphtha_light", "stream": "cdu_naphtha_light"},
-                        {"id": "naphtha_heavy", "stream": "cdu_naphtha_heavy"},
-                        {"id": "distillate", "stream": "cdu_distillate"},
-                        {"id": "gasoil", "stream": "cdu_gasoil"},
-                        {"id": "resid", "stream": "cdu_resid"},
-                    ],
-                },
-            },
-            {
-                "submodel": "TANK",
-                "label": "Tank",
-                "ports": {
-                    "in": [{"id": "in", "stream": "any"}],
-                    "out": [{"id": "out", "stream": "any"}],
-                },
-            },
-            {
-                "submodel": "FCC",
-                "label": "FCC",
-                "ports": {
-                    "in": [{"id": "feed", "stream": "gasoil"}],
-                    "out": [
-                        {"id": "naphtha", "stream": "fcc_naphtha"},
-                        {"id": "lco", "stream": "fcc_lco"},
-                        {"id": "slurry", "stream": "fcc_slurry"},
-                    ],
-                },
-            },
-            {
-                "submodel": "COKER",
-                "label": "Coker",
-                "ports": {
-                    "in": [{"id": "feed", "stream": "resid"}],
-                    "out": [
-                        {"id": "naphtha", "stream": "coker_naphtha"},
-                        {"id": "gasoil", "stream": "coker_gasoil"},
-                    ],
-                },
-            },
-            {
-                "submodel": "REFORMER",
-                "label": "Reformer",
-                "ports": {
-                    "in": [{"id": "feed", "stream": "naphtha_heavy"}],
-                    "out": [{"id": "reformate", "stream": "reformate"}],
-                },
-            },
-            {
-                "submodel": "HYDROTREAT_NAPH",
-                "label": "Naphtha HDT",
-                "ports": {
-                    "in": [{"id": "feed", "stream": "naphtha"}],
-                    "out": [{"id": "product", "stream": "naphtha_hdt"}],
-                },
-            },
-            {
-                "submodel": "BLENDER",
-                "label": "Blender",
-                "ports": {
-                    "in": [
-                        {"id": "comp_a", "stream": "any"},
-                        {"id": "comp_b", "stream": "any"},
-                        {"id": "comp_c", "stream": "any"},
-                    ],
-                    "out": [
-                        {"id": "gasoline", "stream": "gasoline"},
-                        {"id": "diesel", "stream": "diesel"},
-                    ],
-                },
-            },
-            {
-                "submodel": "SELL",
-                "label": "Sell / Product",
-                "ports": {
-                    "in": [{"id": "product", "stream": "any"}],
-                    "out": [],
-                },
-            },
-        ]
+def _normalize_unit_type(raw: Optional[str]) -> str:
+    if not raw:
+        return ""
+    t = str(raw).strip()
+    aliases = {
+        "HYDROTREAT_NAPH": "HDT_NAPH",
+        "HDT": "HDT_NAPH",
+        "Tank": "TANK",
+        "tank": "TANK",
     }
+    if t in aliases:
+        return aliases[t]
+    if t.upper().startswith("TANK"):
+        return "TANK"
+    return t
 
 
-def _cluster_stub(nodes: list[GraphNode]) -> list[ClusterStub]:
-    """Group active units into ADMM-style clusters (stub: one cluster per submodel type)."""
-    by_type: dict[str, list[str]] = {}
+def _load_routing() -> dict[str, Any]:
+    if not ROUTING_PATH.is_file():
+        return {"units": [], "arcs": [], "error": f"missing {ROUTING_PATH}"}
+    with ROUTING_PATH.open() as f:
+        return json.load(f)
+
+
+def _stub_clusters(nodes: list[GraphNode]) -> list[dict[str, Any]]:
+    """Group nodes into ADMM-style cluster stubs (process vs supply-chain)."""
+    process: list[str] = []
+    supply: list[str] = []
+    other: list[str] = []
     for n in nodes:
-        active = bool(n.data.get("active", True))
-        if not active:
+        if not bool(n.data.get("active", True)):
             continue
-        sub = str(n.data.get("submodel") or n.data.get("label") or "UNKNOWN")
-        by_type.setdefault(sub, []).append(n.id)
-    clusters: list[ClusterStub] = []
-    for i, (sub, ids) in enumerate(sorted(by_type.items())):
-        clusters.append(
-            ClusterStub(
-                id=f"cluster_{i}_{sub.lower()}",
-                unit_ids=ids,
-                submodel_types=[sub],
-            )
+        ut = _normalize_unit_type(
+            n.data.get("unitType") or n.data.get("label") or n.type
         )
+        if ut in ("warehouse", "transport"):
+            supply.append(n.id)
+        elif ut:
+            process.append(n.id)
+        else:
+            other.append(n.id)
+    clusters: list[dict[str, Any]] = []
+    if process:
+        clusters.append({"id": "cluster_process", "node_ids": process})
+    if supply:
+        clusters.append({"id": "cluster_supply_chain", "node_ids": supply})
+    if other:
+        clusters.append({"id": "cluster_other", "node_ids": other})
+    if not clusters and nodes:
+        clusters.append({"id": "cluster_all", "node_ids": [n.id for n in nodes]})
     return clusters
 
 
-@app.post("/api/graph", response_model=GraphResponse)
-def submit_graph(payload: GraphPayload) -> GraphResponse:
-    """
-    Accept a SvelteFlow graph JSON and return:
-      - cluster decomposition stub (by submodel type, active units only)
-      - ADMM status stub (rho, primal/dual residual, max_iter)
+def _connect_score(
+    source_type: str,
+    target_type: str,
+    stream: Optional[str],
+) -> tuple[bool, float, str]:
+    if not source_type or not target_type:
+        return True, 0.5, "types unknown — allowing connection (stub)"
+    if source_type == target_type and source_type not in ("TANK", "warehouse", "transport"):
+        return True, 0.35, f"same type {source_type} — allowed with low score (stub)"
 
-    Real ADMM rebuild + solve will replace the stubs later.
-    """
-    active = [
-        n.id
-        for n in payload.nodes
-        if bool(n.data.get("active", True))
-    ]
-    clusters = _cluster_stub(payload.nodes)
-    notes = [
-        "Wave3 scaffold: clusters grouped by submodel type (active only).",
-        "ADMM fields are placeholders — wire to pims_admm_llm.admm in a later wave.",
-        f"Received {len(payload.nodes)} nodes, {len(payload.edges)} edges.",
-    ]
-    if not payload.nodes:
-        notes.append("Empty graph — drop units from the palette onto the canvas.")
+    allowed_targets = COMPAT.get(source_type)
+    if allowed_targets is None:
+        return True, 0.4, f"no rule for source {source_type} — allow (stub)"
+    if target_type not in allowed_targets:
+        return False, 0.0, f"{source_type} → {target_type} not in stub compatibility table"
 
-    return GraphResponse(
-        ok=True,
-        node_count=len(payload.nodes),
-        edge_count=len(payload.edges),
-        active_units=active,
-        clusters=clusters,
-        admm=AdmmStatusStub(
-            status="stub_idle",
-            rho=1.0,
-            primal_residual=0.0,
-            dual_residual=0.0,
-            max_iter=50,
-            iteration=0,
-            message="ADMM not run (scaffold). POST accepted; rebuild path TBD.",
+    score = 0.7
+    reason = f"{source_type} → {target_type} allowed"
+    if stream:
+        score = min(1.0, score + 0.15)
+        reason += f" (stream={stream})"
+    return True, score, reason
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@app.get("/health")
+def health() -> dict[str, Any]:
+    return {"ok": True, "service": "pims-admm-llm-flowsheet", "wave": "wave3"}
+
+
+@app.get("/api/routing")
+def get_routing() -> dict[str, Any]:
+    """Load data/routing.json arcs for palette defaults."""
+    data = _load_routing()
+    return {
+        "ok": True,
+        "version": data.get("version"),
+        "units": data.get("units", []),
+        "arcs": data.get("arcs", []),
+        "palette": UNIT_PALETTE,
+        "chemical_defaults": data.get("chemical_defaults", {}),
+        "path": str(ROUTING_PATH.relative_to(REPO_ROOT)),
+    }
+
+
+@app.post("/api/graph")
+def post_graph(payload: GraphPayload) -> dict[str, Any]:
+    """Accept {nodes, edges}; return clusters + admm_status stub."""
+    clusters = _stub_clusters(payload.nodes)
+    return {
+        "ok": True,
+        "clusters": clusters,
+        "admm_status": "stub",
+        "message": (
+            f"Accepted {len(payload.nodes)} nodes, {len(payload.edges)} edges; "
+            f"{len(clusters)} cluster(s) stubbed. ADMM not run."
         ),
-        notes=notes,
-    )
+        "node_count": len(payload.nodes),
+        "edge_count": len(payload.edges),
+    }
 
 
-if __name__ == "__main__":
-    import uvicorn
+@app.post("/api/connect")
+def post_connect(payload: ConnectPayload) -> dict[str, Any]:
+    """Validate an edge attempt; return {allowed, score, reason}."""
+    src = _normalize_unit_type(payload.sourceType or payload.portAttrs.get("sourceType"))
+    tgt = _normalize_unit_type(payload.targetType or payload.portAttrs.get("targetType"))
+    stream = payload.stream or payload.portAttrs.get("stream")
+    if payload.source == payload.target:
+        return {
+            "allowed": False,
+            "score": 0.0,
+            "reason": "self-loop rejected",
+            "source": payload.source,
+            "target": payload.target,
+        }
+    allowed, score, reason = _connect_score(src, tgt, stream)
+    return {
+        "allowed": allowed,
+        "score": score,
+        "reason": reason,
+        "source": payload.source,
+        "target": payload.target,
+        "sourceType": src or None,
+        "targetType": tgt or None,
+        "stream": stream,
+    }
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "docs": "/docs",
+        "health": "/health",
+        "routing": "/api/routing",
+        "graph": "POST /api/graph",
+        "connect": "POST /api/connect",
+    }

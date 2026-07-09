@@ -13,6 +13,9 @@ build/
 .env
 .idea/
 .vscode/
+node_modules/
+ui/dist/
+ui/node_modules/
 catboost_info/
 *.lp
 *.mps

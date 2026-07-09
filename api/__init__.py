@@ -1,1 +1,1 @@
-"""Wave3 FastAPI UI backend package."""
+"""Wave3 flowsheet API stubs (snap-together UI backend)."""

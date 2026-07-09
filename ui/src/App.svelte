@@ -1,236 +1,275 @@
 <script>
-  import { onMount } from 'svelte';
   import {
     SvelteFlow,
     Background,
     Controls,
     MiniMap,
     addEdge,
-    useSvelteFlow,
+    BackgroundVariant,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import UnitNode from './lib/UnitNode.svelte';
-  import { UNIT_PALETTE } from './lib/palette.js';
-  import { postGraph, postConnect, getRouting, getHealth } from './lib/api.js';
 
-  let nodes = $state([]);
-  let edges = $state([]);
-  let status = $state('boot');
-  let lastRebuild = $state(null);
-  let idSeq = 1;
+  import UnitNode from './lib/UnitNode.svelte';
+  import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType } from './lib/palette.js';
+  import { postConnect, postGraph, getRouting, getHealth } from './lib/api.js';
 
   const nodeTypes = { unit: UnitNode };
 
-  onMount(async () => {
-    try {
-      const h = await getHealth();
-      status = h?.status || 'ok';
-    } catch (e) {
-      status = 'api-offline';
-    }
-  });
-
-  function onDragStart(event, unit) {
-    event.dataTransfer.setData('application/pims-unit', JSON.stringify(unit));
-    event.dataTransfer.effectAllowed = 'move';
-  }
-
-  function onDragOver(event) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }
-
-  function onDrop(event) {
-    event.preventDefault();
-    const raw = event.dataTransfer.getData('application/pims-unit');
-    if (!raw) return;
-    const unit = JSON.parse(raw);
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const position = {
-      x: event.clientX - bounds.left - 80,
-      y: event.clientY - bounds.top - 24,
-    };
-    const id = `${unit.type}_${idSeq++}`;
-    nodes = [
-      ...nodes,
-      {
-        id,
-        type: 'unit',
-        position,
-        data: {
-          label: unit.label,
-          unitType: unit.type,
-          submodel: unit.submodel || 'lp',
-          active: true,
-          category: unit.category || 'process',
-        },
+  let nodes = $state.raw([
+    {
+      id: 'cdu-1',
+      type: 'unit',
+      position: { x: 80, y: 160 },
+      data: {
+        label: 'CDU',
+        unitType: 'CDU',
+        category: 'process',
+        color: '#4a90d9',
+        submodel: 'lp',
+        active: true,
       },
-    ];
-    scheduleRebuild();
+    },
+    {
+      id: 'fcc-1',
+      type: 'unit',
+      position: { x: 360, y: 80 },
+      data: {
+        label: 'FCC',
+        unitType: 'FCC',
+        category: 'process',
+        color: '#e07a3d',
+        submodel: 'lp',
+        active: true,
+      },
+    },
+    {
+      id: 'blender-1',
+      type: 'unit',
+      position: { x: 640, y: 160 },
+      data: {
+        label: 'Blender',
+        unitType: 'BLENDER',
+        category: 'process',
+        color: '#9b59b6',
+        submodel: 'lp',
+        active: true,
+      },
+    },
+  ]);
+
+  let edges = $state.raw([]);
+  let status = $state('Drag units from palette · connect handles to validate via API');
+  let lastGraph = $state(null);
+  let nodeSeq = $state(1);
+
+  function unitTypeOf(nodeId) {
+    const n = nodes.find((x) => x.id === nodeId);
+    return n?.data?.unitType || null;
   }
 
-  async function onConnect(connection) {
-    const src = nodes.find((n) => n.id === connection.source);
-    const tgt = nodes.find((n) => n.id === connection.target);
+  /**
+   * onConnect stub: POST /api/connect for validation, then add edge if allowed.
+   * @param {import('@xyflow/svelte').Connection} connection
+   */
+  async function onconnect(connection) {
+    const sourceType = unitTypeOf(connection.source);
+    const targetType = unitTypeOf(connection.target);
+    status = `Validating ${sourceType || connection.source} → ${targetType || connection.target}…`;
+
     try {
       const res = await postConnect({
         source: connection.source,
         target: connection.target,
         sourceHandle: connection.sourceHandle,
         targetHandle: connection.targetHandle,
-        sourceType: src?.data?.unitType,
-        targetType: tgt?.data?.unitType,
+        sourceType,
+        targetType,
+        portAttrs: { sourceType, targetType },
       });
+
       if (!res.allowed) {
-        status = `reject: ${res.reason || 'incompatible'}`;
+        status = `Rejected (score=${res.score}): ${res.reason}`;
         return;
       }
-      edges = addEdge({ ...connection, id: `e_${connection.source}_${connection.target}_${edges.length}` }, edges);
-      status = `connect ok score=${res.score ?? 1}`;
-      scheduleRebuild();
-    } catch (e) {
-      // offline: still allow local edge
-      edges = addEdge(connection, edges);
-      status = 'connect local (api offline)';
-      scheduleRebuild();
+
+      edges = addEdge(
+        {
+          ...connection,
+          id: `e-${connection.source}-${connection.target}-${Date.now()}`,
+          label: res.score != null ? String(Number(res.score).toFixed(2)) : undefined,
+          data: { score: res.score, reason: res.reason },
+        },
+        edges,
+      );
+      status = `Connected (score=${res.score}): ${res.reason}`;
+    } catch (err) {
+      edges = addEdge(
+        {
+          ...connection,
+          id: `e-${connection.source}-${connection.target}-${Date.now()}`,
+          label: 'offline',
+          data: { offline: true },
+        },
+        edges,
+      );
+      status = `API offline — edge added locally (${err.message})`;
     }
   }
 
-  let rebuildTimer;
-  function scheduleRebuild() {
-    clearTimeout(rebuildTimer);
-    rebuildTimer = setTimeout(runRebuild, 250);
+  function makeNode(unitType, position) {
+    const p = paletteByType(unitType);
+    const id = `${String(unitType).toLowerCase()}-${nodeSeq++}`;
+    return {
+      id,
+      type: 'unit',
+      position,
+      data: {
+        label: p?.label || unitType,
+        unitType,
+        category: p?.category || 'process',
+        color: p?.color || '#4a90d9',
+        submodel: p?.submodel || 'lp',
+        active: true,
+      },
+    };
   }
 
-  async function runRebuild() {
+  function addFromPalette(unitType) {
+    const offset = nodes.length * 24;
+    nodes = [...nodes, makeNode(unitType, { x: 120 + offset, y: 80 + offset })];
+    status = `Added ${unitType}`;
+  }
+
+  function ondragstart(evt, unitType) {
+    evt.dataTransfer.setData('application/pims-unit', unitType);
+    evt.dataTransfer.effectAllowed = 'move';
+  }
+
+  function ondragover(evt) {
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'move';
+  }
+
+  function ondrop(evt) {
+    evt.preventDefault();
+    const unitType = evt.dataTransfer.getData('application/pims-unit');
+    if (!unitType) return;
+    const bounds = evt.currentTarget.getBoundingClientRect();
+    const position = {
+      x: evt.clientX - bounds.left - 70,
+      y: evt.clientY - bounds.top - 30,
+    };
+    nodes = [...nodes, makeNode(unitType, position)];
+    status = `Dropped ${unitType}`;
+  }
+
+  async function submitGraph() {
+    status = 'POST /api/graph…';
     try {
-      const res = await postGraph({ nodes, edges });
-      lastRebuild = res;
-      status = res?.admm_status || 'rebuilt';
-    } catch (e) {
-      lastRebuild = { ok: false, error: String(e) };
-      status = 'rebuild failed / offline';
+      const payloadNodes = nodes.map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: n.data,
+      }));
+      const payloadEdges = edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        data: e.data || {},
+      }));
+      const res = await postGraph(payloadNodes, payloadEdges);
+      lastGraph = res;
+      const clusterSummary = (res.clusters || [])
+        .map((c) => `${c.id}[${(c.node_ids || []).length}]`)
+        .join(', ');
+      status = `${res.message} | clusters: ${clusterSummary || 'none'} | admm=${res.admm_status}`;
+    } catch (err) {
+      status = `graph failed: ${err.message}`;
     }
   }
 
-  function onNodesChange(changes) {
-    // apply simple position/remove
-    for (const ch of changes) {
-      if (ch.type === 'remove') {
-        nodes = nodes.filter((n) => n.id !== ch.id);
-        edges = edges.filter((e) => e.source !== ch.id && e.target !== ch.id);
-      } else if (ch.type === 'position' && ch.position) {
-        nodes = nodes.map((n) => (n.id === ch.id ? { ...n, position: ch.position } : n));
-      }
+  async function loadRouting() {
+    try {
+      const [health, routing] = await Promise.all([getHealth(), getRouting()]);
+      const nArcs = (routing.arcs || []).length;
+      status = `API ok (${health.wave || health.ok}) · routing ${routing.version || '?'} · ${nArcs} arcs · ${
+        (routing.units || []).length
+      } units`;
+    } catch (err) {
+      status = `routing load failed: ${err.message} (start uvicorn on :8008)`;
     }
   }
 
-  function onEdgesChange(changes) {
-    for (const ch of changes) {
-      if (ch.type === 'remove') edges = edges.filter((e) => e.id !== ch.id);
-    }
-  }
+  $effect(() => {
+    loadRouting();
+  });
 </script>
 
 <div class="layout">
-  <aside class="dock">
-    <h1>PIMS dock</h1>
-    <p class="muted">Drag units onto the canvas. Snap + ADMM rebuild via FastAPI.</p>
-    <div class="palette">
-      {#each UNIT_PALETTE as unit}
-        <div
-          class="chip"
+  <aside class="sidebar">
+    <h1>Wave3 Flowsheet</h1>
+    <div class="sub">Snap-together · SvelteFlow + ADMM stubs</div>
+
+    <div class="palette-section">
+      <h2>Process units</h2>
+      {#each PROCESS_UNITS as u}
+        <button
+          type="button"
+          class="palette-item"
           draggable="true"
-          ondragstart={(e) => onDragStart(e, unit)}
-          title={unit.type}
+          ondragstart={(e) => ondragstart(e, u.type)}
+          onclick={() => addFromPalette(u.type)}
         >
-          <span class="tag">{unit.category === 'supply_chain' ? 'SC' : 'P'}</span>
-          {unit.label}
-        </div>
+          <span class="dot" style:background={u.color}></span>
+          {u.label}
+        </button>
       {/each}
     </div>
-    <div class="status">
-      <div><strong>status:</strong> {status}</div>
-      {#if lastRebuild}
-        <pre>{JSON.stringify(lastRebuild, null, 2)}</pre>
-      {/if}
-    </div>
-  </aside>
-  <main class="canvas" ondragover={onDragOver} ondrop={onDrop}>
-    <SvelteFlow
-      {nodes}
-      {edges}
-      {nodeTypes}
-      onconnect={onConnect}
-      onnodeschange={onNodesChange}
-      onedgeschange={onEdgesChange}
-      fitView
-    >
-      <Background />
-      <Controls />
-      <MiniMap />
-    </SvelteFlow>
-  </main>
-</div>
 
-<style>
-  .layout {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    height: 100vh;
-    font-family: ui-sans-serif, system-ui, sans-serif;
-  }
-  .dock {
-    background: #0f172a;
-    color: #e2e8f0;
-    padding: 1rem;
-    overflow: auto;
-  }
-  .dock h1 {
-    font-size: 1.1rem;
-    margin: 0 0 0.5rem;
-  }
-  .muted {
-    color: #94a3b8;
-    font-size: 0.85rem;
-  }
-  .palette {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    margin: 1rem 0;
-  }
-  .chip {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 0.5rem 0.65rem;
-    cursor: grab;
-  }
-  .chip:hover {
-    border-color: #38bdf8;
-  }
-  .tag {
-    display: inline-block;
-    font-size: 0.65rem;
-    background: #0369a1;
-    border-radius: 4px;
-    padding: 0 0.3rem;
-    margin-right: 0.35rem;
-  }
-  .status {
-    margin-top: 1rem;
-    font-size: 0.75rem;
-  }
-  .status pre {
-    background: #020617;
-    padding: 0.5rem;
-    border-radius: 6px;
-    max-height: 240px;
-    overflow: auto;
-  }
-  .canvas {
-    height: 100%;
-    background: #f8fafc;
-  }
-</style>
+    <div class="palette-section">
+      <h2>Supply chain</h2>
+      {#each SUPPLY_UNITS as u}
+        <button
+          type="button"
+          class="palette-item"
+          draggable="true"
+          ondragstart={(e) => ondragstart(e, u.type)}
+          onclick={() => addFromPalette(u.type)}
+        >
+          <span class="dot" style:background={u.color}></span>
+          {u.label}
+        </button>
+      {/each}
+    </div>
+
+    {#if lastGraph}
+      <pre class="graph-out">{JSON.stringify(lastGraph, null, 2)}</pre>
+    {/if}
+  </aside>
+
+  <div class="canvas-wrap" role="presentation" {ondragover} {ondrop}>
+    <div class="toolbar">
+      <button type="button" onclick={submitGraph}>Submit graph</button>
+      <button type="button" onclick={loadRouting}>Load routing</button>
+      <div class="status">{status}</div>
+    </div>
+
+    <SvelteFlow
+      bind:nodes
+      bind:edges
+      {nodeTypes}
+      {onconnect}
+      fitView
+      colorMode="dark"
+      defaultEdgeOptions={{ type: 'smoothstep', animated: true }}
+      style="width:100%;height:100%;"
+    >
+      <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+      <Controls />
+      <MiniMap pannable zoomable />
+    </SvelteFlow>
+  </div>
+</div>

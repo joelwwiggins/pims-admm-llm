@@ -1,26 +1,53 @@
-const BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8008';
+/**
+ * Backend client (Vite proxies /api and /health → :8008).
+ */
 
-async function jsonFetch(path, opts = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
+const BASE = import.meta.env.VITE_API_BASE || '';
+
+export async function getHealth() {
+  const r = await fetch(`${BASE}/health`);
+  if (!r.ok) throw new Error(`health ${r.status}`);
+  return r.json();
+}
+
+export async function getRouting() {
+  const r = await fetch(`${BASE}/api/routing`);
+  if (!r.ok) throw new Error(`routing ${r.status}`);
+  return r.json();
+}
+
+/**
+ * POST edge attempt for connect validation.
+ * @returns {{ allowed: boolean, score: number, reason: string }}
+ */
+export async function postConnect(body) {
+  const r = await fetch(`${BASE}/api/connect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json();
+  if (!r.ok) throw new Error(`connect ${r.status}`);
+  return r.json();
 }
 
-export function getHealth() {
-  return jsonFetch('/health');
-}
+/**
+ * POST full graph; returns cluster/ADMM stubs.
+ * @param {{ nodes: any[], edges: any[] } | any[]} nodesOrGraph
+ * @param {any[]} [edges]
+ */
+export async function postGraph(nodesOrGraph, edges) {
+  const body =
+    edges !== undefined
+      ? { nodes: nodesOrGraph, edges }
+      : nodesOrGraph?.nodes
+        ? nodesOrGraph
+        : { nodes: nodesOrGraph, edges: [] };
 
-export function getRouting() {
-  return jsonFetch('/api/routing');
-}
-
-export function postGraph(body) {
-  return jsonFetch('/api/graph', { method: 'POST', body: JSON.stringify(body) });
-}
-
-export function postConnect(body) {
-  return jsonFetch('/api/connect', { method: 'POST', body: JSON.stringify(body) });
+  const r = await fetch(`${BASE}/api/graph`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`graph ${r.status}`);
+  return r.json();
 }
