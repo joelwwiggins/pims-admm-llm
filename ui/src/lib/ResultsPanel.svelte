@@ -29,11 +29,11 @@
     </div>
 
     <div class="metric">
-      <label>objective</label>
+      <span class="k">objective</span>
       <strong>{result.objective != null ? Number(result.objective).toFixed(3) : '—'}</strong>
     </div>
     <div class="metric">
-      <label>solve_s</label>
+      <span class="k">solve_s</span>
       <strong>{result.solve_time_s != null ? Number(result.solve_time_s).toFixed(4) : '—'}</strong>
     </div>
 
@@ -142,7 +142,8 @@
     padding: 0.2rem 0;
     border-bottom: 1px solid #243040;
   }
-  .metric label {
+  .metric label,
+  .metric .k {
     color: #8a9bb0;
   }
   h3 {
