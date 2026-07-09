@@ -111,6 +111,32 @@ except ImportError:  # pragma: no cover
     resolve_gasoline_components = None  # type: ignore
     solve_full_plant_with_recursive_quality = None  # type: ignore
 
+# Base-delta CDU/FCC submodels + auto-route (stream compositions first)
+try:
+    from .base_delta import (
+        build_cdu_base_delta,
+        build_fcc_base_delta,
+        process_modes_cdu,
+        process_modes_fcc,
+        unit_submodels_cdu_fcc,
+    )
+    from .cdu_fcc import CduFccResult, solve_cdu_fcc
+    from .auto_route import best_route, complete_missing_edges, guess_route
+    from .stream_composition import StreamComposition, get_stream
+except ImportError:  # pragma: no cover
+    build_cdu_base_delta = None  # type: ignore
+    build_fcc_base_delta = None  # type: ignore
+    process_modes_cdu = None  # type: ignore
+    process_modes_fcc = None  # type: ignore
+    unit_submodels_cdu_fcc = None  # type: ignore
+    CduFccResult = None  # type: ignore
+    solve_cdu_fcc = None  # type: ignore
+    best_route = None  # type: ignore
+    complete_missing_edges = None  # type: ignore
+    guess_route = None  # type: ignore
+    StreamComposition = None  # type: ignore
+    get_stream = None  # type: ignore
+
 __all__ = [
     "CrudeAssay",
     "InventorySpec",
@@ -177,4 +203,16 @@ __all__ = [
     "build_process_pool_yield_library",
     "process_pool_once",
     "solve_process_pool_mip",
+    "build_cdu_base_delta",
+    "build_fcc_base_delta",
+    "process_modes_cdu",
+    "process_modes_fcc",
+    "unit_submodels_cdu_fcc",
+    "CduFccResult",
+    "solve_cdu_fcc",
+    "best_route",
+    "complete_missing_edges",
+    "guess_route",
+    "StreamComposition",
+    "get_stream",
 ]

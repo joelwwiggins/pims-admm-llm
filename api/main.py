@@ -180,6 +180,16 @@ def _connect_score(
     target_type: str,
     stream: Optional[str],
 ) -> tuple[bool, float, str]:
+    # Prefer property-based base-delta auto_route when stream is known
+    if stream:
+        try:
+            from pims_admm_llm.models.auto_route import connect_score as prop_connect
+
+            res = prop_connect(source_type, target_type, stream=stream)
+            return bool(res["allowed"]), float(res["score"]), str(res["reason"])
+        except Exception:
+            pass
+
     if not source_type or not target_type:
         return True, 0.5, "types unknown — allowing connection (stub)"
     if source_type == target_type and source_type not in ("TANK", "warehouse", "transport"):
@@ -345,7 +355,7 @@ def post_connect(payload: ConnectPayload) -> dict[str, Any]:
             "target": payload.target,
         }
     allowed, score, reason = _connect_score(src, tgt, stream)
-    return {
+    out: dict[str, Any] = {
         "allowed": allowed,
         "score": score,
         "reason": reason,
@@ -355,6 +365,17 @@ def post_connect(payload: ConnectPayload) -> dict[str, Any]:
         "targetType": tgt or None,
         "stream": stream,
     }
+    # Attach property-based guesses when stream known
+    if stream:
+        try:
+            from pims_admm_llm.models.auto_route import connect_score as prop_connect
+
+            prop = prop_connect(src or "", tgt or "", stream=stream)
+            out["guesses"] = prop.get("guesses")
+            out["best"] = prop.get("best")
+        except Exception:
+            pass
+    return out
 
 
 @app.get("/")
