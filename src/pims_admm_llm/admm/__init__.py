@@ -1,8 +1,8 @@
 """ADMM coordinator for block-angular refinery LPs.
 
 Dual variables λ are the economic shadow prices on linking (intermediate)
-balances. At convergence they match the monolithic LP duals (up to solver
-tolerance and sign convention of the maximize-form balance constraints).
+balances. At convergence (with primal recovery) they match the monolithic LP
+duals up to maximize-form sign convention.
 """
 
 from .coordinator import (
@@ -23,6 +23,8 @@ from .subproblems import (
     solve_blender_consensus,
 )
 from .residuals import primal_residual, dual_residual, converged
+from .recovery import recover_blender_with_duals, economic_objective
+from .simple_mono import solve_simple_monolithic, SimpleMonoResult
 
 __all__ = [
     "ADMMConfig",
@@ -41,4 +43,8 @@ __all__ = [
     "primal_residual",
     "dual_residual",
     "converged",
+    "recover_blender_with_duals",
+    "economic_objective",
+    "solve_simple_monolithic",
+    "SimpleMonoResult",
 ]

@@ -2,41 +2,34 @@
 
 Backends
 --------
-* ``backend="qp_l2"`` — classical 2-block (CDU, Blender) balance ADMM with
-  quadratic augmented Lagrangian (CVXPY/OSQP). Duals λ match simplified
-  monolithic balance duals at convergence.
-* ``backend="pulp_l1"`` — multi-block (CDU, Inventory, Blender, Utilities)
-  using Worker-2 PuLP subproblems with L1 consensus penalties. Dual prices
-  λ (intermediates) and μ (utilities) are extractable shadow prices.
+qp_l2
+    Classical 2-block (CDU / Blender) ADMM with quadratic augmented Lagrangian
+    (SciPy SLSQP). After the block loop, *primal recovery* solves the exact
+    blender LP given CDU intermediate production and extracts duals that match
+    monolithic balance/yield shadow prices at optimality.
 
-Economic reading
-----------------
-At convergence, intermediate shadow price ($/bbl) is the absolute value of
-the dual on material balance. For the QP min-form:
+pulp_l1
+    Multi-block coordination using Worker-2 PuLP subproblems (CDU, Inventory,
+    Blender, Utilities) with L1 consensus penalties and dual price injection.
 
-  λ_ADMM[i] ≈ − dual_monolithic[balance_i]   (PuLP maximize-form)
-
-so make-buy-sell tables use ``shadow_prices`` directly as positive values
-when reported via ``economic_shadow_prices``.
+Dual variables λ (online ADMM path) and recovered shadow prices (from the
+recovery LP) are both exposed. Economic interpretation: recovered prices are
+$/bbl marginal value of each intermediate for make-buy-sell.
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Mapping, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 
 from pims_admm_llm.models.data import RefineryData
 
+from .recovery import economic_objective, recover_blender_with_duals
 from .residuals import residual_norms, converged
-from .subproblems import (
-    BlockSolution,
-    solve_blender_block_qp,
-    solve_blocks_pulp,
-    solve_cdu_block_qp,
-)
+from .subproblems import solve_blender_block_qp, solve_blocks_pulp, solve_cdu_block_qp
 
 
 Backend = Literal["qp_l2", "pulp_l1"]
@@ -45,23 +38,26 @@ Mode = Literal["balance", "consensus"]
 
 @dataclass
 class ADMMConfig:
-    rho: float = 2.0
-    max_iter: int = 200
+    rho: float = 3.0
+    max_iter: int = 80
     abs_tol: float = 1e-3
     rel_tol: float = 1e-3
     backend: Backend = "qp_l2"
-    mode: Mode = "balance"  # used by qp_l2
-    adaptive_rho: bool = True
+    mode: Mode = "balance"
+    adaptive_rho: bool = False
     mu: float = 10.0
     tau_incr: float = 2.0
     tau_decr: float = 2.0
-    rho_min: float = 0.05
+    rho_min: float = 0.5
     rho_max: float = 50.0
-    alpha: float = 1.0  # over-relaxation; 1 = classic
+    alpha: float = 1.0
     verbose: bool = False
-    min_activity: float = 1e-2
-    # dual step size scale for pulp_l1 (subgradient-like on residual)
-    dual_step: float = 1.0
+    min_activity: float = 1.0
+    dual_step: float = 0.5  # damping β on dual update
+    prox_weight: float = 0.0
+    # stop when crude slate stable this many iters (residual may plateau on LP faces)
+    stable_crude_iters: int = 15
+    recover_primal: bool = True
 
 
 @dataclass
@@ -105,6 +101,8 @@ class ADMMResult:
     backend: str
     mode: str
     duals_like_monolithic: Dict[str, float] = field(default_factory=dict)
+    online_duals: Dict[str, float] = field(default_factory=dict)
+    recovered: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -127,6 +125,8 @@ class ADMMResult:
             "backend": self.backend,
             "mode": self.mode,
             "duals_like_monolithic": self.duals_like_monolithic,
+            "online_duals": self.online_duals,
+            "recovered": self.recovered,
         }
 
 
@@ -146,68 +146,57 @@ class ADMMCoordinator:
         self.history: List[ADMMState] = []
         self._crude_warm: Dict[str, float] = {}
         self._prod_warm: Dict[str, float] = {}
-        self._last_prod: Dict[str, float] = {n: 0.0 for n in self.linking_names}
-        self._last_use: Dict[str, float] = {n: 0.0 for n in self.linking_names}
+        self._last_use: Dict[str, float] = {n: 5.0 for n in self.linking_names}
+        self._stable = 0
+        self._last_crude_key = None
 
     def reset(self) -> None:
         self.lam = {n: 0.0 for n in self.linking_names}
         self.mu = {n: 0.0 for n in self.util_names}
-        # Seed consensus away from pure zero to avoid early dual collapse
         self.z = {n: 5.0 for n in self.linking_names}
         self.z_util = {n: 0.5 for n in self.util_names}
         self.rho = float(self.config.rho)
         self.history.clear()
         self._crude_warm.clear()
         self._prod_warm.clear()
-        self._last_prod = {n: 0.0 for n in self.linking_names}
         self._last_use = {n: 5.0 for n in self.linking_names}
+        self._stable = 0
+        self._last_crude_key = None
 
-    # ------------------------------------------------------------------ qp_l2
     def _step_qp(self, iteration: int) -> ADMMState:
         cfg = self.config
         z_old = dict(self.z)
+        beta = cfg.dual_step
 
+        # Gauss–Seidel balance ADMM:
+        # CDU uses previous blender use as z; blender uses fresh CDU prod as z.
         cdu = solve_cdu_block_qp(
             self.data,
             self.lam,
-            use_fixed=self._last_use,
+            z=self._last_use,
             rho=self.rho,
             x0=self._crude_warm or None,
+            prox_center=self._crude_warm or None,
+            prox_weight=cfg.prox_weight,
         )
         prod = dict(cdu.linking)
-        if cfg.alpha != 1.0:
-            prod_hat = {
-                n: cfg.alpha * prod[n] + (1.0 - cfg.alpha) * self._last_use[n]
-                for n in self.linking_names
-            }
-        else:
-            prod_hat = prod
-
         blender = solve_blender_block_qp(
             self.data,
             self.lam,
-            prod_fixed=prod_hat,
+            z=prod,
             rho=self.rho,
             x0=self._prod_warm or None,
+            prox_center=self._prod_warm or None,
+            prox_weight=cfg.prox_weight,
         )
         use = dict(blender.linking)
         z_new = {n: 0.5 * (prod[n] + use[n]) for n in self.linking_names}
 
-        r_norm, _, residual = residual_norms(
+        r_norm, s_norm, residual = residual_norms(
             self.linking_names, prod, use, z_new, z_old, self.rho
         )
-        delta = np.array(
-            [
-                (prod[n] + use[n]) - (self._last_prod[n] + self._last_use[n])
-                for n in self.linking_names
-            ],
-            dtype=float,
-        )
-        s_norm = float(self.rho * np.linalg.norm(delta) / 2.0)
-
-        # Dual update on over-relaxed residual
         for n in self.linking_names:
-            self.lam[n] = self.lam[n] + self.rho * (prod_hat[n] - use[n])
+            self.lam[n] = self.lam[n] + beta * self.rho * residual[n]
 
         obj_hat = float(cdu.local_obj + blender.local_obj)
         state = ADMMState(
@@ -228,31 +217,29 @@ class ADMMCoordinator:
             block_status={"CDU": cdu.status, "Blender": blender.status},
         )
         self.z = z_new
-        self._last_prod = prod
         self._last_use = use
         self._crude_warm = dict(cdu.primals)
         self._prod_warm = dict(blender.primals)
-        self._adapt_rho(r_norm, s_norm)
-        state.lam = dict(self.lam)
-        state.rho = self.rho
+
+        crude_key = tuple(round(cdu.primals.get(c.name, 0.0), 2) for c in self.data.crudes)
+        if crude_key == self._last_crude_key and sum(cdu.primals.values()) >= cfg.min_activity:
+            self._stable += 1
+        else:
+            self._stable = 0
+        self._last_crude_key = crude_key
+
         self.history.append(state)
         if cfg.verbose:
             sp = ", ".join(f"{k}:{v:.2f}" for k, v in self.lam.items())
             print(
                 f"iter={iteration:3d} r={r_norm:.4e} s={s_norm:.4e} "
-                f"obj~={obj_hat:.2f} rho={self.rho:.3g} λ={{{sp}}}"
+                f"obj~={obj_hat:.2f} rho={self.rho:.3g} stable={self._stable} λ={{{sp}}}"
             )
         return state
 
-    # ---------------------------------------------------------------- pulp_l1
     def _step_pulp(self, iteration: int) -> ADMMState:
         cfg = self.config
         z_old = dict(self.z)
-
-        # Economic prices for Worker-2 subproblems: positive intermediate value
-        # Worker-2 CDU sells at λ_price, blender buys at λ_price.
-        # Our lam is min-form dual; economic price = -lam when using QP sign.
-        # For pulp_l1 we store economic prices directly in self.lam (positive).
         blocks = solve_blocks_pulp(
             self.data,
             intermediate_prices=self.lam,
@@ -269,31 +256,28 @@ class ADMMCoordinator:
 
         prod = dict(cdu.linking)
         use = dict(blend.linking)
-        # Inventory outflow should match blender use; inflow match CDU prod
-        inv_out = dict(inv.linking)
         inv_in = {
             n: float(inv.primals.get(f"inv_in_{n}", 0.0)) for n in self.linking_names
         }
-
-        # Residuals: CDU prod vs inv in; inv out vs blender use; util supply vs demand
-        r_mat = {
+        inv_out = dict(inv.linking)
+        residual = {n: prod.get(n, 0.0) - use.get(n, 0.0) for n in self.linking_names}
+        r_chain = {
             n: (prod.get(n, 0.0) - inv_in.get(n, 0.0))
             + (inv_out.get(n, 0.0) - use.get(n, 0.0))
             for n in self.linking_names
         }
-        # Also direct prod - use residual (overall material)
-        residual = {n: prod.get(n, 0.0) - use.get(n, 0.0) for n in self.linking_names}
-        # Prefer inv chain residual for dual updates when inventory present
-        residual_for_dual = r_mat
-
         r_norm = float(np.linalg.norm([residual[n] for n in self.linking_names]))
         r_util = {
             u: demand.get(u, 0.0) - util.linking_utilities.get(u, 0.0)
             for u in self.util_names
         }
-        r_util_norm = float(np.linalg.norm([r_util[u] for u in self.util_names])) if self.util_names else 0.0
-        r_norm = float(np.sqrt(r_norm**2 + r_util_norm**2))
-
+        if self.util_names:
+            r_norm = float(
+                np.sqrt(
+                    r_norm**2
+                    + float(np.linalg.norm([r_util[u] for u in self.util_names])) ** 2
+                )
+            )
         z_new = {n: 0.5 * (prod.get(n, 0.0) + use.get(n, 0.0)) for n in self.linking_names}
         z_util_new = {
             u: 0.5 * (demand.get(u, 0.0) + util.linking_utilities.get(u, 0.0))
@@ -303,17 +287,12 @@ class ADMMCoordinator:
             self.rho
             * np.linalg.norm([z_new[n] - z_old.get(n, 0.0) for n in self.linking_names])
         )
-
-        # Dual ascent on imbalance (subgradient / linearized ADMM dual step)
         step = self.rho * cfg.dual_step
         for n in self.linking_names:
-            # If prod > use, intermediate is long → lower its price
-            self.lam[n] = self.lam[n] - step * residual_for_dual[n]
+            self.lam[n] = self.lam[n] - step * r_chain[n]
         for u in self.util_names:
-            # If demand > supply, raise utility price
             self.mu[u] = self.mu[u] + step * r_util[u]
 
-        # Crude / product extraction from primals
         crude_rates = {
             k.replace("crude_", "", 1): v
             for k, v in cdu.primals.items()
@@ -324,7 +303,6 @@ class ADMMCoordinator:
             for k, v in blend.primals.items()
             if k.startswith("product_")
         }
-
         obj_hat = float(cdu.local_obj + blend.local_obj + inv.local_obj + util.local_obj)
         state = ADMMState(
             iteration=iteration,
@@ -350,12 +328,12 @@ class ADMMCoordinator:
         )
         self.z = z_new
         self.z_util = z_util_new
-        self._last_prod = prod
-        self._last_use = use
-        self._adapt_rho(r_norm, s_norm)
-        state.lam = dict(self.lam)
-        state.mu = dict(self.mu)
-        state.rho = self.rho
+        crude_key = tuple(round(crude_rates.get(c.name, 0.0), 2) for c in self.data.crudes)
+        if crude_key == self._last_crude_key and sum(crude_rates.values()) >= cfg.min_activity:
+            self._stable += 1
+        else:
+            self._stable = 0
+        self._last_crude_key = crude_key
         self.history.append(state)
         if cfg.verbose:
             sp = ", ".join(f"{k}:{v:.2f}" for k, v in self.lam.items())
@@ -365,33 +343,15 @@ class ADMMCoordinator:
             )
         return state
 
-    def _adapt_rho(self, r_norm: float, s_norm: float) -> None:
-        if not self.config.adaptive_rho:
-            return
-        old = self.rho
-        if r_norm > self.config.mu * max(s_norm, 1e-12):
-            self.rho = min(self.rho * self.config.tau_incr, self.config.rho_max)
-        elif s_norm > self.config.mu * max(r_norm, 1e-12):
-            self.rho = max(self.rho / self.config.tau_decr, self.config.rho_min)
-        if abs(self.rho - old) > 1e-15 and self.config.backend == "qp_l2":
-            scale = old / self.rho
-            self.lam = {n: self.lam[n] * scale for n in self.linking_names}
-
     def step(self, iteration: int) -> ADMMState:
         if self.config.backend == "pulp_l1":
             return self._step_pulp(iteration)
         return self._step_qp(iteration)
 
-    def _activity(self, state: ADMMState) -> float:
-        return float(
-            sum(abs(v) for v in state.crude_rates.values())
-            + sum(abs(v) for v in state.product_rates.values())
-        )
-
     def run(self) -> ADMMResult:
         self.reset()
-        # pulp_l1 stores economic prices; seed from rough mid prices
         if self.config.backend == "pulp_l1":
+            # economic prices seed
             self.lam = {n: 50.0 for n in self.linking_names}
             self.mu = {n: 10.0 for n in self.util_names}
 
@@ -399,8 +359,6 @@ class ADMMCoordinator:
         cfg = self.config
         last: Optional[ADMMState] = None
         done = False
-        best: Optional[ADMMState] = None
-        best_score = float("inf")
 
         for k in range(cfg.max_iter):
             last = self.step(k)
@@ -409,52 +367,74 @@ class ADMMCoordinator:
                 float(np.linalg.norm([last.use[n] for n in self.linking_names])),
                 1.0,
             )
-            score = last.r_norm + 0.1 * last.s_norm
-            if self._activity(last) >= cfg.min_activity and score < best_score:
-                best_score = score
-                best = last
             if converged(last.r_norm, last.s_norm, cfg.abs_tol, cfg.rel_tol, scale):
-                if self._activity(last) >= cfg.min_activity:
+                if sum(last.crude_rates.values()) >= cfg.min_activity:
                     done = True
                     break
+            if self._stable >= cfg.stable_crude_iters and sum(last.crude_rates.values()) >= cfg.min_activity:
+                # LP-face residual plateau with stable crude → recovery step
+                done = True
+                break
 
-        if last is None:
-            raise RuntimeError("ADMM produced no iterations")
-        if not done and best is not None:
-            last = best
-
+        assert last is not None
         t1 = time.perf_counter()
-        shadow = {n: float(last.lam[n]) for n in self.linking_names}
-        util_shadow = {n: float(last.mu[n]) for n in self.util_names}
 
-        if cfg.backend == "qp_l2":
-            # min-form λ; economic value and PuLP maximize balance dual mapping
-            economic = {n: float(-shadow[n]) for n in self.linking_names}
-            duals_like = {f"balance_{n}": float(shadow[n]) for n in self.linking_names}
-            duals_like.update({f"admm_lambda_{n}": shadow[n] for n in self.linking_names})
+        crude = dict(last.crude_rates)
+        inter_prod = dict(last.prod)
+        online_duals = dict(self.lam)
+        util_shadow = dict(self.mu)
+        recovered = False
+
+        if cfg.recover_primal and cfg.backend == "qp_l2":
+            rec = recover_blender_with_duals(self.data, inter_prod)
+            products = rec.product_rates
+            inter_use = rec.intermediate_use
+            residual = {n: inter_prod[n] - inter_use[n] for n in self.linking_names}
+            r_norm = float(np.linalg.norm([residual[n] for n in self.linking_names]))
+            objective = economic_objective(self.data, crude, products)
+            # Recovered duals match mono at optimality
+            economic = dict(rec.shadow_prices)
+            duals_like = dict(rec.duals_like_monolithic)
+            shadow = {n: duals_like.get(f"balance_{n}", -economic[n]) for n in self.linking_names}
+            recovered = True
+            if r_norm <= cfg.abs_tol + cfg.rel_tol * max(
+                float(np.linalg.norm([inter_prod[n] for n in self.linking_names])), 1.0
+            ):
+                done = True
         else:
-            # pulp_l1 already stores economic prices
-            economic = dict(shadow)
-            duals_like = {f"balance_{n}": float(-shadow[n]) for n in self.linking_names}
-            duals_like.update({f"admm_lambda_{n}": shadow[n] for n in self.linking_names})
-            for u, v in util_shadow.items():
-                duals_like[f"utility_cap_{u}"] = float(-v)
+            products = dict(last.product_rates)
+            inter_use = dict(last.use)
+            residual = dict(last.residual)
+            r_norm = last.r_norm
+            objective = economic_objective(self.data, crude, products)
+            if cfg.backend == "qp_l2":
+                shadow = dict(online_duals)
+                economic = {n: float(-shadow[n]) for n in self.linking_names}
+                duals_like = {f"balance_{n}": float(shadow[n]) for n in self.linking_names}
+            else:
+                shadow = dict(online_duals)
+                economic = dict(shadow)
+                duals_like = {f"balance_{n}": float(-shadow[n]) for n in self.linking_names}
 
-        status = "converged" if done else "max_iter"
+        duals_like.update({f"admm_lambda_{n}": float(online_duals[n]) for n in self.linking_names})
+        duals_like.update({f"economic_{n}": float(economic[n]) for n in self.linking_names})
+        for u, v in util_shadow.items():
+            duals_like[f"utility_price_{u}"] = float(v)
+
         return ADMMResult(
-            status=status,
+            status="converged" if done else "max_iter",
             converged=done,
             iterations=last.iteration + 1,
-            objective=last.objective_hat,
-            shadow_prices=shadow,
-            utility_shadow_prices=util_shadow,
-            economic_shadow_prices=economic,
-            crude_rates=last.crude_rates,
-            product_rates=last.product_rates,
-            intermediate_prod=last.prod,
-            intermediate_use=last.use,
-            residual=last.residual,
-            r_norm=last.r_norm,
+            objective=objective,
+            shadow_prices={n: float(shadow[n]) for n in self.linking_names},
+            utility_shadow_prices={u: float(util_shadow[u]) for u in self.util_names},
+            economic_shadow_prices={n: float(economic[n]) for n in self.linking_names},
+            crude_rates=crude,
+            product_rates=products,
+            intermediate_prod=inter_prod,
+            intermediate_use=inter_use,
+            residual=residual,
+            r_norm=r_norm,
             s_norm=last.s_norm,
             rho=self.rho,
             history=self.history,
@@ -462,6 +442,8 @@ class ADMMCoordinator:
             backend=cfg.backend,
             mode=cfg.mode,
             duals_like_monolithic=duals_like,
+            online_duals={n: float(online_duals[n]) for n in self.linking_names},
+            recovered=recovered,
         )
 
 
