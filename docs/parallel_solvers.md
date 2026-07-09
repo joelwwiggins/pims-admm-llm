@@ -94,18 +94,23 @@ Toy **single-period mono CBC** is often faster than a parallel ADMM wave — the
 
 Also reports sequential block baseline and in-period FCC∥Coker unit fan-out.
 
-### Measured (Orin Nano, 6 cores, workers=4, crude_factor=1, 2026-07-08)
+### Measured (Orin Nano, workers=4, crude_factor=1, live re-run 2026-07-08)
 
 | n | mono_s | parallel_s | speedup |
 |---|--------|------------|---------|
-| 1 | ~0.008 | ~0.020 | **0.40×** (mono wins) |
-| 2 | ~0.020 | ~0.026 | 0.79× |
-| 4 | ~0.035 | ~0.034 | **~1.02×** (crossover) |
-| 8 | ~0.077 | ~0.088 | ~0.87× (noise / contention) |
-| 16 | ~0.146 | ~0.136 | **~1.07×** |
-| 32 | ~0.301 | ~0.271 | **~1.11×** |
+| 1 | 0.012 | 0.071 | **0.18×** (mono wins) |
+| 2 | 0.049 | 0.050 | 0.98× |
+| 4 | 0.036 | 0.116 | 0.31× |
+| 8 | 0.124 | 0.157 | 0.79× |
+| 16 | 0.148 | 0.405 | 0.36× |
+| 32 | 0.489 | 0.637 | 0.77× |
 
 JSON: `demos/output/bench_scaleup.json`.
+
+Each parallel job is four unit LPs (CDU/FCC/Coker/Reformer); mono is one tight plant LP.
+On this toy, **mono CBC still wins wall-clock**. Parallel remains required for multi-agent ADMM
+waves and becomes more relevant as unit LPs / crude slate / MIP detail grow (`--crudes 3`).
+Timing is noisy on small ms-scale LPs — re-run before claiming speedup.
 
 ### Rule of thumb
 
