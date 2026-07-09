@@ -8,6 +8,7 @@ Run from repo root:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -20,13 +21,31 @@ ROUTING_PATH = REPO_ROOT / "data" / "routing.json"
 
 app = FastAPI(
     title="pims-admm-llm flowsheet API",
-    version="0.1.0-wave3",
-    description="Stub endpoints for SvelteFlow snap-together routing UI.",
+    version="0.2.0-wave5",
+    description="SvelteFlow snap-together routing UI + graph→LP/ADMM.",
 )
+
+
+def _cors_origins() -> list[str]:
+    """CORS allowlist. Default local Vite + API. Override with CORS_ORIGINS=a,b or *."""
+    raw = (os.environ.get("CORS_ORIGINS") or "").strip()
+    if raw == "*":
+        return ["*"]
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:4173",
+        "http://localhost:4173",
+        "http://127.0.0.1:8008",
+        "http://localhost:8008",
+    ]
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
