@@ -96,7 +96,14 @@ def default_data_path() -> Path:
 
 
 def load_crude_data(path: str | Path | None = None) -> RefineryData:
-    """Load synthetic (or realistic export-shaped) crude / product / inventory data."""
+    """Load synthetic (or assay-shaped) crude / product / inventory data.
+
+    Dual-path:
+      - Default path → data/synthetic_crudes.json (legacy fixed yields).
+      - Assay packages (tbp_cut_vol / sulfur_wt / ccr_wt, no fixed yields)
+        are converted via property-driven CDU yields to classic intermediates
+        so existing mono/ADMM consumers keep working.
+    """
     if path is None:
         path = default_data_path()
     path = Path(path)
@@ -107,6 +114,15 @@ def load_crude_data(path: str | Path | None = None) -> RefineryData:
     with path.open() as f:
         raw = json.load(f)
 
+    # Wave2 assay package → property-driven yields → RefineryData
+    try:
+        from .assay_loader import assays_to_refinery_data, is_assay_shaped
+
+        if is_assay_shaped(raw):
+            return assays_to_refinery_data(raw)
+    except ImportError:
+        pass
+
     intermediates = list(
         raw.get("intermediates")
         or ["naphtha", "distillate", "gasoil", "residue"]
@@ -114,6 +130,10 @@ def load_crude_data(path: str | Path | None = None) -> RefineryData:
 
     crudes: List[CrudeAssay] = []
     for c in raw["crudes"]:
+        if "yields" not in c:
+            raise KeyError(
+                f"crude {c.get('name')} missing 'yields' and not assay-shaped"
+            )
         yields = {k: float(v) for k, v in c["yields"].items()}
         # normalize missing intermediate keys to 0
         for i in intermediates:
@@ -125,7 +145,9 @@ def load_crude_data(path: str | Path | None = None) -> RefineryData:
                 max_supply_kbd=float(c["max_supply_kbd"]),
                 yields=yields,
                 api=float(c.get("api", 0.0)),
-                sulfur_wt_pct=float(c.get("sulfur_wt_pct", 0.0)),
+                sulfur_wt_pct=float(
+                    c.get("sulfur_wt_pct", c.get("sulfur_wt", 0.0))
+                ),
                 utility_use={
                     k: float(v) for k, v in (c.get("utility_use") or {}).items()
                 },
@@ -179,13 +201,22 @@ def load_crude_data(path: str | Path | None = None) -> RefineryData:
             UtilitySpec(name=uname, capacity=1e6, cost_usd_per_unit=0.0),
         )
 
+    cdu_cap = raw.get("cdu_capacity_kbd")
+    if cdu_cap is None:
+        cdu_cap = (raw.get("capacities") or {}).get("cdu_kbd", 120.0)
+    blend_raw = raw.get("blend_recipes") or {
+        "gasoline": {"naphtha": 0.85, "distillate": 0.15},
+        "diesel": {"distillate": 0.70, "gasoil": 0.30},
+        "fuel_oil": {"gasoil": 0.40, "residue": 0.60},
+    }
+
     return RefineryData(
         crudes=crudes,
         products=products,
-        cdu_capacity_kbd=float(raw["cdu_capacity_kbd"]),
+        cdu_capacity_kbd=float(cdu_cap),
         blend_recipes={
             prod: {comp: float(f) for comp, f in recipe.items()}
-            for prod, recipe in raw["blend_recipes"].items()
+            for prod, recipe in blend_raw.items()
         },
         intermediates=intermediates,
         inventory=inventory,

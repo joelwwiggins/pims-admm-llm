@@ -2,6 +2,9 @@
 
 Hard constraints always stay with the LP solver (solve_fn / upstream ADMM).
 The LLM only adds soft intelligence as structured JSON.
+
+HARD RULE: LLM never mutates proposal / local_obj / linking_flows from the
+solver — only suggestions[] and note.
 """
 
 from __future__ import annotations
@@ -15,9 +18,20 @@ from .schemas import BlockName, SubAgentProposal, Suggestion
 # Optional local solver: (prices, consensus, **kw) -> dict with proposal fields
 SolveFn = Callable[..., Mapping[str, Any]]
 
+# Default plant + classic blocks for the agent layer
+DEFAULT_BLOCKS = (
+    BlockName.CDU.value,
+    BlockName.FCC.value,
+    BlockName.COKER.value,
+    BlockName.REFORMER.value,
+    BlockName.TANK.value,
+    BlockName.BLENDER.value,
+    BlockName.UTILITIES.value,
+)
+
 
 class SubAgent:
-    """One refinery block agent (CDU / Tank / Blender / Utilities)."""
+    """One refinery block agent (CDU / FCC / Coker / Reformer / Tank / …)."""
 
     def __init__(
         self,
@@ -52,19 +66,28 @@ class SubAgent:
         local_duals: Optional[Mapping[str, float]] = None,
         augment: bool = True,
     ) -> SubAgentProposal:
-        """Build proposal from an already-solved local LP (or ADMM block result)."""
+        """Build proposal from an already-solved local LP (or ADMM block result).
+
+        Solver-owned fields are frozen before any LLM call and restored after.
+        """
         proposal_nums = {
             k: float(v)
             for k, v in local_solution.items()
             if isinstance(v, (int, float))
         }
+        frozen_proposal = dict(proposal_nums)
+        frozen_obj = float(local_obj)
+        frozen_flows = {k: float(v) for k, v in (linking_flows or {}).items()}
+        frozen_rc = {k: float(v) for k, v in (reduced_costs or {}).items()}
+        frozen_duals = {k: float(v) for k, v in (local_duals or {}).items()}
+
         prop = SubAgentProposal(
             block=self.block,
-            proposal=proposal_nums,
-            reduced_costs={k: float(v) for k, v in (reduced_costs or {}).items()},
-            linking_flows={k: float(v) for k, v in (linking_flows or {}).items()},
-            local_duals={k: float(v) for k, v in (local_duals or {}).items()},
-            local_obj=float(local_obj),
+            proposal=dict(frozen_proposal),
+            reduced_costs=dict(frozen_rc),
+            linking_flows=dict(frozen_flows),
+            local_duals=dict(frozen_duals),
+            local_obj=frozen_obj,
             status=status,
             iteration=iteration,
         )
@@ -90,8 +113,13 @@ class SubAgent:
                 )
             )
             prop.note = "llm_error"
+            # Re-assert solver ownership even on error path
+            prop.proposal = dict(frozen_proposal)
+            prop.local_obj = frozen_obj
+            prop.linking_flows = dict(frozen_flows)
             return prop
 
+        # HARD RULE: only consume suggestion fields from LLM — never proposal/local_obj
         if isinstance(raw.get("suggestion"), dict) and raw["suggestion"].get("message"):
             prop.suggestions.append(Suggestion.from_dict(raw["suggestion"]))
         elif isinstance(raw.get("suggestions"), list):
@@ -99,6 +127,13 @@ class SubAgent:
                 if isinstance(s, dict):
                     prop.suggestions.append(Suggestion.from_dict(s))
         prop.note = str(raw.get("note", "") or "")
+
+        # Defense in depth: restore solver-owned fields if LLM payload tried to mutate
+        prop.proposal = dict(frozen_proposal)
+        prop.local_obj = frozen_obj
+        prop.linking_flows = dict(frozen_flows)
+        prop.reduced_costs = dict(frozen_rc)
+        prop.local_duals = dict(frozen_duals)
         return prop
 
     def solve_local(
@@ -158,17 +193,14 @@ def default_block_agents(
     enable_llm: bool = True,
     solvers: Optional[Mapping[str, SolveFn]] = None,
     local_data: Optional[Mapping[str, Dict[str, Any]]] = None,
+    blocks: Optional[tuple[str, ...] | list[str]] = None,
 ) -> Dict[str, SubAgent]:
     client = llm or make_llm_client()
     solvers = solvers or {}
     local_data = local_data or {}
+    names = tuple(blocks) if blocks is not None else DEFAULT_BLOCKS
     out: Dict[str, SubAgent] = {}
-    for name in (
-        BlockName.CDU.value,
-        BlockName.TANK.value,
-        BlockName.BLENDER.value,
-        BlockName.UTILITIES.value,
-    ):
+    for name in names:
         out[name] = SubAgent(
             name,
             llm=client,

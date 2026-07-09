@@ -1,0 +1,189 @@
+{
+  "meta": {
+    "source": "synthetic_realistic_PIMS_shaped",
+    "units": {
+      "rates": "kbd",
+      "prices": "USD/bbl",
+      "sulfur": "wt%",
+      "ccr": "wt%",
+      "n": "ppm",
+      "pna": "vol frac",
+      "tbp": "vol frac of whole crude"
+    },
+    "notes": "Crude assays with feed properties that drive CDU (and downstream) yields. TBP cuts are vol fractions; PNA sum ~1.0."
+  },
+  "crudes": [
+    {
+      "name": "WTI_light",
+      "api": 39.6,
+      "sulfur_wt": 0.24,
+      "ccr_wt": 0.8,
+      "nitrogen_ppm": 900,
+      "paraffins_vol": 0.42,
+      "naphthenes_vol": 0.32,
+      "aromatics_vol": 0.26,
+      "price_usd_per_bbl": 78.0,
+      "max_supply_kbd": 100.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.28,
+        "distillate_350_650f": 0.30,
+        "gasoil_650_1050f": 0.26,
+        "resid_1050f_plus": 0.16
+      },
+      "utility_use": {"fuel_gas": 0.015, "steam": 0.02, "power": 0.01}
+    },
+    {
+      "name": "Mars_medium",
+      "api": 28.9,
+      "sulfur_wt": 1.85,
+      "ccr_wt": 3.2,
+      "nitrogen_ppm": 1800,
+      "paraffins_vol": 0.30,
+      "naphthenes_vol": 0.34,
+      "aromatics_vol": 0.36,
+      "price_usd_per_bbl": 72.0,
+      "max_supply_kbd": 80.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.18,
+        "distillate_350_650f": 0.27,
+        "gasoil_650_1050f": 0.30,
+        "resid_1050f_plus": 0.25
+      },
+      "utility_use": {"fuel_gas": 0.018, "steam": 0.025, "power": 0.012}
+    },
+    {
+      "name": "Maya_heavy",
+      "api": 21.5,
+      "sulfur_wt": 3.4,
+      "ccr_wt": 11.5,
+      "nitrogen_ppm": 3200,
+      "paraffins_vol": 0.22,
+      "naphthenes_vol": 0.30,
+      "aromatics_vol": 0.48,
+      "price_usd_per_bbl": 62.0,
+      "max_supply_kbd": 60.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.10,
+        "distillate_350_650f": 0.20,
+        "gasoil_650_1050f": 0.28,
+        "resid_1050f_plus": 0.42
+      },
+      "utility_use": {"fuel_gas": 0.022, "steam": 0.03, "power": 0.015}
+    },
+    {
+      "name": "Arab_Light",
+      "api": 33.4,
+      "sulfur_wt": 1.75,
+      "ccr_wt": 3.8,
+      "nitrogen_ppm": 1400,
+      "paraffins_vol": 0.34,
+      "naphthenes_vol": 0.30,
+      "aromatics_vol": 0.36,
+      "price_usd_per_bbl": 74.0,
+      "max_supply_kbd": 90.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.22,
+        "distillate_350_650f": 0.28,
+        "gasoil_650_1050f": 0.28,
+        "resid_1050f_plus": 0.22
+      },
+      "utility_use": {"fuel_gas": 0.016, "steam": 0.022, "power": 0.011}
+    },
+    {
+      "name": "Bonny_Light",
+      "api": 35.5,
+      "sulfur_wt": 0.16,
+      "ccr_wt": 1.1,
+      "nitrogen_ppm": 700,
+      "paraffins_vol": 0.45,
+      "naphthenes_vol": 0.33,
+      "aromatics_vol": 0.22,
+      "price_usd_per_bbl": 80.0,
+      "max_supply_kbd": 70.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.26,
+        "distillate_350_650f": 0.32,
+        "gasoil_650_1050f": 0.25,
+        "resid_1050f_plus": 0.17
+      },
+      "utility_use": {"fuel_gas": 0.014, "steam": 0.018, "power": 0.01}
+    }
+  ],
+  "products": {
+    "gasoline": {
+      "price_usd_per_bbl": 105.0,
+      "max_demand_kbd": 90.0,
+      "utility_use": {"fuel_gas": 0.004, "steam": 0.003, "power": 0.006}
+    },
+    "diesel": {
+      "price_usd_per_bbl": 112.0,
+      "max_demand_kbd": 80.0,
+      "utility_use": {"fuel_gas": 0.003, "steam": 0.004, "power": 0.005}
+    },
+    "fuel_oil": {
+      "price_usd_per_bbl": 68.0,
+      "max_demand_kbd": 70.0,
+      "utility_use": {"fuel_gas": 0.002, "steam": 0.002, "power": 0.003}
+    }
+  },
+  "capacities": {
+    "cdu_kbd": 140.0,
+    "fcc_kbd": 55.0,
+    "coker_kbd": 40.0,
+    "reformer_kbd": 45.0
+  },
+  "tanks": {
+    "tank_gasoil": {
+      "stream": "cdu_gasoil",
+      "capacity_kbd": 50.0,
+      "start_kbd": 5.0,
+      "holding_cost": 0.15
+    },
+    "tank_resid": {
+      "stream": "cdu_resid",
+      "capacity_kbd": 45.0,
+      "start_kbd": 4.0,
+      "holding_cost": 0.12
+    },
+    "tank_fcc_naph": {
+      "stream": "fcc_naphtha",
+      "capacity_kbd": 30.0,
+      "start_kbd": 2.0,
+      "holding_cost": 0.2
+    },
+    "tank_coker_naph": {
+      "stream": "coker_naphtha",
+      "capacity_kbd": 25.0,
+      "start_kbd": 2.0,
+      "holding_cost": 0.2
+    },
+    "tank_reformate": {
+      "stream": "reformate",
+      "capacity_kbd": 35.0,
+      "start_kbd": 3.0,
+      "holding_cost": 0.18
+    }
+  },
+  "blend_recipes": {
+    "gasoline": {
+      "cdu_naphtha": 0.35,
+      "reformate": 0.45,
+      "fcc_naphtha": 0.20
+    },
+    "diesel": {
+      "cdu_distillate": 0.55,
+      "fcc_lco": 0.25,
+      "coker_gasoil": 0.20
+    },
+    "fuel_oil": {
+      "fcc_slurry": 0.35,
+      "coker_gasoil": 0.25,
+      "cdu_resid": 0.40
+    }
+  },
+  "utilities": {
+    "fuel_gas": {"capacity": 6.0, "cost_usd_per_unit": 18.0, "unit": "kbd_equiv"},
+    "steam": {"capacity": 5.0, "cost_usd_per_unit": 12.0, "unit": "kbd_equiv"},
+    "power": {"capacity": 7.0, "cost_usd_per_unit": 25.0, "unit": "mwh_per_day_scaled"}
+  }
+}

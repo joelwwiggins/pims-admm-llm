@@ -1,4 +1,4 @@
-"""Toy refinery models: data loaders + block-angular PuLP LPs."""
+"""Refinery models: legacy toy blocks + wave2 full plant (assays/FCC/coker/reformer/tanks)."""
 
 from .data import (
     CrudeAssay,
@@ -28,6 +28,40 @@ from .blocks import (
     solve_monolithic,
     solve_utilities_subproblem,
 )
+from .assay_loader import (
+    assays_to_refinery_data,
+    crude_properties_list,
+    default_assays_path,
+    default_intermediates_path,
+    default_routing_path,
+    intermediate_properties_list,
+    is_assay_shaped,
+    load_assays_excel,
+    load_assays_json,
+    load_intermediates_json,
+    load_routing,
+    write_template_excel,
+)
+from .properties import FeedProperties, crude_to_props
+from .yields import (
+    cdu_yields_from_assay,
+    coker_yields,
+    fcc_yields,
+    reformer_yields,
+)
+
+# Optional wave2 plant modules (may land while W1/W2 run in parallel)
+try:
+    from .full_plant import FullPlantResult, admm_price_directed_plant, solve_full_plant
+except ImportError:  # pragma: no cover
+    FullPlantResult = None  # type: ignore
+    admm_price_directed_plant = None  # type: ignore
+    solve_full_plant = None  # type: ignore
+
+try:
+    from .plant_blocks import solve_all_plant_blocks
+except ImportError:  # pragma: no cover
+    solve_all_plant_blocks = None  # type: ignore
 
 __all__ = [
     "CrudeAssay",
@@ -54,4 +88,26 @@ __all__ = [
     "solve_utilities_subproblem",
     "solve_all_subproblems",
     "describe_block_angular_structure",
+    "FeedProperties",
+    "crude_to_props",
+    "assays_to_refinery_data",
+    "crude_properties_list",
+    "default_assays_path",
+    "default_intermediates_path",
+    "default_routing_path",
+    "intermediate_properties_list",
+    "is_assay_shaped",
+    "load_assays_excel",
+    "load_assays_json",
+    "load_intermediates_json",
+    "load_routing",
+    "write_template_excel",
+    "cdu_yields_from_assay",
+    "coker_yields",
+    "fcc_yields",
+    "reformer_yields",
+    "FullPlantResult",
+    "admm_price_directed_plant",
+    "solve_full_plant",
+    "solve_all_plant_blocks",
 ]

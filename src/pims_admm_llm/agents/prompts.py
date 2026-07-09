@@ -1,7 +1,10 @@
-"""Sub-agent prompts (CDU / Tank / Blender / Utilities) + Master coordinator.
+"""Sub-agent prompts + Master coordinator.
+
+Blocks: CDU, FCC, Coker (Delayed Coker), Reformer, Tank, Blender, Utilities.
 
 Prompts force structured JSON. LLM may propose nonlinear/yield notes only;
-hard constraints remain with the block LP solvers.
+hard constraints remain with the block LP solvers. LLM never rewrites
+proposal / local_obj numbers from the solver.
 
 Runtime placeholders use double-brace markers: {{prices_json}}, {{iteration}}, ...
 filled by render_* helpers (safe against JSON braces in the prompt text).
@@ -22,6 +25,8 @@ _JSON_CONTRACT_SUB = """
 OUTPUT RULES (strict):
 - Reply with a SINGLE JSON object only. No markdown, no prose outside JSON.
 - Never claim hard feasibility changes; the LP solver enforces constraints.
+- HARD RULE: Do NOT rewrite proposal numbers, linking_flows, or local_obj.
+  Those fields are owned by the LP/ADMM solver. You may only emit suggestion(s).
 - At most ONE high-value suggestion (prefer yield nonlinearity or warm-start).
 - Use this schema exactly:
 
@@ -46,6 +51,7 @@ OUTPUT RULES (strict):
 - You do NOT re-solve the global LP. Math duals/prices come from ADMM.
 - You may rephrase economic meaning of shadow prices and select which
   sub-agent suggestions to surface (never enforce them as constraints).
+- Never rewrite sub-agent proposal / local_obj fields.
 
 {
   "action": "continue | terminate",
@@ -97,13 +103,79 @@ BLOCK_PROMPTS: Dict[str, str] = {
             _JSON_CONTRACT_SUB,
         ]
     ),
+    BlockName.FCC.value: "\n".join(
+        [
+            "You are the FCC (Fluid Catalytic Cracking) Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own gasoil/VGO conversion to FCC naphtha, LCO, and slurry with linear yield vectors.",
+            "- A real LP solver has already enforced FCC feed capacity, material balances, and",
+            "  ADMM-priced feeds/products. Hard constraints stay with the solver.",
+            "",
+            "YOUR JOB",
+            "1. Interpret conversion, product slate, and feed cost vs λ prices.",
+            "2. Optionally propose ONE soft note the linear FCC model may miss:",
+            "   - conversion / severity nonlinearity with feed CCR, metals, or nitrogen",
+            "   - cat activity / slurry yield drift under heavier gasoil",
+            "   - warm-start feed rate for the next ADMM iteration",
+            "3. Never rewrite proposal or local_obj from the solver — suggestions only.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
+    BlockName.COKER.value: "\n".join(
+        [
+            "You are the Delayed Coker Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own vacuum resid / CDU resid conversion to coker naphtha and coker gasoil",
+            "  (plus coke disposition as a cost/byproduct in the LP).",
+            "- A real LP solver has already enforced coker capacity, resid feed limits, and",
+            "  linear liquid yields under current λ and consensus z.",
+            "",
+            "YOUR JOB",
+            "1. Interpret resid disposition and liquid yields vs shadow prices.",
+            "2. Optionally propose ONE soft note:",
+            "   - liquid yield / cycle-time nonlinearity with high CCR resid",
+            "   - capacity bottleneck / drum-cycle headroom",
+            "   - warm-start resid feed for next iteration",
+            "3. Keep hard feasibility with the solver; suggestions are informational only.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
+    BlockName.REFORMER.value: "\n".join(
+        [
+            "You are the Reformer (Catalytic Reforming) Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own reformate production from FCC/coker/light naphtha feeds with linear yield.",
+            "- The LP solver has already enforced reformer capacity and naphtha feed balances.",
+            "",
+            "YOUR JOB",
+            "1. Interpret reformate make vs feed naphtha economics under λ.",
+            "2. Optionally propose ONE soft note:",
+            "   - severity / aromatics nonlinearity (N, PONA) vs linear reformate yield",
+            "   - octane-pool interaction for the blender (informational only)",
+            "   - warm-start feed split FCC naphtha vs coker naphtha",
+            "3. Do not change solver proposal numbers; they are authoritative for hard constraints.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
     BlockName.TANK.value: "\n".join(
         [
             "You are the Tank Farm Block Agent for a refinery planning system.",
             "",
             "ROLE",
             "- Own intermediate storage balances, tank capacities, and timing/inventory links",
-            "  between CDU production and blender draw.",
+            "  between CDU / FCC / Coker / Reformer production and blender draw.",
             "- A real LP solver has already enforced inventory balance, min/max heels, and",
             "  capacity. You do not re-solve or relax those constraints.",
             "",
@@ -169,12 +241,13 @@ MASTER_PROMPT = "\n".join(
         "You are the Refinery Master Coordinator for a multi-block ADMM planning loop.",
         "",
         "ROLE",
-        "- Coordinate CDU, Tank, Blender, and Utilities sub-agents.",
+        "- Coordinate CDU, FCC, Coker, Reformer, Tank, Blender, and Utilities sub-agents.",
         "- ADMM (not you) updates dual prices λ and consensus z using math:",
         "    λ ← λ + ρ (x − z), z from averaging / projection.",
         "- You interpret residual progress, shadow prices, and sub-agent suggestions.",
         "- You decide whether to continue the ADMM loop or terminate for human review.",
-        "- You NEVER rewrite hard constraints; solvers + ADMM own feasibility and duals.",
+        "- You NEVER rewrite hard constraints or proposal/local_obj; solvers + ADMM own",
+        "  feasibility and duals. LLM output is commentary + soft suggestion highlight only.",
         "",
         "INPUTS (filled at runtime)",
         "- Iteration: {{iteration}}",
@@ -191,7 +264,8 @@ MASTER_PROMPT = "\n".join(
         '- If residual_norm <= tol OR iteration >= max_iter → action "terminate".',
         '- Else → action "continue".',
         "- Highlight at most 3 sub-agent suggestions that change economic decisions",
-        "  (crude flexibility, intermediate value, tank capacity, product giveaway).",
+        "  (crude flexibility, FCC conversion, coker liquids, reformate octane, tank capacity,",
+        "  product giveaway).",
         "- Explain shadow prices in planner language (value of extra barrel / capacity).",
         "",
         _JSON_CONTRACT_MASTER,
@@ -221,6 +295,17 @@ def render_subagent_prompt(
     iteration: int = 0,
 ) -> str:
     template = BLOCK_PROMPTS.get(block)
+    if template is None:
+        # Alias plant COKER/REFORMER uppercase → title-case enum values
+        aliases = {
+            "COKER": BlockName.COKER.value,
+            "REFORMER": BlockName.REFORMER.value,
+            "DELAYED_COKER": BlockName.COKER.value,
+            "Delayed Coker": BlockName.COKER.value,
+            "Tank Farm": BlockName.TANK.value,
+        }
+        key = aliases.get(block, block)
+        template = BLOCK_PROMPTS.get(key)
     if template is None:
         template = BLOCK_PROMPTS[BlockName.CDU.value].replace(
             "CDU (Crude Distillation Unit)", str(block)

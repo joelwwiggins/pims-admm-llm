@@ -13,13 +13,14 @@ authors = [{ name = "Joel Wiggins" }]
 dependencies = [
   "pulp>=2.8",
   "numpy>=1.26",
+  "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
 scipy = ["scipy>=1.11"]
 llm = ["openai>=1.0"]
 dev = ["pytest>=7.0", "scipy>=1.11"]
-all = ["scipy>=1.11", "openai>=1.0", "pytest>=7.0"]
+all = ["scipy>=1.11", "openai>=1.0", "openpyxl>=3.1", "pytest>=7.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

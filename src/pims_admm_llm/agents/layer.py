@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 from .llm_client import LLMClient, make_llm_client
 from .master import MasterCoordinatorAgent
 from .schemas import BlockName, MasterDecision, SubAgentProposal
-from .subagent import SubAgent, default_block_agents
+from .subagent import DEFAULT_BLOCKS, SubAgent, default_block_agents
 
 
 @dataclass
@@ -39,7 +39,7 @@ class MultiAgentLayer:
         *,
         agents: Optional[Dict[str, SubAgent]] = None,
         master: Optional[MasterCoordinatorAgent] = None,
-        max_workers: int = 4,
+        max_workers: int = 8,
     ) -> None:
         self.llm = llm or make_llm_client()
         self.agents = agents if agents is not None else default_block_agents(self.llm)
@@ -54,9 +54,10 @@ class MultiAgentLayer:
         enable_llm: bool = True,
         solvers: Optional[Mapping[str, Any]] = None,
         local_data: Optional[Mapping[str, Dict[str, Any]]] = None,
+        blocks: Optional[Sequence[str]] = None,
         tol: float = 1e-3,
         max_iter: int = 50,
-        max_workers: int = 4,
+        max_workers: int = 8,
         llm: Optional[LLMClient] = None,
     ) -> "MultiAgentLayer":
         client = llm or make_llm_client(llm_mode)
@@ -65,6 +66,7 @@ class MultiAgentLayer:
             enable_llm=enable_llm,
             solvers=solvers,
             local_data=local_data,
+            blocks=list(blocks) if blocks is not None else None,
         )
         master = MasterCoordinatorAgent(
             client, enable_llm=enable_llm, tol=tol, max_iter=max_iter
@@ -166,8 +168,12 @@ class MultiAgentLayer:
         tol: float = 1e-3,
         max_iter: int = 50,
         include_tank_utilities: bool = True,
+        include_conversion_units: bool = True,
+        fcc_rates: Optional[Mapping[str, float]] = None,
+        coker_rates: Optional[Mapping[str, float]] = None,
+        reformer_rates: Optional[Mapping[str, float]] = None,
     ) -> MultiAgentLayerResult:
-        """Post-solve annotation for ADMM/monolithic results (all four blocks)."""
+        """Post-solve annotation for ADMM/monolithic results."""
         cdu = self.agents["CDU"].build_proposal(
             local_solution={**dict(crude_rates), **dict(intermediate_prod)},
             prices=shadow_prices,
@@ -187,23 +193,45 @@ class MultiAgentLayer:
             status="Optimal",
         )
         proposals = [cdu, blender]
+        if include_conversion_units:
+            for key, rates, label in (
+                ("FCC", fcc_rates or intermediate_prod, "FCC"),
+                ("Coker", coker_rates or intermediate_prod, "Coker"),
+                ("Reformer", reformer_rates or product_rates, "Reformer"),
+            ):
+                if key in self.agents:
+                    proposals.append(
+                        self.agents[key].build_proposal(
+                            local_solution=dict(rates),
+                            prices=shadow_prices,
+                            consensus=consensus_z,
+                            iteration=iterations,
+                            linking_flows=dict(rates),
+                            status="Optimal",
+                        )
+                    )
         if include_tank_utilities:
-            tank = self.agents["Tank"].build_proposal(
-                local_solution=dict(intermediate_prod),
-                prices=shadow_prices,
-                consensus=consensus_z,
-                iteration=iterations,
-                linking_flows=intermediate_prod,
-                status="Optimal",
-            )
-            util = self.agents["Utilities"].build_proposal(
-                local_solution={"charge_kbd": sum(float(v) for v in crude_rates.values())},
-                prices=shadow_prices,
-                consensus=consensus_z,
-                iteration=iterations,
-                status="Optimal",
-            )
-            proposals.extend([tank, util])
+            if "Tank" in self.agents:
+                tank = self.agents["Tank"].build_proposal(
+                    local_solution=dict(intermediate_prod),
+                    prices=shadow_prices,
+                    consensus=consensus_z,
+                    iteration=iterations,
+                    linking_flows=intermediate_prod,
+                    status="Optimal",
+                )
+                proposals.append(tank)
+            if "Utilities" in self.agents:
+                util = self.agents["Utilities"].build_proposal(
+                    local_solution={
+                        "charge_kbd": sum(float(v) for v in crude_rates.values())
+                    },
+                    prices=shadow_prices,
+                    consensus=consensus_z,
+                    iteration=iterations,
+                    status="Optimal",
+                )
+                proposals.append(util)
 
         decision = self.master.decide(
             iteration=max(iterations - 1, 0) if iterations else 0,
@@ -269,6 +297,9 @@ def demo_round(
             "distillate": 3.0,
             "gasoil": 1.2,
             "residue": -0.5,
+            "fcc_naphtha": 2.2,
+            "coker_naphtha": 2.0,
+            "reformate": 3.5,
         }
     )
     consensus = dict(
@@ -278,6 +309,9 @@ def demo_round(
             "distillate": 35.0,
             "gasoil": 25.0,
             "residue": 20.0,
+            "fcc_naphtha": 15.0,
+            "coker_naphtha": 8.0,
+            "reformate": 18.0,
         }
     )
 
@@ -298,12 +332,7 @@ def demo_round(
 
         return fn
 
-    solvers = {
-        BlockName.CDU.value: _mock(BlockName.CDU.value),
-        BlockName.TANK.value: _mock(BlockName.TANK.value),
-        BlockName.BLENDER.value: _mock(BlockName.BLENDER.value),
-        BlockName.UTILITIES.value: _mock(BlockName.UTILITIES.value),
-    }
+    solvers = {name: _mock(name) for name in DEFAULT_BLOCKS}
     layer = MultiAgentLayer.create(llm_mode=llm_mode, solvers=solvers)
     return layer.coordinate(
         prices,

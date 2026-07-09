@@ -31,7 +31,10 @@ Imagine a standing planning crew:
 |------|----------------|---------------|
 | **Boss (Master Coordinator)** | Plant / planning manager persona | Linking streams, balance, stop/go, final plan |
 | **CDU Agent** | Crude unit expert | Crude slate, yields, CDU capacity |
-| **Tank Farm Agent** | Storage & timing expert | Inventory, heels, swing space *(scaffold / future)* |
+| **Tank Farm Agent** | Storage & timing expert | Intermediate tanks **between** units (gasoil, resid, conversion naphthas), heels, swing space |
+| **FCC Agent** | Cat cracker expert | Gasoil feed, FCC capacity, naphtha / LCO / slurry yields |
+| **Coker Agent** | Delayed coker expert | Resid feed, coker capacity, naphtha / gasoil yields |
+| **Reformer Agent** | Reforming expert | Naphtha feed quality & rate, reformate to gasoline |
 | **Blender Agent** | Product quality & recipes | Specs, blend recipes, product demand |
 | **Utilities Agent** | Energy / fuel gas expert | Steam, fuel, power limits *(scaffold / future)* |
 
@@ -40,7 +43,25 @@ Each department expert is really **two things working together**:
 1. A **reliable calculator** (LP solver) that never breaks hard rules (capacity, mass balance, min/max rates).
 2. An **experienced operator brain** (LLM) that can notice soft things the linear model misses: “this crude is running richer in mid-cut than the yield vector says,” “if we ease the cut we free high-value naphtha,” “market wants more ULSD this week.”
 
-The Boss does **not** re-solve the whole plant alone. He sets **price signals** (shadow prices / duals) for the streams that connect departments — naphtha, distillate, gasoil, residue — and asks each department for its best local plan under those prices.
+The Boss does **not** re-solve the whole plant alone. He sets **price signals** (shadow prices / duals) for the streams that connect departments — naphtha, distillate, gasoil, residue, FCC and coker products, reformate — and asks each department for its best local plan under those prices.
+
+---
+
+## How molecules move (routing story)
+
+Think of the plant as a **relay**, not one black box. Crude comes in; each unit does one job; **tanks sit between conversion steps** so inventory and timing stay honest.
+
+1. **Crude → CDU.** The crude unit splits the barrel into straight-run naphtha, distillate, gasoil, and resid.
+2. **Light cuts go to blending.** Straight-run naphtha and distillate head toward the **blender** (gasoline / diesel pools).
+3. **Gasoil does not jump the fence.** CDU gasoil goes into a **gasoil tank**, then into the **FCC**. Hard rule: *CDU gasoil → tank → FCC*.
+4. **Resid does not jump the fence.** CDU resid goes into a **resid tank**, then into the **coker**. Hard rule: *CDU resid → tank → coker*.
+5. **Conversion naphthas also stage.** FCC naphtha and coker naphtha each land in their **own tanks**, then feed the **reformer**. Hard rules: *FCC naphtha → tank → reformer* and *coker naphtha → tank → reformer*.
+6. **Everything useful finishes at the blender.** Reformate, FCC LCO and slurry, coker gasoil, and the light straight-run cuts meet in the **blender** for finished products.
+
+So the story in one breath:  
+**crude → CDU → (gasoil tank → FCC, resid tank → coker) → naphtha tanks → reformer → blender**, with light CDU cuts and secondary products joining the blender along the way.
+
+That is the same map the model enforces in [`data/routing.json`](../data/routing.json) and the one-pager [routing.md](routing.md).
 
 ---
 
@@ -55,8 +76,12 @@ Those numbers are not guesses. They come from the coordination math (ADMM duals 
 ### Step 2 — Each department makes its plan (in parallel)
 
 - **CDU** picks crude rates and produces intermediates under yield and capacity limits.
+- **Tanks** hold gasoil, resid, and conversion naphthas between units (capacity / swing).
+- **FCC** takes tanked gasoil and makes naphtha, LCO, and slurry.
+- **Coker** takes tanked resid and makes naphtha and gasoil.
+- **Reformer** takes tanked FCC and coker naphthas and makes reformate.
 - **Blender** consumes intermediates into finished products under specs and demand caps.
-- (Tanks / utilities, when live, do the same for inventory and energy.)
+- (Utilities, when live, do the same for energy.)
 
 Each agent returns:
 
@@ -121,7 +146,10 @@ One boss. Specialist agents per unit. Real LP math + LLM judgment.
 
 - **Boss** — prices the connecting streams, keeps the plant balanced  
 - **CDU** — crudes & yields  
-- **Tanks** — inventory & timing  
+- **Tanks** — inventory between units (gasoil, resid, naphthas)  
+- **FCC** — gasoil cracker  
+- **Coker** — resid conversion  
+- **Reformer** — naphtha → reformate  
 - **Blender** — specs & products  
 - **Utilities** — energy balance  
 
@@ -129,7 +157,7 @@ Each expert = **solver (rules)** + **LLM (judgment)**
 
 ### Slide 3/6 — Step 1: Boss sets the tone
 
-Sends **price signals** for naphtha, distillate, gasoil, residue:  
+Sends **price signals** for naphtha, distillate, gasoil, residue, FCC/coker products, reformate:  
 “Plan as if an extra barrel of X is worth λₓ.”  
 Those λ values **are** the shadow prices used for make-buy-sell.
 
@@ -158,13 +186,14 @@ Usually a few rounds. Humans can interrupt anytime.
 
 ## 60-second elevator version
 
-> We broke the planning model into the same pieces your plant already has — crude unit, blender, tanks, utilities. Each piece has a specialist agent with a real optimizer and an AI co-pilot. A master coordinator sets prices on the streams that connect them, same idea as shadow prices in PIMS. They talk for a few quick rounds until the plant balances. You get a solid plan, make-buy-sell values, and explanations — faster, and easier to extend when yields aren’t perfectly linear.
+> We broke the planning model into the same pieces your plant already has — crude unit, intermediate tanks, FCC, coker, reformer, blender, utilities. Molecules follow real routing: gasoil and resid stage in tanks before conversion; conversion naphthas stage again before the reformer. Each piece has a specialist agent with a real optimizer and an AI co-pilot. A master coordinator sets prices on the streams that connect them, same idea as shadow prices in PIMS. They talk for a few quick rounds until the plant balances. You get a solid plan, make-buy-sell values, and explanations — faster, and easier to extend when yields aren’t perfectly linear.
 
 ---
 
 ## Related docs
 
 - [Architecture (planners / managers)](architecture.md) — components, data flow, who owns what  
+- [Plant routing one-pager](routing.md) — hard routes from `data/routing.json`  
 - [ADMM vs Dantzig–Wolfe one-pager](admm-vs-dantzig-wolfe.md) — why we lead with ADMM, when DW still matters  
 - [README](../README.md) — install, demo, repo layout  
 

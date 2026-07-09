@@ -1,6 +1,7 @@
 pulp>=2.8
 numpy>=1.26
 scipy>=1.11
+openpyxl>=3.1
 # optional LLM / agent layer
 # openai>=1.0
 # langchain>=0.2

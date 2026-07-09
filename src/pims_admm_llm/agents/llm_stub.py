@@ -115,6 +115,9 @@ class MasterAgent:
 def default_legacy_agents() -> Dict[str, LLMSubAgent]:
     return {
         BlockName.CDU.value: LLMSubAgent(BlockName.CDU.value),
+        BlockName.FCC.value: LLMSubAgent(BlockName.FCC.value),
+        BlockName.COKER.value: LLMSubAgent(BlockName.COKER.value),
+        BlockName.REFORMER.value: LLMSubAgent(BlockName.REFORMER.value),
         BlockName.TANK.value: LLMSubAgent(BlockName.TANK.value),
         BlockName.BLENDER.value: LLMSubAgent(BlockName.BLENDER.value),
         BlockName.UTILITIES.value: LLMSubAgent(BlockName.UTILITIES.value),

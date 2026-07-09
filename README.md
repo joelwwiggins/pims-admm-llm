@@ -8,7 +8,7 @@ Crude data + LP distillation / process-unit submodels + **block-angular ADMM** f
 
 Commercial refinery planning (PIMS / RPMS / similar) still centers on large linear programs with block-angular structure:
 
-- Local blocks: CDU/yields, tanks, blenders, utilities, …
+- Local blocks: CDU/yields, tanks, FCC, coker, reformer, blenders, utilities, …
 - Linking constraints: intermediate balances, inventory, shared capacity
 
 This project demonstrates:
@@ -26,6 +26,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m demos.run_demo
+# Full plant (assays + dual recovery):
+python -m demos.run_full_plant_demo
 ```
 
 ## Architecture (short)
@@ -37,14 +39,14 @@ python -m demos.run_demo
                  └───────────┬─────────────┘
            λ, z  ↓           ↑  x_i proposals
      ┌───────────┴───────────┴───────────┐
-     │                                   │
- ┌───▼───┐  ┌───────┐  ┌────────┐  ┌─────▼────┐
- │  CDU  │  │ Tanks │  │Blender │  │ Utilities│
- │ LLM+LP│  │LLM+LP │  │ LLM+LP │  │  LLM+LP  │
- └───┬───┘  └───┬───┘  └───┬────┘  └─────┬────┘
-     └──────────┴──────────┴─────────────┘
-              linking streams (consensus z)
+     │  CDU · Tanks · FCC · Coker ·      │
+     │  Reformer · Blender · Utilities   │
+     └─────────────────┬─────────────────┘
+                       │ linking streams
 ```
+
+**Material path:** crude → CDU → (gasoil→tank→FCC, resid→tank→coker) → naphthas→tanks→reformer → blender  
+(Hard rules in [`data/routing.json`](data/routing.json); one-pager [`docs/routing.md`](docs/routing.md).)
 
 - **Hard constraints**: always enforced by PuLP/CBC (or Gurobi if licensed) inside each block.
 - **ADMM**: updates duals λ and consensus z; λ are the economic shadow prices.
@@ -64,17 +66,21 @@ python -m demos.run_demo
 
 ```
 src/pims_admm_llm/
-  models/          # crude, CDU, blender, linking data
+  models/          # CDU, tanks, FCC, coker, reformer, blender, full plant
   admm/            # ADMM coordinator, dual updates
   agents/          # LLM sub-agent + master prompts / stubs
   solvers/         # PuLP helpers, parallel runners
 demos/
-  run_demo.py      # monolithic vs ADMM + shadow price report
+  run_demo.py              # legacy monolithic vs ADMM + shadow price report
+  run_full_plant_demo.py   # full plant assays + dual recovery
 docs/
   story.md                   # non-math stakeholder narrative + carousel
   architecture.md            # planners/managers architecture
+  routing.md                 # plant routing one-pager
   admm-vs-dantzig-wolfe.md   # one-pager: ADMM vs DW for coordination
 data/
+  routing.json
+  assays/crudes.json
   synthetic_crudes.json
 ```
 
@@ -82,11 +88,14 @@ data/
 
 - [docs/story.md](docs/story.md) — Smart Refinery Planning Team narrative + 6-slide carousel (non-math)
 - [docs/architecture.md](docs/architecture.md) — planners/managers architecture
+- [docs/routing.md](docs/routing.md) — full plant routing (FCC, coker, reformer, tanks)
 - [docs/admm-vs-dantzig-wolfe.md](docs/admm-vs-dantzig-wolfe.md) — ADMM vs Dantzig–Wolfe one-pager
 
 ## Status
 
-MVP target: runnable toy refinery (crude → CDU → intermediates → blender) with ADMM duals comparable to a monolithic PuLP solve, timing report, and LLM agent stubs.
+MVP (wave 1): runnable toy refinery (crude → CDU → intermediates → blender) with ADMM duals comparable to a monolithic PuLP solve, timing report, and LLM agent stubs.
+
+**Wave 2:** full plant assays (`data/assays/`), routing with tanks between conversion units, dual recovery demo path — `python -m demos.run_full_plant_demo`.
 
 Kanban board: `pims-admm-llm-20260708`  
 Backup: `/home/joel/backups/pims-admm-llm-20260708-191130`

@@ -18,3 +18,13 @@ catboost_info/
 *.mps
 .coverage
 htmlcov/
+
+# demo runtime artifacts
+demos/output/
+demos/artifacts/
+demos/video/audio/
+demos/video/frames/
+demos/video/silent.mp4
+demos/video/narration_full.mp3
+demos/video/audio_concat.txt
+demos/bench_parallel_last.json

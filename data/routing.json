@@ -1,0 +1,112 @@
+{
+  "description": "Block-angular plant routing with intermediate tanks",
+  "units": [
+    "CDU",
+    "TANK_GASOIL",
+    "TANK_RESID",
+    "FCC",
+    "COKER",
+    "TANK_FCC_NAPH",
+    "TANK_COKER_NAPH",
+    "REFORMER",
+    "BLENDER"
+  ],
+  "routes": [
+    {
+      "from": "CDU",
+      "stream": "cdu_gasoil",
+      "to": "TANK_GASOIL",
+      "note": "crude unit gasoil to tank then FCC"
+    },
+    {
+      "from": "TANK_GASOIL",
+      "stream": "cdu_gasoil",
+      "to": "FCC",
+      "note": "tank feeds FCC"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_resid",
+      "to": "TANK_RESID",
+      "note": "crude unit resid to tank then coker"
+    },
+    {
+      "from": "TANK_RESID",
+      "stream": "cdu_resid",
+      "to": "COKER",
+      "note": "tank feeds delayed coker"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_naphtha",
+      "to": "TANK_FCC_NAPH",
+      "note": "FCC naphtha to tank then reformer"
+    },
+    {
+      "from": "TANK_FCC_NAPH",
+      "stream": "fcc_naphtha",
+      "to": "REFORMER",
+      "note": "FCC naphtha reformer feed"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_naphtha",
+      "to": "TANK_COKER_NAPH",
+      "note": "coker naphtha to tank then reformer"
+    },
+    {
+      "from": "TANK_COKER_NAPH",
+      "stream": "coker_naphtha",
+      "to": "REFORMER",
+      "note": "coker naphtha reformer feed"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_naphtha",
+      "to": "BLENDER",
+      "note": "straight-run naphtha to gasoline pool"
+    },
+    {
+      "from": "CDU",
+      "stream": "cdu_distillate",
+      "to": "BLENDER",
+      "note": "distillate to diesel pool"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_lco",
+      "to": "BLENDER",
+      "note": "LCO to diesel/fuel oil"
+    },
+    {
+      "from": "FCC",
+      "stream": "fcc_slurry",
+      "to": "BLENDER",
+      "note": "slurry to fuel oil"
+    },
+    {
+      "from": "COKER",
+      "stream": "coker_gasoil",
+      "to": "BLENDER",
+      "note": "coker gasoil to diesel/FO blend"
+    },
+    {
+      "from": "REFORMER",
+      "stream": "reformate",
+      "to": "BLENDER",
+      "note": "reformate to gasoline"
+    }
+  ],
+  "linking_streams": [
+    "cdu_naphtha",
+    "cdu_distillate",
+    "cdu_gasoil",
+    "cdu_resid",
+    "fcc_naphtha",
+    "fcc_lco",
+    "fcc_slurry",
+    "coker_naphtha",
+    "coker_gasoil",
+    "reformate"
+  ]
+}

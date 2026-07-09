@@ -14,6 +14,9 @@ from typing import Any, Dict, List, Optional
 
 class BlockName(str, Enum):
     CDU = "CDU"
+    FCC = "FCC"
+    COKER = "Coker"  # Delayed coker unit
+    REFORMER = "Reformer"
     TANK = "Tank"
     BLENDER = "Blender"
     UTILITIES = "Utilities"
@@ -56,7 +59,11 @@ class Suggestion:
 
 @dataclass
 class SubAgentProposal:
-    """One block's response after local LP solve + optional LLM augmentation."""
+    """One block's response after local LP solve + optional LLM augmentation.
+
+    HARD RULE: ``proposal`` and ``local_obj`` come only from the solver / ADMM
+    block result. The LLM may only append to ``suggestions`` (and ``note``).
+    """
 
     block: str
     proposal: Dict[str, float] = field(default_factory=dict)
