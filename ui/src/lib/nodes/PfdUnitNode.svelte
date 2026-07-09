@@ -1,10 +1,8 @@
 <script>
-  import { Handle, Position, useSvelteFlow } from '@xyflow/svelte';
+  import { Handle, Position, NodeToolbar } from '@xyflow/svelte';
 
   /** @type {{ id: string, data: Record<string, any>, selected?: boolean }} */
   let { id, data, selected = false } = $props();
-
-  const { updateNodeData } = useSvelteFlow();
 
   const ports = $derived(data.ports || { feeds: [], products: [] });
   const feeds = $derived(ports.feeds || []);
@@ -15,6 +13,11 @@
   );
   const statusColor = $derived(
     !data.active ? '#666' : data.status === 'running' ? '#3dba72' : data.status === 'alarm' ? '#e05a5a' : '#e0c040',
+  );
+  const tip = $derived(
+    `${data.tag || id} ${data.label || data.unitType}` +
+      (data.charge_kbd ? ` · ${Number(data.charge_kbd).toFixed(1)} kbd` : '') +
+      (data.description ? ` · ${data.description}` : ''),
   );
 
   function pos(side) {
@@ -41,8 +44,19 @@
   class:inactive={!data.active}
   style:--header={data.headerColor || '#1e5a8a'}
   style:--accent={data.accentColor || '#4a9fe0'}
+  title={tip}
 >
-  <!-- FEED HANDLES (left / top) -->
+  <NodeToolbar isVisible={selected} position={Position.Top} offset={8}>
+    <div class="toolbar-tip">
+      <strong>{data.tag} {data.label}</strong>
+      <span>{data.description || data.unitType}</span>
+      {#if data.charge_kbd}
+        <span>Charge {Number(data.charge_kbd).toFixed(1)} kbd</span>
+      {/if}
+      <span class="hint">Inspector → right panel</span>
+    </div>
+  </NodeToolbar>
+
   {#each feeds as port, i}
     <Handle
       type="target"
@@ -50,7 +64,7 @@
       id={port.id}
       class="pfd-handle"
       style={stackStyle(feeds, i, port.side || 'left')}
-      title={port.name}
+      title={`Feed: ${port.name}`}
     />
     {#if (port.side || 'left') === 'left'}
       <span class="port-label in" style={stackStyle(feeds, i, 'left')}>{port.name}</span>
@@ -89,7 +103,6 @@
     {/if}
   </div>
 
-  <!-- PRODUCT HANDLES (right / bottom) -->
   {#each products as port, i}
     <Handle
       type="source"
@@ -97,7 +110,7 @@
       id={port.id}
       class="pfd-handle"
       style={stackStyle(products, i, port.side || 'right')}
-      title={port.name}
+      title={`Product: ${port.name}`}
     />
     {#if (port.side || 'right') === 'right'}
       <span class="port-label out" style={stackStyle(products, i, 'right')}>{port.name}</span>
@@ -128,6 +141,29 @@
   .pfd-node.inactive {
     opacity: 0.55;
     filter: grayscale(0.4);
+  }
+
+  .toolbar-tip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: #0d1520f2;
+    border: 1px solid #3a5a78;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.68rem;
+    color: #c5d2e0;
+    box-shadow: 0 4px 16px #0008;
+    max-width: 220px;
+  }
+  .toolbar-tip strong {
+    color: #fff;
+    font-size: 0.75rem;
+  }
+  .toolbar-tip .hint {
+    color: #5eb0f0;
+    font-size: 0.6rem;
+    margin-top: 2px;
   }
 
   .header {
@@ -218,7 +254,6 @@
     font-family: ui-monospace, monospace;
   }
 
-  /* Handles + port labels */
   :global(.pfd-handle) {
     width: 10px !important;
     height: 10px !important;
