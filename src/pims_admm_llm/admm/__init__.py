@@ -22,7 +22,7 @@ from .subproblems import (
     solve_cdu_consensus,
     solve_blender_consensus,
 )
-from .residuals import primal_residual, dual_residual, converged
+from .residuals import primal_residual, dual_residual, converged, linf_dual_gap
 from .recovery import recover_blender_with_duals, economic_objective
 from .simple_mono import solve_simple_monolithic, SimpleMonoResult
 
@@ -43,6 +43,7 @@ __all__ = [
     "primal_residual",
     "dual_residual",
     "converged",
+    "linf_dual_gap",
     "recover_blender_with_duals",
     "economic_objective",
     "solve_simple_monolithic",

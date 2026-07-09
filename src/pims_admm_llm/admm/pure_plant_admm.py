@@ -565,6 +565,7 @@ def run_pure_plant_admm(
         "lambda_vs_mono_bal_Linf": linf_bal,
         "lambda_vs_mono_bal_gaps": gaps_bal,
         "lambda_vs_mono_econ_gaps": gaps_econ,
+        "mono_bal_duals": mono_bal,
         "duals_like_monolithic": {},
         "economic_shadow_prices": {s: abs(lam[s]) for s in links},
         "quality_duals": mono.quality_duals,

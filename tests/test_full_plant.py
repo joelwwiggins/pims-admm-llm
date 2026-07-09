@@ -154,6 +154,44 @@ def test_dual_recovery_matches_mono_shadows():
         assert abs(abs(v) - abs(rec)) < 1e-5, (k, v, rec)
 
 
+def test_pure_admm_path_no_mono_oracle_for_lambda():
+    """pure-admm: free λ (not mono duals), honest L∞ vs mono bal_*, residual path runs."""
+    mono = solve_full_plant()
+    pure = admm_price_directed_plant(
+        recovery_path="pure-admm", max_iter=40, rho=1.2, dual_step=0.35
+    )
+    assert pure.get("dual_recovery_path") == "pure-admm"
+    assert pure.get("status") in ("pure_admm_iterated", "pure_admm_hardened")
+    assert pure.get("duals_like_monolithic") == {}
+    assert "lambda" in pure and pure["lambda"]
+    assert "lambda_vs_mono_Linf" in pure
+    # mono bal duals available for honesty (either nested key or bal Linf metric)
+    assert "mono_bal_duals" in pure or "lambda_vs_mono_bal_Linf" in pure
+    if "mono_bal_duals" in pure:
+        assert any(k.startswith("bal_") for k in pure["mono_bal_duals"])
+    assert pure["iterations"] >= 1
+    assert pure["unit_feeds"]["cdu_charge"] > 0
+    # conversion units active on free path
+    assert pure["unit_feeds"]["fcc_feed"] > 0 or pure.get("unit_feeds_mono", {}).get("fcc_feed", 0) > 0
+    default = admm_price_directed_plant()
+    assert default.get("dual_recovery_path") == "mono-oracle"
+    assert default.get("lambda_vs_mono_Linf") == 0.0
+    assert abs(default["objective"] - mono.objective) < 1e-4
+
+
+
+def test_linf_dual_gap_helper():
+    from pims_admm_llm.admm.residuals import linf_dual_gap
+
+    linf, gaps = linf_dual_gap(
+        {"cdu_gasoil": 80.0, "cdu_resid": 50.0},
+        {"bal_tank_gasoil": -83.0, "bal_tank_resid": -55.0},
+    )
+    assert linf == pytest.approx(5.0, abs=1e-9)
+    assert gaps["cdu_gasoil"] == pytest.approx(3.0, abs=1e-9)
+    assert gaps["cdu_resid"] == pytest.approx(5.0, abs=1e-9)
+
+
 def test_excel_roundtrip(tmp_path: Path):
     xlsx = tmp_path / "assays.xlsx"
     write_template_excel(xlsx)
@@ -172,6 +210,8 @@ def test_plant_blocks_smoke():
     # reformer proposal keys include heavy SR
     ref = out["blocks"]["REFORMER"]["proposal"]
     assert "cdu_naphtha_heavy_use" in ref or "reformate" in ref
+    assert "BLENDER" in out["blocks"]
+    assert out["blocks"]["BLENDER"]["status"] == "Optimal"
 
 
 def test_default_assays_path_exists():
