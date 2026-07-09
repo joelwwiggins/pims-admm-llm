@@ -7,6 +7,10 @@
   const products = $derived(result?.products || {});
   const splits = $derived(result?.routing_splits || {});
   const arcs = $derived(result?.arc_flows || {});
+  const duals = $derived(result?.duals || {});
+  const qualityDuals = $derived(result?.quality_duals || {});
+  const quality = $derived(result?.quality || null);
+  const processConditions = $derived(result?.process_conditions || {});
 
   function fmt(x) {
     if (x == null || Number.isNaN(Number(x))) return '—';
@@ -88,6 +92,56 @@
             {#if Math.abs(Number(v)) > 1e-6}
               <tr><td>{k}</td><td>{Number(v).toFixed(3)}</td></tr>
             {/if}
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if Object.keys(duals).length}
+      <h3>Shadow duals (nonzero)</h3>
+      <table>
+        <tbody>
+          {#each Object.entries(duals) as [k, v]}
+            <tr><td>{k}</td><td>{fmt(v)}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if Object.keys(qualityDuals).length}
+      <h3>Quality duals</h3>
+      <table>
+        <tbody>
+          {#each Object.entries(qualityDuals) as [k, v]}
+            <tr><td>{k}</td><td>{fmt(v)}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if quality}
+      <h3>Quality meta</h3>
+      <table>
+        <tbody>
+          <tr><td>model</td><td>{quality.model || '—'}</td></tr>
+          <tr><td>base</td><td>{quality.base_stream || quality.base || '—'}</td></tr>
+          {#if quality.base_ron != null}<tr><td>base_ron</td><td>{fmt(quality.base_ron)}</td></tr>{/if}
+          {#if quality.base_s != null}<tr><td>base_s</td><td>{fmt(quality.base_s)}</td></tr>{/if}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if Object.keys(processConditions).length}
+      <h3>Process conditions (solve)</h3>
+      <table>
+        <tbody>
+          {#each Object.entries(processConditions) as [unit, pc]}
+            <tr><td colspan="2" style="font-weight:600;color:#9eb0c4">{unit}</td></tr>
+            {#each Object.entries(pc || {}) as [k, v]}
+              {#if typeof v !== 'object'}
+                <tr><td style="padding-left:0.5rem">{k}</td><td>{fmt(v)}</td></tr>
+              {/if}
+            {/each}
           {/each}
         </tbody>
       </table>

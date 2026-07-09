@@ -89,6 +89,27 @@ def extract_active_units(nodes: Iterable[dict]) -> Set[str]:
     return units
 
 
+def extract_process_conditions(nodes: Iterable[dict]) -> Dict[str, Dict[str, Any]]:
+    """Pull per-unit processConditions / process_conditions from canvas nodes.
+
+    Later nodes of the same unitType overwrite earlier (last-write-wins).
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    for n in nodes:
+        data = n.get("data") or {}
+        if not bool(data.get("active", True)):
+            continue
+        ut = _norm_unit(data.get("unitType") or data.get("label") or n.get("type"))
+        if not ut or ut in ("TANK", "SELL", "warehouse", "transport", "BLENDER"):
+            # blender conditions live under BLENDER key if present
+            if ut != "BLENDER":
+                continue
+        pc = data.get("processConditions") or data.get("process_conditions")
+        if isinstance(pc, dict) and pc:
+            out[ut] = dict(pc)
+    return out
+
+
 def extract_type_edges(nodes: Iterable[dict], edges: Iterable[dict]) -> Set[Tuple[str, str]]:
     id_to_type: Dict[str, str] = {}
     for n in nodes:
@@ -233,6 +254,16 @@ def solve_from_graph(
     units = extract_active_units(nodes)
     process = units - {"warehouse", "transport"}
 
+    # Wave5: UI Process tab → yield tables via routing.process_conditions
+    node_pc = extract_process_conditions(nodes)
+    if node_pc:
+        base_pc = dict(routing.get("process_conditions") or {})
+        for unit, pc in node_pc.items():
+            merged = dict(base_pc.get(unit) or {})
+            merged.update(pc)
+            base_pc[unit] = merged
+        routing["process_conditions"] = base_pc
+
     mono = solve_full_plant(
         assays,
         routing=routing,
@@ -265,6 +296,10 @@ def solve_from_graph(
         "economic_shadows": mono.economic_shadows,
         "solve_time_s": mono.solve_time_s,
         "inventory_mode": mono.inventory_mode,
+        "quality": (mono.meta or {}).get("quality") if mono.meta else None,
+        "process_conditions": (mono.meta or {}).get("process_conditions")
+        if mono.meta
+        else None,
         "routing_meta": {
             "version": routing.get("version"),
             "graph_driven": routing.get("graph_driven", False),
@@ -274,6 +309,7 @@ def solve_from_graph(
                 for a in routing.get("arcs") or []
                 if a.get("decision") and a.get("default_open", True)
             ),
+            "process_conditions_from_nodes": sorted(node_pc.keys()) if node_pc else [],
         },
     }
 

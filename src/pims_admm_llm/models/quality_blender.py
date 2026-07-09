@@ -30,15 +30,15 @@ Gasoline RON and sulfur are the MVP targets. Algebra:
 
 Limitations vs full Aspen PIMS delta-base recursion
 ---------------------------------------------------
-This MVP is **single-level, fixed-assay, non-recursive**:
+This module is **single-level, fixed-assay** by default:
 
 1. Component properties are **fixed** in routing.json (planning-grade assays).
    PIMS re-estimates intermediate qualities when upstream recipes/severities
    change (composition → property response → re-blend).
-2. **No multi-tank recursion**: intermediate tanks do not recompute quality
-   from inflows and feed that quality into the next pool within the same LP.
-   Full PIMS delta-base chains those pools (and may need successive LP / SLP
-   when responses are nonlinear).
+2. **Multi-tank recursion (Wave5 W2B v1)** lives in ``quality_recursive.py``:
+   intermediate tank Q from volume-weighted inflows (+ heel / soft HDT), then
+   feed into next-pool deltas via optional ``recursive_quality=True`` path.
+   Not full multi-level SLP inside one CBC solve.
 3. **No multi-property octane engine**: R+M/2, sensitivity, aromatics caps,
    benzene, RVP, distillation, driveability index, etc. are out of scope.
 4. **Sulfur is volume-weighted wt%** (planning approximation). True mass-basis

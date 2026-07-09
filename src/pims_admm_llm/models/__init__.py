@@ -82,6 +82,35 @@ except ImportError:  # pragma: no cover
     MultiPeriodResult = None  # type: ignore
     solve_multi_period = None  # type: ignore
 
+try:
+    from .process_pool import (
+        ProcessPoolResult,
+        build_process_pool_yield_library,
+        process_pool_once,
+        solve_process_pool_mip,
+    )
+except ImportError:  # pragma: no cover
+    ProcessPoolResult = None  # type: ignore
+    build_process_pool_yield_library = None  # type: ignore
+    process_pool_once = None  # type: ignore
+    solve_process_pool_mip = None  # type: ignore
+
+# W2B recursive quality (standalone; keep package import resilient)
+try:
+    from .quality_recursive import (
+        evaluate_recursive_quality,
+        resolve_gasoline_components,
+        solve_full_plant_with_recursive_quality,
+    )
+
+    # alias used by docs / thin hooks
+    apply_recursive_quality = evaluate_recursive_quality
+except ImportError:  # pragma: no cover
+    apply_recursive_quality = None  # type: ignore
+    evaluate_recursive_quality = None  # type: ignore
+    resolve_gasoline_components = None  # type: ignore
+    solve_full_plant_with_recursive_quality = None  # type: ignore
+
 __all__ = [
     "CrudeAssay",
     "InventorySpec",
@@ -115,6 +144,10 @@ __all__ = [
     "load_component_qualities",
     "ron_blending_index",
     "ron_from_blending_index",
+    "apply_recursive_quality",
+    "evaluate_recursive_quality",
+    "resolve_gasoline_components",
+    "solve_full_plant_with_recursive_quality",
     "assays_to_refinery_data",
     "crude_properties_list",
     "default_assays_path",
@@ -140,4 +173,8 @@ __all__ = [
     "solve_all_plant_blocks",
     "MultiPeriodResult",
     "solve_multi_period",
+    "ProcessPoolResult",
+    "build_process_pool_yield_library",
+    "process_pool_once",
+    "solve_process_pool_mip",
 ]

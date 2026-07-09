@@ -148,7 +148,9 @@ At a good stopping point:
 - **λ** ≈ marginal value of each linking stream / capacity — same **economic role** as PIMS duals
 - Objective comparable to a full one-shot LP on the same model
 
-**Demo metrics (Wave3):** report **ρ**, **primal residual**, **dual residual**, **max_iter** (and iterations used). Dual recovery paths must be labeled (**mono-oracle** vs pure λ).
+**Demo metrics (Wave3+):** report **ρ**, **primal residual**, **dual residual**, **max_iter** (and iterations used). Dual recovery paths must be labeled (**mono-oracle** vs pure λ).
+
+**Residuals after Wave4 multi-stream:** mono-oracle dual L∞ gap is **0 by construction** (recovered mono duals). That is **not** the same claim as \(\|r\|_2 = 0\) on every linking stream. Free disposal (surplus to fuel/LPG/coke sinks) and the expanded Wave4 yield slate mean pure-ADMM tracks a **shortage residual** \(\|\max(0, use-prod)\|_2\) for hard feasibility; raw \(\|r\|\) can stay moderate on surplus faces. See [residuals.md](residuals.md).
 
 ### Why not only “one big solve”?
 
@@ -274,10 +276,14 @@ Demo path: `python -m demos.run_full_plant_demo` (monolithic full plant + dual r
 ## Related reading
 
 - [story.md](story.md) — Smart Refinery Planning Team narrative + 6-slide carousel  
+- [portfolio.md](portfolio.md) — ~10 min portfolio walkthrough  
 - [routing.md](routing.md) — Wave3 arc-flow superstructure (from `data/routing.json`)  
+- [residuals.md](residuals.md) — free-disposal / multi-stream ||r|| vs dual L∞ honesty  
+- [pure_admm_floor.md](pure_admm_floor.md) — pure-ADMM structural dual floor  
+- [quality_blender.md](quality_blender.md) — delta-base quality MVP  
 - [admm-vs-dantzig-wolfe.md](admm-vs-dantzig-wolfe.md) — method comparison one-pager  
 - [../README.md](../README.md) — install and status  
 
 ---
 
-*Wave3 · arc-flow routing · board `pims-admm-llm-wave3-20260709`*
+*Wave5 · residual hygiene · board `pims-admm-llm-wave5-all-phases-20260709` · residual tracker [issue #2](https://github.com/joelwwiggins/pims-admm-llm/issues/2)*
