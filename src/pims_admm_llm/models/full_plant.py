@@ -686,23 +686,34 @@ def admm_price_directed_plant(
     mono_bal = {k: float(v) for k, v in mono.duals.items() if k.startswith("bal_")}
 
     if path == "pure-admm":
-        # Free λ: seed from planning product netbacks (NOT mono duals / oracle).
-        # Mono bal_* duals are used only for honest L∞ comparison after the free loop.
+        # Free λ: yield-aware netback seeds (NOT mono duals / oracle).
+        # Mono bal_* duals used only for honest L∞ comparison after the free loop.
+        # Feed intermediates seeded lower so conversion units start active.
         seed = {
-            "reformate": 100.0,
-            "fcc_naphtha": 98.0,
-            "coker_naphtha": 88.0,
-            "cdu_gasoil": 85.0,
-            "cdu_resid": 55.0,
-            "fcc_lco": 95.0,
-            "fcc_slurry": 50.0,
-            "coker_gasoil": 90.0,
-            "cdu_naphtha": 92.0,
-            "cdu_naphtha_light": 90.0,
-            "cdu_naphtha_heavy": 88.0,
-            "cdu_distillate": 100.0,
+            "reformate": 105.0,
+            "fcc_naphtha": 102.0,
+            "coker_naphtha": 90.0,
+            "cdu_gasoil": 70.0,
+            "cdu_resid": 48.0,
+            "fcc_lco": 100.0,
+            "fcc_slurry": 55.0,
+            "coker_gasoil": 95.0,
+            "cdu_naphtha": 95.0,
+            "cdu_naphtha_light": 92.0,
+            "cdu_naphtha_heavy": 80.0,
+            "cdu_distillate": 105.0,
         }
         lam = {s: float(seed.get(s, 0.0)) for s in links}
+        # Hard coupling streams: dualize full prod-use imbalance.
+        # Free-disposal / blender-only streams: dualize shortage only (excess is free dispose).
+        hard_links = {
+            "cdu_gasoil",
+            "cdu_resid",
+            "cdu_naphtha_heavy",
+            "fcc_naphtha",
+            "coker_naphtha",
+            "reformate",
+        }
         z = {s: 0.0 for s in links}
         last_blocks: Optional[Dict[str, Any]] = None
         last_residual: Dict[str, float] = {s: 0.0 for s in links}
@@ -761,11 +772,31 @@ def admm_price_directed_plant(
                 p = prod_map.get(s, 0.0)
                 u = use_map.get(s, 0.0)
                 z[s] = 0.5 * (p + u)
-            r_norm, s_norm, r = residual_norms(links, prod_map, use_map, z, z_old, rho)
+            # Effective residual: free-disposal streams only charge shortage
+            r_raw = {s: float(prod_map.get(s, 0.0) - use_map.get(s, 0.0)) for s in links}
+            r = {}
+            for s in links:
+                if s in hard_links:
+                    r[s] = r_raw[s]
+                else:
+                    # free dispose of excess → dualize only unmet demand (negative prod-use)
+                    r[s] = min(0.0, r_raw[s])
+            # rebuild z from effective imbalance for dual residual
+            for s in links:
+                # consensus tracks balanced quantity
+                if s in hard_links:
+                    z[s] = 0.5 * (prod_map.get(s, 0.0) + use_map.get(s, 0.0))
+                else:
+                    z[s] = min(prod_map.get(s, 0.0), use_map.get(s, 0.0))
+            r_norm, s_norm, _ = residual_norms(links, prod_map, use_map, z, z_old, rho)
+            # overwrite primal residual with free-disposal-aware r
+            r_norm = float(sum(float(r[s]) ** 2 for s in links) ** 0.5)
             last_residual = dict(r)
             for s in links:
-                # damped dual ascent on material imbalance (prod - use)
+                # damped dual ascent; project to keep prices economically sensible
                 lam[s] = float(lam[s] + dual_step * rho * r.get(s, 0.0))
+                # soft box: do not let free λ explode on LP faces
+                lam[s] = max(-50.0, min(200.0, lam[s]))
             history.append(
                 {
                     "iter": it,
