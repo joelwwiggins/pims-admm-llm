@@ -1,22 +1,40 @@
-"""LLM agent stubs — deterministic intelligence layer without API calls.
+"""Legacy LLM stubs (compat for any early imports).
 
-Swap `reason` methods for real Grok/OpenAI calls when credentials exist.
+Prefer llm_client.StubLLMClient + SubAgent/MasterCoordinatorAgent.
 Hard constraints always stay with the LP solver; agents only annotate.
 """
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from .prompts import MASTER_PROMPT, format_subagent_prompt
+from .llm_client import StubLLMClient
+from .prompts import render_master_prompt, render_subagent_prompt
+from .schemas import BlockName
 
 
-@dataclass
+def format_subagent_prompt(
+    block: str,
+    lambda_dict: Dict[str, float],
+    z_dict: Dict[str, float],
+    proposal: Dict[str, Any],
+    local_constraints: str = "",
+) -> str:
+    return render_subagent_prompt(
+        block,
+        prices=lambda_dict,
+        consensus=z_dict,
+        local_solution=proposal,
+        local_data={"constraints": local_constraints},
+        iteration=0,
+    )
+
+
 class LLMSubAgent:
-    block: str
-    local_constraints: str = "capacity, yields, recipe mass balance"
+    def __init__(self, block: str, local_constraints: str = "capacity, yields") -> None:
+        self.block = block
+        self.local_constraints = local_constraints
+        self._client = StubLLMClient()
 
     def reason(
         self,
@@ -29,47 +47,30 @@ class LLMSubAgent:
             self.block, lambda_dict, z_dict, proposal, self.local_constraints
         )
         if use_real_llm:
-            # Placeholder for real provider integration
             return {
                 "block": self.block,
-                "proposal_summary": "real LLM not wired",
-                "local_obj_note": "",
+                "proposal_summary": "real LLM not wired in legacy stub",
                 "suggestion": "",
                 "proposed_soft_penalty": {},
                 "prompt_chars": len(prompt),
             }
-
-        # Deterministic "expert operator" stub
-        suggestion = ""
-        if self.block == "CDU":
-            heavy = proposal.get("crude_Maya_heavy", 0.0)
-            if heavy and heavy > 20:
-                suggestion = (
-                    "Heavy crude slate high; real yields may drop naphtha vs linear vector — "
-                    "consider soft penalty on residue if tank limited."
-                )
-            else:
-                suggestion = "Linear yields OK near base slate; watch sulfur on medium/heavy mix."
-        elif self.block == "Blender":
-            suggestion = (
-                "Recipe fractions are fixed linear; if octane/cetane soft specs bind, "
-                "raise naphtha preference via soft dual nudge."
-            )
-        else:
-            suggestion = "No special nonlinear note."
-
+        raw = self._client.complete_json(prompt)
+        sug = raw.get("suggestion") or {}
         return {
             "block": self.block,
-            "proposal_summary": f"{self.block} solver status={proposal.get('_status')}",
+            "proposal_summary": f"{self.block} status={proposal.get('_status')}",
             "local_obj_note": f"local_obj={proposal.get('_obj')}",
-            "suggestion": suggestion,
+            "suggestion": sug.get("message", "") if isinstance(sug, dict) else str(sug),
             "proposed_soft_penalty": {},
             "prompt_chars": len(prompt),
+            "structured": raw,
         }
 
 
-@dataclass
 class MasterAgent:
+    def __init__(self) -> None:
+        self._client = StubLLMClient()
+
     def reason(
         self,
         iteration: int,
@@ -82,29 +83,39 @@ class MasterAgent:
         tol: float = 1e-3,
         use_real_llm: bool = False,
     ) -> Dict[str, Any]:
-        prompt = MASTER_PROMPT.format(
+        prompt = render_master_prompt(
             iteration=iteration,
-            primal_res=primal_res,
-            dual_res=dual_res,
-            lambda_json=json.dumps(lambda_dict, indent=2),
-            z_json=json.dumps(z_dict, indent=2),
-            proposals_json=json.dumps(proposals, indent=2, default=str)[:4000],
-            obj_approx=obj_approx,
+            prices=lambda_dict,
+            consensus=z_dict,
+            residual_norm=primal_res,
+            dual_residual_norm=dual_res,
+            global_obj=obj_approx,
+            proposals=proposals,
+            tol=tol,
+            max_iter=50,
         )
         action = "terminate" if primal_res < tol and dual_res < tol else "continue"
-        highlights = {
-            k: f"Marginal value ~ {v:.3f} USD/bbl if linking stream relaxed"
-            for k, v in sorted(lambda_dict.items(), key=lambda kv: -abs(kv[1]))[:4]
-        }
-        brief = (
-            f"Iter {iteration}: residual primal={primal_res:.4f}, dual={dual_res:.4f}. "
-            f"Approx margin ${obj_approx:,.1f}/day (toy units kbd×USD/bbl). "
-            f"Top shadow prices highlight binding intermediate economics for make-buy-sell."
-        )
+        if use_real_llm:
+            return {
+                "action": action,
+                "economic_brief": "real LLM not wired in legacy stub",
+                "prompt_chars": len(prompt),
+            }
+        raw = self._client.complete_json(prompt)
         return {
-            "action": action,
+            "action": raw.get("action", action),
             "rho_suggestion": None,
-            "economic_brief": brief,
-            "shadow_price_highlights": highlights,
+            "economic_brief": raw.get("reasoning", ""),
+            "shadow_price_highlights": raw.get("price_commentary") or {},
             "prompt_chars": len(prompt),
+            "structured": raw,
         }
+
+
+def default_legacy_agents() -> Dict[str, LLMSubAgent]:
+    return {
+        BlockName.CDU.value: LLMSubAgent(BlockName.CDU.value),
+        BlockName.TANK.value: LLMSubAgent(BlockName.TANK.value),
+        BlockName.BLENDER.value: LLMSubAgent(BlockName.BLENDER.value),
+        BlockName.UTILITIES.value: LLMSubAgent(BlockName.UTILITIES.value),
+    }

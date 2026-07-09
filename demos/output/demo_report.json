@@ -1,0 +1,156 @@
+{
+  "data_path": "/home/joel/projects/pims-admm-llm/data/synthetic_crudes.json",
+  "synthetic_slate": {
+    "crudes": [
+      {
+        "name": "WTI_light",
+        "price": 72.0,
+        "max_supply_kbd": 80.0,
+        "yields": {
+          "naphtha": 0.28,
+          "distillate": 0.32,
+          "gasoil": 0.22,
+          "residue": 0.18
+        }
+      },
+      {
+        "name": "Mars_medium",
+        "price": 68.0,
+        "max_supply_kbd": 60.0,
+        "yields": {
+          "naphtha": 0.2,
+          "distillate": 0.28,
+          "gasoil": 0.26,
+          "residue": 0.26
+        }
+      },
+      {
+        "name": "Maya_heavy",
+        "price": 62.0,
+        "max_supply_kbd": 50.0,
+        "yields": {
+          "naphtha": 0.12,
+          "distillate": 0.22,
+          "gasoil": 0.3,
+          "residue": 0.36
+        }
+      }
+    ],
+    "cdu_capacity_kbd": 120.0,
+    "products": {
+      "gasoline": {
+        "price": 95.0,
+        "max_demand_kbd": 55.0
+      },
+      "diesel": {
+        "price": 100.0,
+        "max_demand_kbd": 50.0
+      },
+      "fuel_oil": {
+        "price": 55.0,
+        "max_demand_kbd": 40.0
+      }
+    },
+    "intermediates": [
+      "naphtha",
+      "distillate",
+      "gasoil",
+      "residue"
+    ]
+  },
+  "monolithic": {
+    "status": "Optimal",
+    "feasible": true,
+    "objective": 1405.966410000001,
+    "wall_time_s": 0.005729145836085081,
+    "iteration_count": 1,
+    "crude_rates": {
+      "Mars_medium": 40.0,
+      "Maya_heavy": 0.0,
+      "WTI_light": 80.0
+    },
+    "product_rates": {
+      "diesel": 44.907563,
+      "fuel_oil": 36.319328,
+      "gasoline": 35.764706
+    },
+    "intermediate_prod": {
+      "distillate": 36.8,
+      "gasoil": 28.0,
+      "naphtha": 30.4,
+      "residue": 24.8
+    },
+    "intermediate_use": {
+      "distillate": 36.8,
+      "gasoil": 28.0,
+      "naphtha": 30.4,
+      "residue": 24.8
+    },
+    "shadow_prices": {
+      "naphtha": 96.953782,
+      "distillate": 83.928571,
+      "gasoil": 137.5,
+      "residue": 0.0
+    },
+    "raw_duals": {
+      "cdu_capacity": 10.640756,
+      "yield_naphtha": 96.953782,
+      "balance_naphtha": -96.953782,
+      "blend_use_naphtha": -96.953782,
+      "yield_distillate": 83.928571,
+      "balance_distillate": -83.928571,
+      "blend_use_distillate": -83.928571,
+      "yield_gasoil": 137.5,
+      "balance_gasoil": -137.5,
+      "blend_use_gasoil": -137.5,
+      "yield_residue": 0.0,
+      "balance_residue": -0.0,
+      "blend_use_residue": -0.0
+    }
+  },
+  "admm": {
+    "status": "stable_feasible",
+    "feasible": true,
+    "objective": 1405.966410000001,
+    "wall_time_s": 0.2976282727904618,
+    "iteration_count": 21,
+    "primal_residual": 0.0,
+    "crude_rates": {
+      "WTI_light": 80.0,
+      "Mars_medium": 40.0,
+      "Maya_heavy": 0.0
+    },
+    "product_rates": {
+      "gasoline": 35.764706,
+      "diesel": 44.907563,
+      "fuel_oil": 36.319328
+    },
+    "intermediate_prod": {
+      "naphtha": 30.4,
+      "distillate": 36.8,
+      "gasoil": 28.0,
+      "residue": 24.8
+    },
+    "intermediate_use": {
+      "naphtha": 30.4,
+      "distillate": 36.8,
+      "gasoil": 28.0,
+      "residue": 21.791597
+    },
+    "shadow_prices": {
+      "naphtha": 98.80234322893821,
+      "distillate": 100.86407647376345,
+      "gasoil": 68.39398456644544,
+      "residue": 47.0307333512454
+    },
+    "method": "price-directed multi-block (CDU+Blender) + dual residual update + feasibility projection"
+  },
+  "comparison": {
+    "objective_gap_abs": 0.0,
+    "objective_gap_rel": 0.0,
+    "time_mono_s": 0.005729145836085081,
+    "time_admm_s": 0.2976282727904618,
+    "mono_iterations": 1,
+    "admm_iterations": 21
+  }
+}

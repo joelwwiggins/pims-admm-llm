@@ -11,7 +11,12 @@
         "residue": 0.18
       },
       "api": 40.0,
-      "sulfur_wt_pct": 0.3
+      "sulfur_wt_pct": 0.3,
+      "utility_use": {
+        "fuel_gas": 0.012,
+        "steam": 0.008,
+        "power": 0.015
+      }
     },
     {
       "name": "Mars_medium",
@@ -24,7 +29,12 @@
         "residue": 0.26
       },
       "api": 28.5,
-      "sulfur_wt_pct": 1.8
+      "sulfur_wt_pct": 1.8,
+      "utility_use": {
+        "fuel_gas": 0.015,
+        "steam": 0.010,
+        "power": 0.018
+      }
     },
     {
       "name": "Maya_heavy",
@@ -37,13 +47,30 @@
         "residue": 0.36
       },
       "api": 22.0,
-      "sulfur_wt_pct": 3.2
+      "sulfur_wt_pct": 3.2,
+      "utility_use": {
+        "fuel_gas": 0.020,
+        "steam": 0.014,
+        "power": 0.022
+      }
     }
   ],
   "products": {
-    "gasoline": {"price_usd_per_bbl": 95.0, "max_demand_kbd": 55.0},
-    "diesel": {"price_usd_per_bbl": 100.0, "max_demand_kbd": 50.0},
-    "fuel_oil": {"price_usd_per_bbl": 55.0, "max_demand_kbd": 40.0}
+    "gasoline": {
+      "price_usd_per_bbl": 95.0,
+      "max_demand_kbd": 55.0,
+      "utility_use": {"fuel_gas": 0.004, "steam": 0.003, "power": 0.006}
+    },
+    "diesel": {
+      "price_usd_per_bbl": 100.0,
+      "max_demand_kbd": 50.0,
+      "utility_use": {"fuel_gas": 0.003, "steam": 0.004, "power": 0.005}
+    },
+    "fuel_oil": {
+      "price_usd_per_bbl": 55.0,
+      "max_demand_kbd": 40.0,
+      "utility_use": {"fuel_gas": 0.002, "steam": 0.002, "power": 0.003}
+    }
   },
   "cdu_capacity_kbd": 120.0,
   "blend_recipes": {
@@ -51,5 +78,16 @@
     "diesel": {"distillate": 0.70, "gasoil": 0.30},
     "fuel_oil": {"gasoil": 0.40, "residue": 0.60}
   },
-  "notes": "Synthetic but realistic-scale toy slate for ADMM/PIMS demo. Yields are volume fractions (simplified)."
+  "inventory": {
+    "naphtha": {"start_kbd": 5.0, "capacity_kbd": 40.0, "holding_cost_usd_per_bbl": 0.15},
+    "distillate": {"start_kbd": 6.0, "capacity_kbd": 45.0, "holding_cost_usd_per_bbl": 0.12},
+    "gasoil": {"start_kbd": 4.0, "capacity_kbd": 35.0, "holding_cost_usd_per_bbl": 0.10},
+    "residue": {"start_kbd": 8.0, "capacity_kbd": 50.0, "holding_cost_usd_per_bbl": 0.08}
+  },
+  "utilities": {
+    "fuel_gas": {"capacity": 4.0, "cost_usd_per_unit": 18.0, "unit": "kbd_equiv"},
+    "steam": {"capacity": 3.0, "cost_usd_per_unit": 12.0, "unit": "kbd_equiv"},
+    "power": {"capacity": 5.0, "cost_usd_per_unit": 25.0, "unit": "mwh_per_day_scaled"}
+  },
+  "notes": "Synthetic but realistic-scale toy slate for ADMM/PIMS demo. Yields are volume fractions. Utility use is crude/product intensity (unit per bbl charge or product). Inventory is single-period tank farm (start + in = end + out; capacity on end)."
 }

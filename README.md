@@ -71,11 +71,18 @@ src/pims_admm_llm/
 demos/
   run_demo.py      # monolithic vs ADMM + shadow price report
 docs/
-  story.md         # non-math stakeholder narrative
-  architecture.md
+  story.md                   # non-math stakeholder narrative + carousel
+  architecture.md            # planners/managers architecture
+  admm-vs-dantzig-wolfe.md   # one-pager: ADMM vs DW for coordination
 data/
   synthetic_crudes.json
 ```
+
+## Stakeholder docs
+
+- [docs/story.md](docs/story.md) — Smart Refinery Planning Team narrative + 6-slide carousel (non-math)
+- [docs/architecture.md](docs/architecture.md) — planners/managers architecture
+- [docs/admm-vs-dantzig-wolfe.md](docs/admm-vs-dantzig-wolfe.md) — ADMM vs Dantzig–Wolfe one-pager
 
 ## Status
 

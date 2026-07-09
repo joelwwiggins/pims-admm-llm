@@ -1,0 +1,336 @@
+{
+  "continue_case": {
+    "proposals": [
+      {
+        "block": "CDU",
+        "proposal": {
+          "naphtha": 30.0,
+          "distillate": 35.0,
+          "gasoil": 25.0,
+          "residue": 20.0
+        },
+        "reduced_costs": {
+          "naphtha": 0.01,
+          "distillate": 0.01,
+          "gasoil": 0.01,
+          "residue": 0.01
+        },
+        "local_obj": 200.0,
+        "linking_flows": {
+          "naphtha": 30.0,
+          "distillate": 35.0,
+          "gasoil": 25.0,
+          "residue": 20.0
+        },
+        "local_duals": {},
+        "suggestions": [
+          {
+            "kind": "yield_nonlinear",
+            "message": "With heavier slate (lower API / higher S), linear yields understate residue and overstate naphtha ~1\u20132 vol%. Consider a soft naphtha yield haircut of 0.01\u20130.02 on Maya-like crudes before next cut.",
+            "stream": "naphtha",
+            "delta_frac": -0.015,
+            "confidence": 0.72
+          }
+        ],
+        "note": "stub-cdu",
+        "status": "Optimal",
+        "iteration": 1
+      },
+      {
+        "block": "Tank",
+        "proposal": {
+          "naphtha": 30.0,
+          "distillate": 35.0,
+          "gasoil": 25.0,
+          "residue": 20.0
+        },
+        "reduced_costs": {
+          "naphtha": 0.01,
+          "distillate": 0.01,
+          "gasoil": 0.01,
+          "residue": 0.01
+        },
+        "local_obj": 200.0,
+        "linking_flows": {
+          "naphtha": 30.0,
+          "distillate": 35.0,
+          "gasoil": 25.0,
+          "residue": 20.0
+        },
+        "local_duals": {},
+        "suggestions": [
+          {
+            "kind": "capacity_hint",
+            "message": "Intermediate inventory headroom looks tight on distillate. Extra 5 kbd-days of tank working capacity would likely have positive marginal value near current shadow prices.",
+            "stream": "distillate",
+            "delta_frac": null,
+            "confidence": 0.65
+          }
+        ],
+        "note": "stub-tank",
+        "status": "Optimal",
+        "iteration": 1
+      },
+      {
+        "block": "Blender",
+        "proposal": {
+          "naphtha": 28.5,
+          "distillate": 33.25,
+          "gasoil": 23.75,
+          "residue": 19.0
+        },
+        "reduced_costs": {
+          "naphtha": 0.01,
+          "distillate": 0.01,
+          "gasoil": 0.01,
+          "residue": 0.01
+        },
+        "local_obj": 190.0,
+        "linking_flows": {
+          "naphtha": 28.5,
+          "distillate": 33.25,
+          "gasoil": 23.75,
+          "residue": 19.0
+        },
+        "local_duals": {},
+        "suggestions": [
+          {
+            "kind": "business_rule",
+            "message": "Gasoline recipe is naphtha-heavy; mild distillate giveaway may be hiding octane-pool flexibility. Soft note only \u2014 solver recipes stay binding.",
+            "stream": "gasoline",
+            "delta_frac": null,
+            "confidence": 0.58
+          }
+        ],
+        "note": "stub-blender",
+        "status": "Optimal",
+        "iteration": 1
+      },
+      {
+        "block": "Utilities",
+        "proposal": {
+          "naphtha": 30.0,
+          "distillate": 35.0,
+          "gasoil": 25.0,
+          "residue": 20.0
+        },
+        "reduced_costs": {
+          "naphtha": 0.01,
+          "distillate": 0.01,
+          "gasoil": 0.01,
+          "residue": 0.01
+        },
+        "local_obj": 200.0,
+        "linking_flows": {
+          "naphtha": 30.0,
+          "distillate": 35.0,
+          "gasoil": 25.0,
+          "residue": 20.0
+        },
+        "local_duals": {},
+        "suggestions": [
+          {
+            "kind": "uncertainty",
+            "message": "Fuel-gas balance may swing with heavier crude charge; watch steam and fuel co-firing cost if residue disposition changes.",
+            "stream": "fuel_gas",
+            "delta_frac": null,
+            "confidence": 0.55
+          }
+        ],
+        "note": "stub-utilities",
+        "status": "Optimal",
+        "iteration": 1
+      }
+    ],
+    "decision": {
+      "action": "continue",
+      "new_prices": {
+        "naphtha": 2.5,
+        "distillate": 3.0,
+        "gasoil": 1.2,
+        "residue": -0.5
+      },
+      "consensus_targets": {
+        "naphtha": 30.0,
+        "distillate": 35.0,
+        "gasoil": 25.0,
+        "residue": 20.0
+      },
+      "cuts": [
+        "naphtha: Shadow price \u2248 marginal value of an extra barrel of naphtha to the blender.",
+        "distillate: Positive dual \u2192 extra distillate raises margin; check diesel demand headroom."
+      ],
+      "applied_suggestions": [
+        {
+          "block": "CDU",
+          "message": "Nonlinear yield haircut on heavy crude naphtha",
+          "why": "Protects gasoline pool quality assumptions PIMS linearizes"
+        },
+        {
+          "block": "Tank",
+          "message": "Distillate tank headroom tight",
+          "why": "Signals value of extra intermediate storage vs spot sales"
+        },
+        {
+          "block": "CDU",
+          "kind": "yield_nonlinear",
+          "message": "With heavier slate (lower API / higher S), linear yields understate residue and overstate naphtha ~1\u20132 vol%. Consider a soft naphtha yield haircut of 0.01\u20130.02 on Maya-like crudes before next cut.",
+          "stream": "naphtha",
+          "delta_frac": -0.015,
+          "confidence": 0.72,
+          "source": "subagent"
+        },
+        {
+          "block": "Tank",
+          "kind": "capacity_hint",
+          "message": "Intermediate inventory headroom looks tight on distillate. Extra 5 kbd-days of tank working capacity would likely have positive marginal value near current shadow prices.",
+          "stream": "distillate",
+          "delta_frac": null,
+          "confidence": 0.65,
+          "source": "subagent"
+        },
+        {
+          "block": "Blender",
+          "kind": "business_rule",
+          "message": "Gasoline recipe is naphtha-heavy; mild distillate giveaway may be hiding octane-pool flexibility. Soft note only \u2014 solver recipes stay binding.",
+          "stream": "gasoline",
+          "delta_frac": null,
+          "confidence": 0.58,
+          "source": "subagent"
+        },
+        {
+          "block": "Utilities",
+          "kind": "uncertainty",
+          "message": "Fuel-gas balance may swing with heavier crude charge; watch steam and fuel co-firing cost if residue disposition changes.",
+          "stream": "fuel_gas",
+          "delta_frac": null,
+          "confidence": 0.55,
+          "source": "subagent"
+        }
+      ],
+      "reasoning": "ADMM residual=0.05, iter=1/50. Continue ADMM; prices still adjusting linking balances.",
+      "global_obj_estimate": 1000.0,
+      "residual_norm": 0.05,
+      "iteration": 1
+    },
+    "master": {
+      "action": "continue",
+      "new_prices": {
+        "naphtha": 2.5,
+        "distillate": 3.0,
+        "gasoil": 1.2,
+        "residue": -0.5
+      },
+      "consensus_targets": {
+        "naphtha": 30.0,
+        "distillate": 35.0,
+        "gasoil": 25.0,
+        "residue": 20.0
+      },
+      "cuts": [
+        "naphtha: Shadow price \u2248 marginal value of an extra barrel of naphtha to the blender.",
+        "distillate: Positive dual \u2192 extra distillate raises margin; check diesel demand headroom."
+      ],
+      "applied_suggestions": [
+        {
+          "block": "CDU",
+          "message": "Nonlinear yield haircut on heavy crude naphtha",
+          "why": "Protects gasoline pool quality assumptions PIMS linearizes"
+        },
+        {
+          "block": "Tank",
+          "message": "Distillate tank headroom tight",
+          "why": "Signals value of extra intermediate storage vs spot sales"
+        },
+        {
+          "block": "CDU",
+          "kind": "yield_nonlinear",
+          "message": "With heavier slate (lower API / higher S), linear yields understate residue and overstate naphtha ~1\u20132 vol%. Consider a soft naphtha yield haircut of 0.01\u20130.02 on Maya-like crudes before next cut.",
+          "stream": "naphtha",
+          "delta_frac": -0.015,
+          "confidence": 0.72,
+          "source": "subagent"
+        },
+        {
+          "block": "Tank",
+          "kind": "capacity_hint",
+          "message": "Intermediate inventory headroom looks tight on distillate. Extra 5 kbd-days of tank working capacity would likely have positive marginal value near current shadow prices.",
+          "stream": "distillate",
+          "delta_frac": null,
+          "confidence": 0.65,
+          "source": "subagent"
+        },
+        {
+          "block": "Blender",
+          "kind": "business_rule",
+          "message": "Gasoline recipe is naphtha-heavy; mild distillate giveaway may be hiding octane-pool flexibility. Soft note only \u2014 solver recipes stay binding.",
+          "stream": "gasoline",
+          "delta_frac": null,
+          "confidence": 0.58,
+          "source": "subagent"
+        },
+        {
+          "block": "Utilities",
+          "kind": "uncertainty",
+          "message": "Fuel-gas balance may swing with heavier crude charge; watch steam and fuel co-firing cost if residue disposition changes.",
+          "stream": "fuel_gas",
+          "delta_frac": null,
+          "confidence": 0.55,
+          "source": "subagent"
+        }
+      ],
+      "reasoning": "ADMM residual=0.05, iter=1/50. Continue ADMM; prices still adjusting linking balances.",
+      "global_obj_estimate": 1000.0,
+      "residual_norm": 0.05,
+      "iteration": 1
+    },
+    "suggestions_only": [
+      {
+        "kind": "yield_nonlinear",
+        "message": "With heavier slate (lower API / higher S), linear yields understate residue and overstate naphtha ~1\u20132 vol%. Consider a soft naphtha yield haircut of 0.01\u20130.02 on Maya-like crudes before next cut.",
+        "stream": "naphtha",
+        "delta_frac": -0.015,
+        "confidence": 0.72,
+        "block": "CDU"
+      },
+      {
+        "kind": "capacity_hint",
+        "message": "Intermediate inventory headroom looks tight on distillate. Extra 5 kbd-days of tank working capacity would likely have positive marginal value near current shadow prices.",
+        "stream": "distillate",
+        "delta_frac": null,
+        "confidence": 0.65,
+        "block": "Tank"
+      },
+      {
+        "kind": "business_rule",
+        "message": "Gasoline recipe is naphtha-heavy; mild distillate giveaway may be hiding octane-pool flexibility. Soft note only \u2014 solver recipes stay binding.",
+        "stream": "gasoline",
+        "delta_frac": null,
+        "confidence": 0.58,
+        "block": "Blender"
+      },
+      {
+        "kind": "uncertainty",
+        "message": "Fuel-gas balance may swing with heavier crude charge; watch steam and fuel co-firing cost if residue disposition changes.",
+        "stream": "fuel_gas",
+        "delta_frac": null,
+        "confidence": 0.55,
+        "block": "Utilities"
+      }
+    ]
+  },
+  "terminate_case_action": "terminate",
+  "blocks": [
+    "CDU",
+    "Tank",
+    "Blender",
+    "Utilities"
+  ],
+  "prompt_chars": {
+    "CDU": 1856,
+    "Tank": 1695,
+    "Blender": 1608,
+    "Utilities": 1520
+  },
+  "master_prompt_chars": 1892
+}

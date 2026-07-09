@@ -1,0 +1,47 @@
+{
+  "monolithic_time_s": 0.028633153066039085,
+  "monolithic_status": "Optimal",
+  "monolithic_objective": 1405.966410000001,
+  "sequential_wall_s": 0.28366152895614505,
+  "thread_wall_s": 0.1710861618630588,
+  "process_wall_s": 0.2038968913257122,
+  "sequential_sum_block_s": 0.2684341864660382,
+  "thread_sum_block_s": 0.4592745276167989,
+  "process_sum_block_s": 0.38530233642086387,
+  "thread_speedup_vs_sequential": 1.6580039312775867,
+  "process_speedup_vs_sequential": 1.3912008521160528,
+  "warm_start_cold_avg_s": 0.03168180235661566,
+  "warm_start_hot_avg_s": 0.033744111007157095,
+  "warm_start_speedup": 0.938883894434083,
+  "iterations": 10,
+  "n_blocks": 16,
+  "max_workers": 4,
+  "notes": [
+    "Toy LPs are tiny; wall-clock parallel speedup may be <1x due to pool overhead. Use n_blocks>2 and iterations to stress. Sum-of-block-times / wall shows concurrency.",
+    "Warm-start uses PuLP setInitialValue + CBC warmStart=True; pure LPs often re-solve quickly either way \u2014 speedup is more visible on larger / MIP blocks."
+  ],
+  "raw": {
+    "mono_duals_sample": {
+      "cdu_capacity": 10.640756,
+      "yield_naphtha": 96.953782,
+      "yield_distillate": 83.928571,
+      "yield_gasoil": 137.5,
+      "yield_residue": 0.0,
+      "balance_naphtha": -96.953782,
+      "balance_distillate": -83.928571,
+      "balance_gasoil": -137.5
+    },
+    "final_prices": {
+      "naphtha": 72.025,
+      "distillate": 83.87500000000003,
+      "gasoil": 83.9,
+      "residue": 62.70000000000003
+    },
+    "final_consensus": {
+      "naphtha": 33.775,
+      "distillate": 37.125,
+      "gasoil": 23.9,
+      "residue": 17.7
+    }
+  }
+}

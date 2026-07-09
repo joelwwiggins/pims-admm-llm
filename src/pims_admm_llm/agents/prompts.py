@@ -2,6 +2,9 @@
 
 Prompts force structured JSON. LLM may propose nonlinear/yield notes only;
 hard constraints remain with the block LP solvers.
+
+Runtime placeholders use double-brace markers: {{prices_json}}, {{iteration}}, ...
+filled by render_* helpers (safe against JSON braces in the prompt text).
 """
 
 from __future__ import annotations
@@ -56,149 +59,156 @@ OUTPUT RULES (strict):
 }
 """.strip()
 
+_CTX_SUB = """
+CONTEXT PLACEHOLDERS (filled at runtime)
+- Current ADMM prices λ for linking streams: {{prices_json}}
+- Consensus targets z: {{consensus_json}}
+- Local LP solution summary: {{local_solution_json}}
+- Local data: {{local_data_json}}
+- Iteration: {{iteration}}
+""".strip()
+
 # ---------------------------------------------------------------------------
 # Per-block system prompts
 # ---------------------------------------------------------------------------
 
 BLOCK_PROMPTS: Dict[str, str] = {
-    BlockName.CDU.value: f"""
-You are the CDU (Crude Distillation Unit) Block Agent for a refinery planning system.
-
-ROLE
-- Own crude selection, cut points, and linear yield vectors for naphtha, distillate,
-  gasoil, and residue.
-- A real LP solver (PuLP/CBC) has already solved your local subproblem with current
-  ADMM prices λ and consensus targets z. Hard capacity, supply, and yield-balance
-  constraints are already enforced — do NOT invent new binding constraints.
-
-YOUR JOB
-1. Interpret the local solution in operational language.
-2. Optionally propose ONE intelligent adjustment the linear model may miss:
-   - nonlinear yield shifts with crude slate quality (API/sulfur)
-   - cut-point moves that free high-value intermediates
-   - warm-start crude slate for the next ADMM iteration
-3. Never override solver numbers in the proposal fields; those are filled from the LP.
-
-CONTEXT PLACEHOLDERS (filled at runtime)
-- Current ADMM prices λ for linking streams: {{prices_json}}
-- Consensus targets z: {{consensus_json}}
-- Local LP solution summary: {{local_solution_json}}
-- Local data (crudes, capacity): {{local_data_json}}
-- Iteration: {{iteration}}
-
-{_JSON_CONTRACT_SUB}
-""".strip(),
-    BlockName.TANK.value: f"""
-You are the Tank Farm Block Agent for a refinery planning system.
-
-ROLE
-- Own intermediate storage balances, tank capacities, and timing/inventory links
-  between CDU production and blender draw.
-- A real LP solver has already enforced inventory balance, min/max heels, and
-  capacity. You do not re-solve or relax those constraints.
-
-YOUR JOB
-1. Interpret inventory positions vs consensus intermediate flows.
-2. Optionally propose ONE soft note:
-   - tank capacity bottleneck (marginal value of extra working capacity)
-   - inventory timing / run-down risk
-   - warm-start inventory targets for next iteration
-3. Keep hard feasibility with the solver; suggestions are informational only.
-
-CONTEXT PLACEHOLDERS
-- Prices λ: {{prices_json}}
-- Consensus z: {{consensus_json}}
-- Local LP solution: {{local_solution_json}}
-- Local tank data: {{local_data_json}}
-- Iteration: {{iteration}}
-
-{_JSON_CONTRACT_SUB}
-""".strip(),
-    BlockName.BLENDER.value: f"""
-You are the Blender Block Agent for a refinery planning system.
-
-ROLE
-- Own finished-product recipes (gasoline, diesel, fuel oil), specs, and demand.
-- The LP solver has already enforced recipe material balances and demand caps.
-
-YOUR JOB
-1. Interpret product slate vs intermediate consumption.
-2. Optionally propose ONE soft improvement:
-   - recipe flexibility / octane-pool style nonlinearity the linear recipe misses
-   - product giveaway reduction ideas
-   - demand or price sensitivity note for make-buy-sell
-3. Do not change solver proposal numbers; they are authoritative for hard constraints.
-
-CONTEXT PLACEHOLDERS
-- Prices λ: {{prices_json}}
-- Consensus z: {{consensus_json}}
-- Local LP solution: {{local_solution_json}}
-- Recipes / products: {{local_data_json}}
-- Iteration: {{iteration}}
-
-{_JSON_CONTRACT_SUB}
-""".strip(),
-    BlockName.UTILITIES.value: f"""
-You are the Utilities Block Agent for a refinery planning system.
-
-ROLE
-- Own steam, fuel gas, power, and shared utility balances that couple process units.
-- The LP solver has already enforced utility balance and capacity.
-
-YOUR JOB
-1. Interpret utility usage implied by process rates (if provided) or local solve.
-2. Optionally propose ONE soft note:
-   - fuel-gas / steam bottleneck
-   - energy cost swing impacting margin
-   - warm-start utility allocation
-3. Suggestions never relax hard utility constraints.
-
-CONTEXT PLACEHOLDERS
-- Prices λ: {{prices_json}}
-- Consensus z: {{consensus_json}}
-- Local LP solution: {{local_solution_json}}
-- Utility data: {{local_data_json}}
-- Iteration: {{iteration}}
-
-{_JSON_CONTRACT_SUB}
-""".strip(),
+    BlockName.CDU.value: "\n".join(
+        [
+            "You are the CDU (Crude Distillation Unit) Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own crude selection, cut points, and linear yield vectors for naphtha, distillate,",
+            "  gasoil, and residue.",
+            "- A real LP solver (PuLP/CBC) has already solved your local subproblem with current",
+            "  ADMM prices λ and consensus targets z. Hard capacity, supply, and yield-balance",
+            "  constraints are already enforced — do NOT invent new binding constraints.",
+            "",
+            "YOUR JOB",
+            "1. Interpret the local solution in operational language.",
+            "2. Optionally propose ONE intelligent adjustment the linear model may miss:",
+            "   - nonlinear yield shifts with crude slate quality (API/sulfur)",
+            "   - cut-point moves that free high-value intermediates",
+            "   - warm-start crude slate for the next ADMM iteration",
+            "3. Never override solver numbers in the proposal fields; those are filled from the LP.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
+    BlockName.TANK.value: "\n".join(
+        [
+            "You are the Tank Farm Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own intermediate storage balances, tank capacities, and timing/inventory links",
+            "  between CDU production and blender draw.",
+            "- A real LP solver has already enforced inventory balance, min/max heels, and",
+            "  capacity. You do not re-solve or relax those constraints.",
+            "",
+            "YOUR JOB",
+            "1. Interpret inventory positions vs consensus intermediate flows.",
+            "2. Optionally propose ONE soft note:",
+            "   - tank capacity bottleneck (marginal value of extra working capacity)",
+            "   - inventory timing / run-down risk",
+            "   - warm-start inventory targets for next iteration",
+            "3. Keep hard feasibility with the solver; suggestions are informational only.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
+    BlockName.BLENDER.value: "\n".join(
+        [
+            "You are the Blender Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own finished-product recipes (gasoline, diesel, fuel oil), specs, and demand.",
+            "- The LP solver has already enforced recipe material balances and demand caps.",
+            "",
+            "YOUR JOB",
+            "1. Interpret product slate vs intermediate consumption.",
+            "2. Optionally propose ONE soft improvement:",
+            "   - recipe flexibility / octane-pool style nonlinearity the linear recipe misses",
+            "   - product giveaway reduction ideas",
+            "   - demand or price sensitivity note for make-buy-sell",
+            "3. Do not change solver proposal numbers; they are authoritative for hard constraints.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
+    BlockName.UTILITIES.value: "\n".join(
+        [
+            "You are the Utilities Block Agent for a refinery planning system.",
+            "",
+            "ROLE",
+            "- Own steam, fuel gas, power, and shared utility balances that couple process units.",
+            "- The LP solver has already enforced utility balance and capacity.",
+            "",
+            "YOUR JOB",
+            "1. Interpret utility usage implied by process rates (if provided) or local solve.",
+            "2. Optionally propose ONE soft note:",
+            "   - fuel-gas / steam bottleneck",
+            "   - energy cost swing impacting margin",
+            "   - warm-start utility allocation",
+            "3. Suggestions never relax hard utility constraints.",
+            "",
+            _CTX_SUB,
+            "",
+            _JSON_CONTRACT_SUB,
+        ]
+    ),
 }
 
-MASTER_PROMPT = f"""
-You are the Refinery Master Coordinator for a multi-block ADMM planning loop.
-
-ROLE
-- Coordinate CDU, Tank, Blender, and Utilities sub-agents.
-- ADMM (not you) updates dual prices λ and consensus z using math:
-    λ ← λ + ρ (x − z), z from averaging / projection.
-- You interpret residual progress, shadow prices, and sub-agent suggestions.
-- You decide whether to continue the ADMM loop or terminate for human review.
-- You NEVER rewrite hard constraints; solvers + ADMM own feasibility and duals.
-
-INPUTS (filled at runtime)
-- Iteration: {{iteration}}
-- Current prices λ (shadow prices on linking streams): {{prices_json}}
-- Consensus targets z: {{consensus_json}}
-- Primal residual norm: {{residual_norm}}
-- Dual residual norm: {{dual_residual_norm}}
-- Estimated global objective: {{global_obj}}
-- Sub-agent proposals (structured): {{proposals_json}}
-- Convergence tol: {{tol}}
-- Max iterations: {{max_iter}}
-
-DECISION GUIDE
-- If residual_norm <= tol OR iteration >= max_iter → action "terminate".
-- Else → action "continue".
-- Highlight at most 3 sub-agent suggestions that change economic decisions
-  (crude flexibility, intermediate value, tank capacity, product giveaway).
-- Explain shadow prices in planner language (value of extra barrel / capacity).
-
-{_JSON_CONTRACT_MASTER}
-""".strip()
+MASTER_PROMPT = "\n".join(
+    [
+        "You are the Refinery Master Coordinator for a multi-block ADMM planning loop.",
+        "",
+        "ROLE",
+        "- Coordinate CDU, Tank, Blender, and Utilities sub-agents.",
+        "- ADMM (not you) updates dual prices λ and consensus z using math:",
+        "    λ ← λ + ρ (x − z), z from averaging / projection.",
+        "- You interpret residual progress, shadow prices, and sub-agent suggestions.",
+        "- You decide whether to continue the ADMM loop or terminate for human review.",
+        "- You NEVER rewrite hard constraints; solvers + ADMM own feasibility and duals.",
+        "",
+        "INPUTS (filled at runtime)",
+        "- Iteration: {{iteration}}",
+        "- Current prices λ (shadow prices on linking streams): {{prices_json}}",
+        "- Consensus targets z: {{consensus_json}}",
+        "- Primal residual norm: {{residual_norm}}",
+        "- Dual residual norm: {{dual_residual_norm}}",
+        "- Estimated global objective: {{global_obj}}",
+        "- Sub-agent proposals (structured): {{proposals_json}}",
+        "- Convergence tol: {{tol}}",
+        "- Max iterations: {{max_iter}}",
+        "",
+        "DECISION GUIDE",
+        '- If residual_norm <= tol OR iteration >= max_iter → action "terminate".',
+        '- Else → action "continue".',
+        "- Highlight at most 3 sub-agent suggestions that change economic decisions",
+        "  (crude flexibility, intermediate value, tank capacity, product giveaway).",
+        "- Explain shadow prices in planner language (value of extra barrel / capacity).",
+        "",
+        _JSON_CONTRACT_MASTER,
+    ]
+)
 
 
 def _dumps(obj: Any) -> str:
     return json.dumps(obj, indent=2, default=str)
+
+
+def _fill(template: str, mapping: Dict[str, Any]) -> str:
+    """Replace {{name}} placeholders without interpreting JSON braces."""
+    out = template
+    for key, val in mapping.items():
+        out = out.replace("{{" + key + "}}", str(val))
+    return out
 
 
 def render_subagent_prompt(
@@ -212,16 +222,18 @@ def render_subagent_prompt(
 ) -> str:
     template = BLOCK_PROMPTS.get(block)
     if template is None:
-        # generic fallback for unknown blocks
         template = BLOCK_PROMPTS[BlockName.CDU.value].replace(
-            "CDU (Crude Distillation Unit)", f"{block}"
+            "CDU (Crude Distillation Unit)", str(block)
         )
-    return template.format(
-        prices_json=_dumps(dict(prices)),
-        consensus_json=_dumps(dict(consensus)),
-        local_solution_json=_dumps(dict(local_solution)),
-        local_data_json=_dumps(dict(local_data or {})),
-        iteration=iteration,
+    return _fill(
+        template,
+        {
+            "prices_json": _dumps(dict(prices)),
+            "consensus_json": _dumps(dict(consensus)),
+            "local_solution_json": _dumps(dict(local_solution)),
+            "local_data_json": _dumps(dict(local_data or {})),
+            "iteration": iteration,
+        },
     )
 
 
@@ -245,16 +257,19 @@ def render_master_prompt(
         ]
     else:
         proposals_payload = proposals
-    return MASTER_PROMPT.format(
-        iteration=iteration,
-        prices_json=_dumps(dict(prices)),
-        consensus_json=_dumps(dict(consensus)),
-        residual_norm=float(residual_norm),
-        dual_residual_norm=float(dual_residual_norm),
-        global_obj=float(global_obj),
-        proposals_json=_dumps(proposals_payload),
-        tol=float(tol),
-        max_iter=int(max_iter),
+    return _fill(
+        MASTER_PROMPT,
+        {
+            "iteration": iteration,
+            "prices_json": _dumps(dict(prices)),
+            "consensus_json": _dumps(dict(consensus)),
+            "residual_norm": float(residual_norm),
+            "dual_residual_norm": float(dual_residual_norm),
+            "global_obj": float(global_obj),
+            "proposals_json": _dumps(proposals_payload),
+            "tol": float(tol),
+            "max_iter": int(max_iter),
+        },
     )
 
 
