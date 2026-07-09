@@ -1,0 +1,55 @@
+{
+  "crudes": [
+    {
+      "name": "WTI_light",
+      "price_usd_per_bbl": 72.0,
+      "max_supply_kbd": 80.0,
+      "yields": {
+        "naphtha": 0.28,
+        "distillate": 0.32,
+        "gasoil": 0.22,
+        "residue": 0.18
+      },
+      "api": 40.0,
+      "sulfur_wt_pct": 0.3
+    },
+    {
+      "name": "Mars_medium",
+      "price_usd_per_bbl": 68.0,
+      "max_supply_kbd": 60.0,
+      "yields": {
+        "naphtha": 0.20,
+        "distillate": 0.28,
+        "gasoil": 0.26,
+        "residue": 0.26
+      },
+      "api": 28.5,
+      "sulfur_wt_pct": 1.8
+    },
+    {
+      "name": "Maya_heavy",
+      "price_usd_per_bbl": 62.0,
+      "max_supply_kbd": 50.0,
+      "yields": {
+        "naphtha": 0.12,
+        "distillate": 0.22,
+        "gasoil": 0.30,
+        "residue": 0.36
+      },
+      "api": 22.0,
+      "sulfur_wt_pct": 3.2
+    }
+  ],
+  "products": {
+    "gasoline": {"price_usd_per_bbl": 95.0, "max_demand_kbd": 55.0},
+    "diesel": {"price_usd_per_bbl": 100.0, "max_demand_kbd": 50.0},
+    "fuel_oil": {"price_usd_per_bbl": 55.0, "max_demand_kbd": 40.0}
+  },
+  "cdu_capacity_kbd": 120.0,
+  "blend_recipes": {
+    "gasoline": {"naphtha": 0.85, "distillate": 0.15},
+    "diesel": {"distillate": 0.70, "gasoil": 0.30},
+    "fuel_oil": {"gasoil": 0.40, "residue": 0.60}
+  },
+  "notes": "Synthetic but realistic-scale toy slate for ADMM/PIMS demo. Yields are volume fractions (simplified)."
+}

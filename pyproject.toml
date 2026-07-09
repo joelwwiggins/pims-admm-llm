@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pims-admm-llm"
+version = "0.1.0"
+description = "Aspen PIMS-style replacement demo: crude + LP submodels + block-angular ADMM shadow prices + multi-LLM agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Joel Wiggins" }]
+dependencies = [
+  "pulp>=2.8",
+  "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+scipy = ["scipy>=1.11"]
+llm = ["openai>=1.0"]
+dev = ["pytest>=7.0", "scipy>=1.11"]
+all = ["scipy>=1.11", "openai>=1.0", "pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
