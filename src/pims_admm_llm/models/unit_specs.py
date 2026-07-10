@@ -24,11 +24,18 @@ DEFAULT_PROCESS_CONDITIONS: Dict[str, Dict[str, Any]] = {
         "flash_zone_temp_f": 680.0,
         "overflash_frac": 0.02,
         "atm_tower_pressure_psig": 5.0,
+        # Operational handles (also as °C for assay_swing cut-point driver)
         "cut_points_f": {
-            "naphtha_ep": 350.0,
-            "distillate_ep": 650.0,
-            "gasoil_ep": 1050.0,
+            "naphtha_ep": 392.0,   # ~200 °C
+            "distillate_ep": 698.0,  # ~370 °C
+            "gasoil_ep": 1022.0,  # ~550 °C
         },
+        "cut_points_c": {
+            "naphtha_ep_c": 200.0,
+            "distillate_ep_c": 370.0,
+            "gasoil_ep_c": 550.0,
+        },
+        "handle_note": "Cut points are the primary CDU operational handles for heart/swing fractionation",
     },
     "FCC": {
         "riser_outlet_temp_f": 980.0,  # ROT / severity

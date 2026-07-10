@@ -114,11 +114,16 @@ class BaseDeltaSolvePayload(BaseModel):
 
 
 class AssayCduPayload(BaseModel):
-    """Import assay and run heart/swing CDU fractionation."""
+    """Import assay; CDU cut points are the operational handles."""
 
     crude: str = "Cold_Lake_Blend"
     charge_kbd: float = 100.0
-    optimize: bool = True
+    # Operational handles (°C)
+    naphtha_ep_c: float = 200.0
+    distillate_ep_c: float = 370.0
+    gasoil_ep_c: float = 550.0
+    mode: str = "cut_point"  # cut_point | economic
+    optimize: bool = False
 
 
 UNIT_PALETTE = [
@@ -463,12 +468,24 @@ def post_cdu_assay(payload: AssayCduPayload) -> dict[str, Any]:
             solve_cdu_swing_cuts,
         )
 
+        from pims_admm_llm.models.assay_swing import solve_cdu_from_cut_points
+
         assay = import_crude_from_assays_package(payload.crude)
-        res = solve_cdu_swing_cuts(
-            assay,
-            charge_kbd=payload.charge_kbd,
-            optimize=payload.optimize,
-        )
+        cut_points = {
+            "naphtha_ep_c": payload.naphtha_ep_c,
+            "distillate_ep_c": payload.distillate_ep_c,
+            "gasoil_ep_c": payload.gasoil_ep_c,
+        }
+        if (payload.mode or "cut_point").lower() in ("cut_point", "cutpoints", "handles", "process"):
+            res = solve_cdu_from_cut_points(assay, cut_points, charge_kbd=payload.charge_kbd)
+        else:
+            res = solve_cdu_swing_cuts(
+                assay,
+                charge_kbd=payload.charge_kbd,
+                cut_points=cut_points,
+                mode=payload.mode,
+                optimize=payload.optimize,
+            )
         d = res.to_dict()
         d["ok"] = res.status == "Optimal" and bool(res.mass_balance.get("ok"))
         return d

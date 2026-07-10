@@ -96,3 +96,23 @@ Import real assays as ordered TBP cuts, then fractionate with a **heart + swing*
 | API | `GET /api/assays`, `POST /api/cdu/assay` |
 
 Hearts are fixed to a product; swing cuts on product boundaries are LP-allocated so effective cut points and blended product properties still **mass-balance** (vol + sulfur).
+
+
+## CDU operational handles = cut points
+
+The CDU is driven by **three cut-point handles** (not free abstract severity):
+
+| Handle | Symbol | Role |
+|--------|--------|------|
+| Naphtha end point | `naphtha_ep_c` | Light/heavy naphtha vs distillate boundary |
+| Distillate end point | `distillate_ep_c` | Distillate vs gasoil |
+| Gasoil end point | `gasoil_ep_c` | Gasoil vs resid |
+
+Assay cuts are partitioned by TBP overlap with those windows (linear swing on straddling cuts). Product properties are volume-weighted blends. Mass + sulfur balances close by construction of the partition.
+
+```bash
+PYTHONPATH=src python -m demos.run_assay_cdu_demo --naphtha-ep 220 --gasoil-ep 560
+# or mode presets: --mode cuts_light|cuts_mid|cuts_heavy
+```
+
+API: `POST /api/cdu/assay` with `naphtha_ep_c`, `distillate_ep_c`, `gasoil_ep_c`.

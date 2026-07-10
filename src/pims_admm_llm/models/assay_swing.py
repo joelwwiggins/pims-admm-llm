@@ -486,20 +486,317 @@ class CduSwingResult:
         }
 
 
+
+# ---------------------------------------------------------------------------
+# Operational handles: cut points drive product allocation
+# ---------------------------------------------------------------------------
+
+DEFAULT_CUT_POINTS_C = {
+    "naphtha_ep_c": 200.0,
+    "distillate_ep_c": 370.0,
+    "gasoil_ep_c": 550.0,
+}
+
+# Reasonable operator ranges (°C)
+CUT_POINT_BOUNDS_C = {
+    "naphtha_ep_c": (150.0, 230.0),
+    "distillate_ep_c": (320.0, 400.0),
+    "gasoil_ep_c": (500.0, 580.0),
+}
+
+
+def normalize_cut_points(cut_points: Optional[Mapping[str, float]] = None) -> Dict[str, float]:
+    """Return ordered naphtha/distillate/gasoil EPs (°C), clamped & sorted."""
+    base = dict(DEFAULT_CUT_POINTS_C)
+    if cut_points:
+        for k, v in cut_points.items():
+            key = str(k)
+            # accept nested cut_points_f style or short names
+            if key in ("naphtha_ep", "naphtha_ep_c", "cut_points_f.naphtha_ep"):
+                base["naphtha_ep_c"] = float(v)
+            elif key in ("distillate_ep", "distillate_ep_c", "cut_points_f.distillate_ep"):
+                base["distillate_ep_c"] = float(v)
+            elif key in ("gasoil_ep", "gasoil_ep_c", "cut_points_f.gasoil_ep"):
+                base["gasoil_ep_c"] = float(v)
+            elif key in base:
+                base[key] = float(v)
+    # clamp
+    for k, (lo, hi) in CUT_POINT_BOUNDS_C.items():
+        base[k] = max(lo, min(hi, float(base[k])))
+    # enforce light → heavy order with min gaps
+    n = base["naphtha_ep_c"]
+    d = max(n + 20.0, base["distillate_ep_c"])
+    g = max(d + 20.0, base["gasoil_ep_c"])
+    base["naphtha_ep_c"] = n
+    base["distillate_ep_c"] = d
+    base["gasoil_ep_c"] = g
+    return base
+
+
+def edges_from_cut_points(cut_points: Mapping[str, float]) -> Dict[str, Tuple[float, float]]:
+    cp = normalize_cut_points(cut_points)
+    return {
+        "cdu_naphtha": (0.0, cp["naphtha_ep_c"]),
+        "cdu_distillate": (cp["naphtha_ep_c"], cp["distillate_ep_c"]),
+        "cdu_gasoil": (cp["distillate_ep_c"], cp["gasoil_ep_c"]),
+        "cdu_resid": (cp["gasoil_ep_c"], 900.0),
+    }
+
+
+def product_windows_from_cut_points(
+    cut_points: Mapping[str, float],
+) -> List[Tuple[str, float, float]]:
+    """Ordered (product, tbp_lo, tbp_hi) from cut-point handles."""
+    e = edges_from_cut_points(cut_points)
+    return [(p, e[p][0], e[p][1]) for p in DEFAULT_PRODUCTS]
+
+
+def allocate_cut_by_cut_points(
+    cut: AssayCut,
+    cut_points: Mapping[str, float],
+) -> Dict[str, float]:
+    """Split one assay cut across products by TBP overlap with cut-point windows.
+
+    This is the linear map from **operational cut points** → product yields.
+    Entirely inside a window → 100% that product.
+    Straddling a boundary → volumetric TBP fraction (swing).
+    """
+    cp = normalize_cut_points(cut_points)
+    windows = product_windows_from_cut_points(cp)
+    ts, te = float(cut.tbp_start_c), float(cut.tbp_end_c)
+    width = max(te - ts, 1e-9)
+    out = {p: 0.0 for p, _, _ in windows}
+    for prod, wlo, whi in windows:
+        lo = max(ts, wlo)
+        hi = min(te, whi)
+        if hi > lo:
+            out[prod] = (hi - lo) / width
+    # numerical cleanup
+    s = sum(out.values())
+    if s > 1e-12 and abs(s - 1.0) > 1e-9:
+        out = {k: v / s for k, v in out.items()}
+    return out
+
+
+def light_frac_from_cut_point(
+    cut: AssayCut,
+    boundary_ep_c: float,
+) -> float:
+    """Fraction of swing cut assigned to the *light* product given boundary EP.
+
+    light_frac = 0 if EP ≤ cut start (all heavy)
+    light_frac = 1 if EP ≥ cut end (all light)
+    linear in between.
+    """
+    ts, te = float(cut.tbp_start_c), float(cut.tbp_end_c)
+    if boundary_ep_c <= ts:
+        return 0.0
+    if boundary_ep_c >= te:
+        return 1.0
+    return (boundary_ep_c - ts) / max(te - ts, 1e-9)
+
+
+def swing_light_fracs_from_cut_points(
+    swings: Sequence[SwingCut],
+    cut_points: Mapping[str, float],
+) -> Dict[str, float]:
+    """Map each swing id → light_frac from the relevant cut-point handle."""
+    cp = normalize_cut_points(cut_points)
+    # which boundary EP applies
+    boundary_ep = {
+        ("cdu_naphtha", "cdu_distillate"): cp["naphtha_ep_c"],
+        ("cdu_distillate", "cdu_gasoil"): cp["distillate_ep_c"],
+        ("cdu_gasoil", "cdu_resid"): cp["gasoil_ep_c"],
+    }
+    out: Dict[str, float] = {}
+    for s in swings:
+        key = (s.light_product, s.heavy_product)
+        ep = boundary_ep.get(key)
+        if ep is None:
+            # fallback: nearest EP by cut mid
+            mid = s.cut.tbp_mid_c
+            ep = min(cp.values(), key=lambda x: abs(x - mid))
+        out[s.id] = light_frac_from_cut_point(s.cut, ep)
+    return out
+
+
+def cdu_cut_point_modes() -> List[Dict[str, Any]]:
+    """Operational CDU modes = cut-point handle sets (not abstract severity)."""
+    return [
+        {
+            "id": "cuts_light",
+            "label": "Light cuts (more naphtha/distillate)",
+            "cut_points_c": {
+                "naphtha_ep_c": 220.0,
+                "distillate_ep_c": 385.0,
+                "gasoil_ep_c": 565.0,
+            },
+        },
+        {
+            "id": "cuts_mid",
+            "label": "Mid cuts (design)",
+            "cut_points_c": dict(DEFAULT_CUT_POINTS_C),
+        },
+        {
+            "id": "cuts_heavy",
+            "label": "Heavy cuts (more gasoil/resid)",
+            "cut_points_c": {
+                "naphtha_ep_c": 175.0,
+                "distillate_ep_c": 340.0,
+                "gasoil_ep_c": 520.0,
+            },
+        },
+    ]
+
+
+def solve_cdu_from_cut_points(
+    assay: AssayPackage,
+    cut_points: Optional[Mapping[str, float]] = None,
+    *,
+    charge_kbd: float = 100.0,
+) -> CduSwingResult:
+    """Primary CDU path: **cut points are the only operational handles**.
+
+    Each assay cut is linearly split across product TBP windows defined by
+    naphtha_ep / distillate_ep / gasoil_ep. Mass and sulfur close by construction
+    of the TBP partition (up to assay coverage).
+    """
+    assay = assay.normalize_vol()
+    cp = normalize_cut_points(cut_points)
+    Q = float(charge_kbd)
+    products = list(DEFAULT_PRODUCTS)
+
+    rates = {p: 0.0 for p in products}
+    prop_parts: Dict[str, List[Tuple[float, AssayCut]]] = {p: [] for p in products}
+    cut_alloc_detail: List[Dict[str, Any]] = []
+
+    for cut in assay.cuts:
+        fracs = allocate_cut_by_cut_points(cut, cp)
+        row = {"cut_id": cut.id, "tbp": [cut.tbp_start_c, cut.tbp_end_c], "fracs": fracs}
+        cut_alloc_detail.append(row)
+        for p, f in fracs.items():
+            if f <= 1e-15:
+                continue
+            rate = f * cut.yield_vol * Q
+            rates[p] += rate
+            prop_parts[p].append((rate, cut))
+
+    yields = {p: (rates[p] / Q if Q > 1e-12 else 0.0) for p in products}
+    product_properties = {p: _blend_props(prop_parts[p]) for p in products}
+
+    total_cut = assay.total_vol() * Q
+    sum_rates = sum(rates.values())
+    mb_gap = abs(sum_rates - total_cut)
+    s_in = sum(c.yield_vol * Q * c.sulfur_wt for c in assay.cuts)
+    s_out = sum(rates[p] * product_properties[p].get("sulfur_wt", 0.0) for p in products)
+    s_gap = abs(s_in - s_out)
+
+    # Build pseudo hearts/swings for reporting: straddling cuts = swings
+    hearts_rep: List[Dict[str, Any]] = []
+    swings_rep: List[Dict[str, Any]] = []
+    swing_alloc: Dict[str, Dict[str, Any]] = {}
+    for cut, row in zip(assay.cuts, cut_alloc_detail):
+        fracs = row["fracs"]
+        nonzero = [(p, f) for p, f in fracs.items() if f > 1e-9]
+        if len(nonzero) == 1:
+            p, f = nonzero[0]
+            hearts_rep.append({"product": p, "cut": cut.to_dict()})
+        elif len(nonzero) >= 2:
+            # report as swing between lightest and heaviest nonzero
+            order = list(DEFAULT_PRODUCTS)
+            nz_prods = [p for p, _ in nonzero]
+            light = min(nz_prods, key=lambda p: order.index(p))
+            heavy = max(nz_prods, key=lambda p: order.index(p))
+            sid = f"swing_{cut.id}"
+            swings_rep.append(
+                {
+                    "id": sid,
+                    "light_product": light,
+                    "heavy_product": heavy,
+                    "cut": cut.to_dict(),
+                }
+            )
+            swing_alloc[sid] = {
+                "light_product": light,
+                "heavy_product": heavy,
+                "to_light_kbd": fracs.get(light, 0.0) * cut.yield_vol * Q,
+                "to_heavy_kbd": fracs.get(heavy, 0.0) * cut.yield_vol * Q,
+                "light_frac": fracs.get(light, 0.0),
+                "cut_id": cut.id,
+                "driven_by": "cut_points",
+            }
+
+    mb = {
+        "ok": mb_gap < 1e-3 * max(1.0, Q) + 1e-6 and s_gap < 0.05 * max(1.0, s_in) + 1e-3,
+        "charge_kbd": Q,
+        "sum_products_kbd": sum_rates,
+        "assay_vol_coverage": assay.total_vol(),
+        "vol_balance_gap": mb_gap,
+        "sulfur_mass_in": s_in,
+        "sulfur_mass_out": s_out,
+        "sulfur_balance_gap": s_gap,
+        "heart_count": len(hearts_rep),
+        "swing_count": len(swings_rep),
+        "driver": "cut_points",
+    }
+
+    return CduSwingResult(
+        status="Optimal",
+        charge_kbd=Q,
+        product_yields_vol=yields,
+        product_rates_kbd=rates,
+        product_properties=product_properties,
+        swing_allocations=swing_alloc,
+        hearts=hearts_rep,
+        swings=swings_rep,
+        mass_balance=mb,
+        assay_name=assay.name,
+        cut_points_c=cp,
+        meta={
+            "reference": assay.reference,
+            "source_path": assay.source_path,
+            "whole_crude": assay.whole_crude,
+            "model": "cdu_cut_point_handles",
+            "operational_handles": ["naphtha_ep_c", "distillate_ep_c", "gasoil_ep_c"],
+            "cut_allocation": cut_alloc_detail,
+            "edges_c": edges_from_cut_points(cp),
+        },
+    )
+
+
 def solve_cdu_swing_cuts(
     assay: AssayPackage,
     *,
     charge_kbd: float = 100.0,
-    # Prefer light allocation on swing (0=all heavy, 1=all light)
+    # PRIMARY operational handles (°C end points)
+    cut_points: Optional[Mapping[str, float]] = None,
+    # mode: cut_point (default) | economic | fixed_frac
+    mode: str = "cut_point",
+    # Prefer light allocation on swing (0=all heavy, 1=all light) when mode=fixed_frac
     swing_light_frac: Optional[Mapping[str, float]] = None,
-    # Or free optimize economics
-    optimize: bool = True,
+    # Free optimize economics (only if mode=economic)
+    optimize: bool = False,
     prices: Optional[Mapping[str, float]] = None,
     # Soft targets for product sulfur (optional)
     max_sulfur: Optional[Mapping[str, float]] = None,
     msg: bool = False,
 ) -> CduSwingResult:
-    """Fractionate assay with heart/swing LP; close mass balance + blend props."""
+    """Fractionate assay; **cut points are the CDU operational handles**.
+
+    Default ``mode='cut_point'``: naphtha_ep / distillate_ep / gasoil_ep define
+    product TBP windows; assay cuts are linearly split on those windows.
+
+    ``mode='economic'``: free swing LP (legacy).
+    ``mode='fixed_frac'``: explicit swing_light_frac map.
+    """
+    mode = (mode or "cut_point").lower()
+    if mode in ("cut_point", "cutpoints", "handles", "process"):
+        return solve_cdu_from_cut_points(assay, cut_points, charge_kbd=charge_kbd)
+
+    # Cut points still set heart/swing geometry for LP modes
+    if cut_points:
+        assay = deepcopy(assay)
+        assay.edges_c = edges_from_cut_points(cut_points)
     assay = assay.normalize_vol()
     hearts, swings = build_heart_swing_library(assay)
     products = list(assay.products)
@@ -526,6 +823,12 @@ def solve_cdu_swing_cuts(
     # Swing vars: to_light, to_heavy
     swing_light_vars: Dict[str, pulp.LpVariable] = {}
     swing_heavy_vars: Dict[str, pulp.LpVariable] = {}
+    # If cut points given, map to swing light fracs (process handles)
+    cp = normalize_cut_points(cut_points)
+    derived_fracs = swing_light_fracs_from_cut_points(swings, cp)
+    if swing_light_frac:
+        derived_fracs.update({k: float(v) for k, v in swing_light_frac.items()})
+
     for s in swings:
         total = s.cut.yield_vol * Q
         vl = pulp.LpVariable(f"sw_L_{s.id}", lowBound=0, upBound=total)
@@ -533,13 +836,9 @@ def solve_cdu_swing_cuts(
         prob += vl + vh == total, f"swing_bal_{s.id}"
         swing_light_vars[s.id] = vl
         swing_heavy_vars[s.id] = vh
-        if swing_light_frac and s.id in swing_light_frac:
-            # fix allocation
-            frac = max(0.0, min(1.0, float(swing_light_frac[s.id])))
+        if mode != "economic" or not optimize:
+            frac = max(0.0, min(1.0, float(derived_fracs.get(s.id, 0.5))))
             prob += vl == frac * total
-        elif swing_light_frac is not None and not optimize:
-            # default 50/50 when not optimizing and no map
-            pass
 
     # Product totals
     prod_rate: Dict[str, pulp.LpAffineExpression] = {}
@@ -612,11 +911,7 @@ def solve_cdu_swing_cuts(
     s_out_cuts = s_out
     s_gap = abs(s_in_cuts - s_out_cuts)
 
-    cut_points = {
-        "naphtha_ep_c": assay.edges_c["cdu_naphtha"][1],
-        "distillate_ep_c": assay.edges_c["cdu_distillate"][1],
-        "gasoil_ep_c": assay.edges_c["cdu_gasoil"][1],
-    }
+    cut_points = dict(cp)
 
     mb = {
         "ok": mb_gap < 1e-3 * max(1.0, Q) + 1e-6 and s_gap < 0.05 * max(1.0, s_in_cuts) + 1e-3,
@@ -657,11 +952,19 @@ def cdu_yields_and_props_from_assay(
     crude_name: str,
     *,
     charge_kbd: float = 100.0,
-    optimize: bool = True,
+    cut_points: Optional[Mapping[str, float]] = None,
+    mode: str = "cut_point",
+    optimize: bool = False,
 ) -> Dict[str, Any]:
-    """Convenience: import crude → swing CDU → yields + properties dict."""
+    """Convenience: import crude → cut-point CDU → yields + properties dict."""
     assay = import_crude_from_assays_package(crude_name)
-    res = solve_cdu_swing_cuts(assay, charge_kbd=charge_kbd, optimize=optimize)
+    res = solve_cdu_swing_cuts(
+        assay,
+        charge_kbd=charge_kbd,
+        cut_points=cut_points,
+        mode=mode,
+        optimize=optimize,
+    )
     return res.to_dict()
 
 
