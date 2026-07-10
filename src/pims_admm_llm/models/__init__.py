@@ -144,6 +144,24 @@ except ImportError:  # pragma: no cover
     StreamComposition = None  # type: ignore
     get_stream = None  # type: ignore
 
+
+try:
+    from .assay_swing import (
+        import_crude_from_assays_package,
+        import_detailed_assay_json,
+        list_importable_assays,
+        solve_cdu_swing_cuts,
+        cdu_yields_and_props_from_assay,
+        build_heart_swing_library,
+    )
+except ImportError:  # pragma: no cover
+    import_crude_from_assays_package = None  # type: ignore
+    import_detailed_assay_json = None  # type: ignore
+    list_importable_assays = None  # type: ignore
+    solve_cdu_swing_cuts = None  # type: ignore
+    cdu_yields_and_props_from_assay = None  # type: ignore
+    build_heart_swing_library = None  # type: ignore
+
 __all__ = [
     "CrudeAssay",
     "InventorySpec",
@@ -225,5 +243,11 @@ __all__ = [
     "complete_missing_edges",
     "guess_route",
     "StreamComposition",
+    "import_crude_from_assays_package",
+    "import_detailed_assay_json",
+    "list_importable_assays",
+    "solve_cdu_swing_cuts",
+    "cdu_yields_and_props_from_assay",
+    "build_heart_swing_library",
     "get_stream",
 ]

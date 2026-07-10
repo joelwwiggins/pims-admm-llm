@@ -112,6 +112,15 @@ class BaseDeltaSolvePayload(BaseModel):
 # Palette + soft connect rules
 # ---------------------------------------------------------------------------
 
+
+class AssayCduPayload(BaseModel):
+    """Import assay and run heart/swing CDU fractionation."""
+
+    crude: str = "Cold_Lake_Blend"
+    charge_kbd: float = 100.0
+    optimize: bool = True
+
+
 UNIT_PALETTE = [
     {"type": "CDU", "label": "CDU", "category": "process", "submodel": "lp"},
     {"type": "FCC", "label": "FCC", "category": "process", "submodel": "lp"},
@@ -434,6 +443,39 @@ def post_base_delta_solve(payload: BaseDeltaSolvePayload) -> dict[str, Any]:
         return {"ok": False, "status": "Error", "error": str(e)}
 
 
+
+@app.get("/api/assays")
+def get_assays() -> dict[str, Any]:
+    try:
+        from pims_admm_llm.models.assay_swing import list_importable_assays
+
+        return {"ok": True, "crudes": list_importable_assays()}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "crudes": []}
+
+
+@app.post("/api/cdu/assay")
+def post_cdu_assay(payload: AssayCduPayload) -> dict[str, Any]:
+    """Import named assay → heart/swing CDU → yields, properties, mass balance."""
+    try:
+        from pims_admm_llm.models.assay_swing import (
+            import_crude_from_assays_package,
+            solve_cdu_swing_cuts,
+        )
+
+        assay = import_crude_from_assays_package(payload.crude)
+        res = solve_cdu_swing_cuts(
+            assay,
+            charge_kbd=payload.charge_kbd,
+            optimize=payload.optimize,
+        )
+        d = res.to_dict()
+        d["ok"] = res.status == "Optimal" and bool(res.mass_balance.get("ok"))
+        return d
+    except Exception as e:
+        return {"ok": False, "status": "Error", "error": str(e)}
+
+
 @app.get("/")
 def root() -> dict[str, str]:
     return {
@@ -444,4 +486,6 @@ def root() -> dict[str, str]:
         "connect": "POST /api/connect",
         "auto_wire": "POST /api/auto_wire",
         "base_delta_solve": "POST /api/base_delta/solve",
+        "assays": "GET /api/assays",
+        "cdu_assay": "POST /api/cdu/assay",
     }

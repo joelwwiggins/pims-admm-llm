@@ -82,3 +82,17 @@ When a process unit is **clicked or dropped** from the palette (`CDU`, `FCC`, `C
 Toolbar:
 - **Auto-wire** — re-run wire for current units
 - **Base-δ** — `POST /api/base_delta/solve` (cascade LP + mass_balance)
+
+
+## Assay → heart/swing CDU
+
+Import real assays as ordered TBP cuts, then fractionate with a **heart + swing** LP:
+
+| Piece | Path |
+|-------|------|
+| Detailed Cold Lake cuts | `data/assays/cold_lake_blend_clkbl23b.json` |
+| Engine | `models/assay_swing.py` |
+| Demo | `python -m demos.run_assay_cdu_demo --crude Cold_Lake_Blend` |
+| API | `GET /api/assays`, `POST /api/cdu/assay` |
+
+Hearts are fixed to a product; swing cuts on product boundaries are LP-allocated so effective cut points and blended product properties still **mass-balance** (vol + sulfur).
