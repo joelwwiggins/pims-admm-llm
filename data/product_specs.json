@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "model": "crude_cat_blender_wave",
+    "units": {
+      "rates": "kbd",
+      "prices": "USD/bbl",
+      "sulfur": "wt%",
+      "api": "deg API",
+      "ron": "RON",
+      "cetane": "CN index"
+    },
+    "notes": "Planning-grade finished-product specs for crude→FCC→blender case. Gasoline uses multi-component blender; sweet/sour gasoil and naphtha are single-stream quality gates (or sell-as-lower-grade)."
+  },
+  "products": {
+    "gasoline": {
+      "name": "gasoline",
+      "price_usd_per_bbl": 105.0,
+      "max_demand_kbd": null,
+      "min_demand_kbd": 0.0,
+      "specs": {
+        "min_ron": 87.0,
+        "max_sulfur_wt": 0.01,
+        "max_rvp_psi": 9.0
+      },
+      "blend_model": "delta_base",
+      "base_stream": "buy_alkylate",
+      "components": [
+        "cdu_naphtha",
+        "fcc_naphtha",
+        "buy_naphtha",
+        "buy_alkylate",
+        "buy_reformate"
+      ],
+      "notes": "RON + S hard constraints in blender LP; RVP reported only."
+    },
+    "sweet_gasoil": {
+      "name": "sweet_gasoil",
+      "price_usd_per_bbl": 95.0,
+      "max_demand_kbd": null,
+      "min_demand_kbd": 0.0,
+      "specs": {
+        "max_sulfur_wt": 0.15,
+        "min_api": 32.0,
+        "min_cetane": 45.0
+      },
+      "source_streams": ["cdu_distillate"],
+      "fallback_product": "sour_gasoil",
+      "notes": "SR kero/diesel cut. Fail S/API → can reclassify to sour_gasoil at sour price."
+    },
+    "sour_gasoil": {
+      "name": "sour_gasoil",
+      "price_usd_per_bbl": 78.0,
+      "max_demand_kbd": null,
+      "min_demand_kbd": 0.0,
+      "specs": {
+        "max_sulfur_wt": 2.5,
+        "min_api": 18.0
+      },
+      "source_streams": ["fcc_lco", "cdu_distillate_fail_sweet"],
+      "fallback_product": "fuel_oil",
+      "notes": "LCO / high-S distillate. Fail → fuel oil path."
+    },
+    "naphtha": {
+      "name": "naphtha",
+      "price_usd_per_bbl": 85.0,
+      "max_demand_kbd": null,
+      "min_demand_kbd": 0.0,
+      "specs": {
+        "max_sulfur_wt": 0.05,
+        "min_api": 50.0,
+        "min_ron": 55.0
+      },
+      "source_streams": ["cdu_naphtha_sell", "buy_naphtha"],
+      "notes": "Intermediate / chemical naphtha sell stream (SR naph not pulled into gasoline)."
+    },
+    "fuel_oil": {
+      "name": "fuel_oil",
+      "price_usd_per_bbl": 55.0,
+      "max_demand_kbd": null,
+      "min_demand_kbd": 0.0,
+      "specs": {
+        "max_sulfur_wt": 4.5,
+        "max_api": 20.0
+      },
+      "source_streams": ["cdu_resid", "fcc_slurry"],
+      "notes": "Resid + slurry pool; soft quality only."
+    }
+  },
+  "purchase_intermediates": {
+    "buy_naphtha": {
+      "name": "buy_naphtha",
+      "role": "gasoline_blendstock",
+      "price_usd_per_bbl": 92.0,
+      "max_kbd": 40.0,
+      "properties": {
+        "ron": 70.0,
+        "sulfur_wt": 0.01,
+        "api": 58.0,
+        "rvp_psi": 10.0
+      },
+      "notes": "Spot SR/platformate-quality naphtha purchase."
+    },
+    "buy_alkylate": {
+      "name": "buy_alkylate",
+      "role": "gasoline_blendstock",
+      "price_usd_per_bbl": 110.0,
+      "max_kbd": 25.0,
+      "properties": {
+        "ron": 95.0,
+        "sulfur_wt": 0.001,
+        "api": 70.0,
+        "rvp_psi": 4.5
+      },
+      "notes": "High-RON low-S octane barrel; typical make-buy for RON/S."
+    },
+    "buy_reformate": {
+      "name": "buy_reformate",
+      "role": "gasoline_blendstock",
+      "price_usd_per_bbl": 108.0,
+      "max_kbd": 20.0,
+      "properties": {
+        "ron": 100.0,
+        "sulfur_wt": 0.0005,
+        "api": 48.0,
+        "rvp_psi": 5.0
+      },
+      "notes": "Optional reformate purchase when on-site reformer is out of case scope."
+    }
+  },
+  "component_properties": {
+    "cdu_naphtha": {"ron": 62.0, "sulfur_wt": 0.02, "api": 58.0, "rvp_psi": 9.5},
+    "fcc_naphtha": {"ron": 92.0, "sulfur_wt": 0.04, "api": 52.0, "rvp_psi": 6.5},
+    "cdu_distillate": {"ron": 0.0, "sulfur_wt": 0.12, "api": 38.0, "cetane": 48.0},
+    "fcc_lco": {"ron": 0.0, "sulfur_wt": 1.6, "api": 22.0, "cetane": 28.0},
+    "cdu_resid": {"ron": 0.0, "sulfur_wt": 3.5, "api": 12.0},
+    "fcc_slurry": {"ron": 0.0, "sulfur_wt": 2.8, "api": 6.0}
+  }
+}
