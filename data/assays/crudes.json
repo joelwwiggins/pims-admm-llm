@@ -10,11 +10,26 @@
       "pna": "vol frac",
       "tbp": "vol frac of whole crude"
     },
-    "notes": "Crude assays with feed properties that drive CDU (and downstream) yields. TBP cuts are vol fractions; PNA sum ~1.0. Cold_Lake_Blend from EMTEC CLKBL23B (2023-10-26)."
+    "notes": "Crude assays with feed properties that drive CDU cut-point fractionation. Detailed cut tables: Cold_Lake_Blend (EMTEC CLKBL23B), WTI (wti_detailed.json), Arab_Medium (arab_medium_detailed.json). TBP cuts are vol fractions; PNA sum ~1.0.",
+    "detailed_assays": {
+      "Cold_Lake_Blend": "data/assays/cold_lake_blend_clkbl23b.json",
+      "WTI_light": "data/assays/wti_detailed.json",
+      "WTI": "data/assays/wti_detailed.json",
+      "Arab_Medium": "data/assays/arab_medium_detailed.json"
+    }
   },
   "crudes": [
     {
       "name": "WTI_light",
+      "aliases": [
+        "WTI",
+        "wti"
+      ],
+      "reference": "WTI-PLAN-01",
+      "assay_date": "planning-grade",
+      "origin": "USA (Cushing-like)",
+      "comments": "Light sweet; high naphtha/distillate; low metals/CCR",
+      "detailed_assay_file": "data/assays/wti_detailed.json",
       "api": 39.6,
       "sulfur_wt": 0.24,
       "ccr_wt": 0.8,
@@ -22,18 +37,21 @@
       "paraffins_vol": 0.42,
       "naphthenes_vol": 0.32,
       "aromatics_vol": 0.26,
+      "nickel_ppm": 2.0,
+      "vanadium_ppm": 3.0,
+      "metals_ni_v_ppm": 5.0,
       "price_usd_per_bbl": 78.0,
       "max_supply_kbd": 100.0,
       "tbp_cut_vol": {
         "naphtha_ibp_350f": 0.28,
-        "distillate_350_650f": 0.3,
-        "gasoil_650_1050f": 0.26,
-        "resid_1050f_plus": 0.16
+        "distillate_350_650f": 0.265,
+        "gasoil_650_1050f": 0.27,
+        "resid_1050f_plus": 0.185
       },
       "utility_use": {
         "fuel_gas": 0.015,
         "steam": 0.02,
-        "power": 0.01
+        "power": 0.011
       }
     },
     {
@@ -102,6 +120,41 @@
       "utility_use": {
         "fuel_gas": 0.016,
         "steam": 0.022,
+        "power": 0.011
+      }
+    },
+    {
+      "name": "Arab_Medium",
+      "aliases": [
+        "Arab Medium",
+        "AM"
+      ],
+      "reference": "AM-PLAN-01",
+      "assay_date": "planning-grade",
+      "origin": "Saudi Arabia",
+      "comments": "Medium sour; balanced middle distillates; moderate metals/CCR resid",
+      "detailed_assay_file": "data/assays/arab_medium_detailed.json",
+      "api": 31.1,
+      "sulfur_wt": 2.45,
+      "ccr_wt": 5.5,
+      "nitrogen_ppm": 1600,
+      "paraffins_vol": 0.32,
+      "naphthenes_vol": 0.3,
+      "aromatics_vol": 0.38,
+      "nickel_ppm": 12.0,
+      "vanadium_ppm": 35.0,
+      "metals_ni_v_ppm": 47.0,
+      "price_usd_per_bbl": 70.0,
+      "max_supply_kbd": 85.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.205,
+        "distillate_350_650f": 0.24,
+        "gasoil_650_1050f": 0.3,
+        "resid_1050f_plus": 0.255
+      },
+      "utility_use": {
+        "fuel_gas": 0.019,
+        "steam": 0.02,
         "power": 0.011
       }
     },

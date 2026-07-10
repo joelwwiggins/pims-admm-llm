@@ -246,6 +246,51 @@ def import_detailed_assay_json(path: PathLike) -> AssayPackage:
     ).normalize_vol()
 
 
+def _repo_data_assays_dir() -> Path:
+    here = Path(__file__).resolve()
+    for root in (here.parents[3], here.parents[2], Path.cwd(), Path("/home/joel/projects/pims-admm-llm")):
+        d = root / "data" / "assays"
+        if d.is_dir():
+            return d
+    return Path("data/assays")
+
+
+# Name aliases → detailed cut table filename under data/assays/
+DETAILED_ASSAY_FILES = {
+    "cold_lake_blend": "cold_lake_blend_clkbl23b.json",
+    "cold_lake": "cold_lake_blend_clkbl23b.json",
+    "clkbl23b": "cold_lake_blend_clkbl23b.json",
+    "wti": "wti_detailed.json",
+    "wti_light": "wti_detailed.json",
+    "arab_medium": "arab_medium_detailed.json",
+    "arab medium": "arab_medium_detailed.json",
+    "am": "arab_medium_detailed.json",
+}
+
+
+def resolve_detailed_assay_path(crude_name: str, crude_row: Mapping[str, Any] | None = None) -> Optional[Path]:
+    """Find detailed TBP cut JSON for a crude name / row."""
+    base = _repo_data_assays_dir()
+    if crude_row and crude_row.get("detailed_assay_file"):
+        rel = Path(str(crude_row["detailed_assay_file"]))
+        # allow data/assays/foo.json or foo.json
+        for cand in (rel, base / rel.name, Path.cwd() / rel):
+            if cand.is_file():
+                return cand
+    key = crude_name.replace(" ", "_").lower()
+    # also try aliases list
+    aliases = []
+    if crude_row:
+        aliases = [str(a).replace(" ", "_").lower() for a in (crude_row.get("aliases") or [])]
+    for k in [key, crude_name.lower(), *aliases]:
+        fname = DETAILED_ASSAY_FILES.get(k)
+        if fname:
+            pth = base / fname
+            if pth.is_file():
+                return pth
+    return None
+
+
 def import_crude_from_assays_package(
     crude_name: str,
     assays_path: PathLike | None = None,
@@ -254,32 +299,44 @@ def import_crude_from_assays_package(
 ) -> AssayPackage:
     """Import named crude from data/assays/crudes.json.
 
-    If a detailed cut table exists (e.g. cold_lake_blend_clkbl23b.json) or
-    ``detailed_override_path`` is set, use that. Else synthesize 4 heart + 3
-    swing cuts from ``tbp_cut_vol``.
+    Prefer a **detailed cut table** (Cold Lake / WTI / Arab Medium) when available;
+    else synthesize hearts/swings from ``tbp_cut_vol``.
     """
     if detailed_override_path:
         return import_detailed_assay_json(detailed_override_path)
 
-    # Known detailed libraries
-    name_key = crude_name.replace(" ", "_")
-    candidates = [
-        Path("data/assays/cold_lake_blend_clkbl23b.json"),
-        Path(__file__).resolve().parents[3] / "data" / "assays" / "cold_lake_blend_clkbl23b.json",
-    ]
-    if "cold_lake" in name_key.lower() or name_key.lower() == "cold_lake_blend":
-        for p in candidates:
-            if p.is_file():
-                return import_detailed_assay_json(p)
-
     pkg = load_assays_json(assays_path)
+    # meta registry
+    meta_map = (pkg.get("meta") or {}).get("detailed_assays") or {}
     crude = None
+    name_l = crude_name.lower().replace(" ", "_")
     for c in pkg.get("crudes") or []:
-        if str(c.get("name", "")).lower() == crude_name.lower():
+        names = {str(c.get("name", "")).lower().replace(" ", "_")}
+        names |= {str(a).lower().replace(" ", "_") for a in (c.get("aliases") or [])}
+        if name_l in names or crude_name.lower() == str(c.get("name", "")).lower():
             crude = c
             break
+    # detailed path from meta even if name not in crudes
+    if crude is None and crude_name in meta_map:
+        pth = Path(meta_map[crude_name])
+        if not pth.is_file():
+            pth = _repo_data_assays_dir() / Path(meta_map[crude_name]).name
+        if pth.is_file():
+            return import_detailed_assay_json(pth)
     if crude is None:
+        # try detailed alias alone
+        pth = resolve_detailed_assay_path(crude_name, None)
+        if pth:
+            return import_detailed_assay_json(pth)
         raise KeyError(f"crude {crude_name!r} not found in assays package")
+
+    pth = resolve_detailed_assay_path(str(crude.get("name", crude_name)), crude)
+    if pth is None and crude_name in meta_map:
+        pth = _repo_data_assays_dir() / Path(meta_map[crude_name]).name
+        if not pth.is_file():
+            pth = None
+    if pth is not None and pth.is_file():
+        return import_detailed_assay_json(pth)
 
     # Prefer detailed_cuts key if present
     if crude.get("cuts"):
@@ -971,7 +1028,7 @@ def cdu_yields_and_props_from_assay(
 def list_importable_assays(assays_path: PathLike | None = None) -> List[str]:
     pkg = load_assays_json(assays_path)
     names = [str(c.get("name")) for c in pkg.get("crudes") or []]
-    # ensure Cold Lake detailed present
-    if not any("cold_lake" in n.lower() for n in names):
-        names.append("Cold_Lake_Blend")
+    for extra in ("Cold_Lake_Blend", "WTI", "WTI_light", "Arab_Medium"):
+        if not any(extra.lower().replace(" ", "_") == n.lower().replace(" ", "_") for n in names):
+            names.append(extra)
     return names

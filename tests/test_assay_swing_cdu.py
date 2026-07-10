@@ -147,3 +147,24 @@ def test_normalize_enforces_order():
         {"naphtha_ep_c": 400.0, "distillate_ep_c": 300.0, "gasoil_ep_c": 250.0}
     )
     assert cp["naphtha_ep_c"] < cp["distillate_ep_c"] < cp["gasoil_ep_c"]
+
+
+def test_wti_and_arab_medium_detailed_import():
+    for name in ("WTI", "WTI_light", "Arab_Medium"):
+        assay = import_crude_from_assays_package(name)
+        assert len(assay.cuts) >= 10
+        assert abs(assay.total_vol() - 1.0) < 1e-6
+        res = solve_cdu_from_cut_points(assay, charge_kbd=100.0)
+        assert res.status == "Optimal"
+        assert res.mass_balance["ok"] is True
+    wti = solve_cdu_from_cut_points(import_crude_from_assays_package("WTI"), charge_kbd=100)
+    am = solve_cdu_from_cut_points(import_crude_from_assays_package("Arab_Medium"), charge_kbd=100)
+    clk = solve_cdu_from_cut_points(import_crude_from_assays_package("Cold_Lake_Blend"), charge_kbd=100)
+    # light → heavy: naphtha down, resid up, resid sulfur up
+    assert wti.product_yields_vol["cdu_naphtha"] > am.product_yields_vol["cdu_naphtha"] > clk.product_yields_vol["cdu_naphtha"]
+    assert wti.product_yields_vol["cdu_resid"] < am.product_yields_vol["cdu_resid"] < clk.product_yields_vol["cdu_resid"]
+    assert (
+        wti.product_properties["cdu_resid"]["sulfur_wt"]
+        < am.product_properties["cdu_resid"]["sulfur_wt"]
+        < clk.product_properties["cdu_resid"]["sulfur_wt"]
+    )

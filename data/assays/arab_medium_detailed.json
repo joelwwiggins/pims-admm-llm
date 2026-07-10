@@ -1,0 +1,222 @@
+{
+  "meta": {
+    "reference": "AM-PLAN-01",
+    "name": "Arab Medium",
+    "origin": "Saudi Arabia",
+    "assay_date": "planning-grade",
+    "source": "Planning-grade detailed cut slate for Arab Medium (between Arab Light and Heavy)",
+    "comments": "Medium sour; balanced middle distillates; moderate metals/CCR resid"
+  },
+  "whole_crude": {
+    "api": 31.1,
+    "density_15c_g_cc": 0.8702,
+    "sulfur_wt": 2.45,
+    "ccr_wt": 5.5,
+    "nitrogen_ppm": 1600,
+    "basic_nitrogen_ppm": 450,
+    "nickel_ppm": 12.0,
+    "vanadium_ppm": 35.0,
+    "metals_ni_v_ppm": 47.0,
+    "tan_mgkoh_g": 0.25,
+    "viscosity_cst_20c": 18.0,
+    "pour_point_c": -15,
+    "paraffins_vol": 0.32,
+    "naphthenes_vol": 0.3,
+    "aromatics_vol": 0.38,
+    "asphaltenes_wt": 2.8,
+    "price_usd_per_bbl": 70.0,
+    "max_supply_kbd": 85.0
+  },
+  "cuts": [
+    {
+      "id": "c5_65",
+      "tbp_start_c": 5,
+      "tbp_end_c": 65,
+      "yield_vol": 0.055,
+      "yield_wt": 0.0407,
+      "api": 88.0,
+      "density_15c_g_cc": 0.6446,
+      "sulfur_wt": 0.02,
+      "nitrogen_ppm": 0,
+      "ccr_wt": 0.0,
+      "ron": 74.0,
+      "paraffins_vol": 0.92,
+      "naphthenes_vol": 0.06,
+      "aromatics_vol": 0.02
+    },
+    {
+      "id": "65_100",
+      "tbp_start_c": 65,
+      "tbp_end_c": 100,
+      "yield_vol": 0.04,
+      "yield_wt": 0.034,
+      "api": 60.0,
+      "density_15c_g_cc": 0.7389,
+      "sulfur_wt": 0.04,
+      "nitrogen_ppm": 2,
+      "ccr_wt": 0.0,
+      "ron": 52.0,
+      "paraffins_vol": 0.65,
+      "naphthenes_vol": 0.25,
+      "aromatics_vol": 0.1
+    },
+    {
+      "id": "100_150",
+      "tbp_start_c": 100,
+      "tbp_end_c": 150,
+      "yield_vol": 0.055,
+      "yield_wt": 0.0485,
+      "api": 53.0,
+      "density_15c_g_cc": 0.7669,
+      "sulfur_wt": 0.08,
+      "nitrogen_ppm": 10,
+      "ccr_wt": 0.0,
+      "ron": 48.0,
+      "paraffins_vol": 0.5,
+      "naphthenes_vol": 0.3,
+      "aromatics_vol": 0.2
+    },
+    {
+      "id": "150_200",
+      "tbp_start_c": 150,
+      "tbp_end_c": 200,
+      "yield_vol": 0.055,
+      "yield_wt": 0.0504,
+      "api": 46.0,
+      "density_15c_g_cc": 0.7972,
+      "sulfur_wt": 0.15,
+      "nitrogen_ppm": 30,
+      "ccr_wt": 0.0,
+      "ron": 35.0,
+      "paraffins_vol": 0.45,
+      "naphthenes_vol": 0.3,
+      "aromatics_vol": 0.25
+    },
+    {
+      "id": "200_250",
+      "tbp_start_c": 200,
+      "tbp_end_c": 250,
+      "yield_vol": 0.065,
+      "yield_wt": 0.0624,
+      "api": 38.0,
+      "density_15c_g_cc": 0.8348,
+      "sulfur_wt": 0.35,
+      "nitrogen_ppm": 60,
+      "ccr_wt": 0.0,
+      "cetane_index": 40
+    },
+    {
+      "id": "250_300",
+      "tbp_start_c": 250,
+      "tbp_end_c": 300,
+      "yield_vol": 0.07,
+      "yield_wt": 0.0696,
+      "api": 32.0,
+      "density_15c_g_cc": 0.8654,
+      "sulfur_wt": 0.7,
+      "nitrogen_ppm": 120,
+      "ccr_wt": 0.05,
+      "cetane_index": 43
+    },
+    {
+      "id": "300_350",
+      "tbp_start_c": 300,
+      "tbp_end_c": 350,
+      "yield_vol": 0.07,
+      "yield_wt": 0.0714,
+      "api": 28.0,
+      "density_15c_g_cc": 0.8871,
+      "sulfur_wt": 1.1,
+      "nitrogen_ppm": 250,
+      "ccr_wt": 0.15,
+      "cetane_index": 45
+    },
+    {
+      "id": "350_370",
+      "tbp_start_c": 350,
+      "tbp_end_c": 370,
+      "yield_vol": 0.035,
+      "yield_wt": 0.0364,
+      "api": 25.0,
+      "density_15c_g_cc": 0.9042,
+      "sulfur_wt": 1.4,
+      "nitrogen_ppm": 400,
+      "ccr_wt": 0.25,
+      "cetane_index": 46
+    },
+    {
+      "id": "370_450",
+      "tbp_start_c": 370,
+      "tbp_end_c": 450,
+      "yield_vol": 0.13,
+      "yield_wt": 0.1377,
+      "api": 22.0,
+      "density_15c_g_cc": 0.9218,
+      "sulfur_wt": 1.9,
+      "nitrogen_ppm": 700,
+      "ccr_wt": 0.5
+    },
+    {
+      "id": "450_500",
+      "tbp_start_c": 450,
+      "tbp_end_c": 500,
+      "yield_vol": 0.09,
+      "yield_wt": 0.0972,
+      "api": 19.0,
+      "density_15c_g_cc": 0.9402,
+      "sulfur_wt": 2.4,
+      "nitrogen_ppm": 1100,
+      "ccr_wt": 1.2
+    },
+    {
+      "id": "500_550",
+      "tbp_start_c": 500,
+      "tbp_end_c": 550,
+      "yield_vol": 0.08,
+      "yield_wt": 0.0882,
+      "api": 16.0,
+      "density_15c_g_cc": 0.9593,
+      "sulfur_wt": 2.9,
+      "nitrogen_ppm": 1600,
+      "ccr_wt": 2.5
+    },
+    {
+      "id": "550_fbp",
+      "tbp_start_c": 550,
+      "tbp_end_c": 750,
+      "yield_vol": 0.255,
+      "yield_wt": 0.293,
+      "api": 10.0,
+      "density_15c_g_cc": 1.0,
+      "sulfur_wt": 4.2,
+      "nitrogen_ppm": 2800,
+      "ccr_wt": 12.0,
+      "nickel_ppm": 25.0,
+      "vanadium_ppm": 75.0,
+      "asphaltenes_wt": 6.5
+    }
+  ],
+  "default_cut_points_c": {
+    "naphtha_ep": 200.0,
+    "distillate_ep": 370.0,
+    "gasoil_ep": 550.0
+  },
+  "product_map": {
+    "cdu_naphtha": {
+      "tbp_lo_c": 5,
+      "tbp_hi_c": 200
+    },
+    "cdu_distillate": {
+      "tbp_lo_c": 200,
+      "tbp_hi_c": 370
+    },
+    "cdu_gasoil": {
+      "tbp_lo_c": 370,
+      "tbp_hi_c": 550
+    },
+    "cdu_resid": {
+      "tbp_lo_c": 550,
+      "tbp_hi_c": 750
+    }
+  }
+}
