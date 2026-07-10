@@ -166,6 +166,18 @@ except ImportError:  # pragma: no cover
     cdu_yields_and_props_from_assay = None  # type: ignore
     build_heart_swing_library = None  # type: ignore
 
+
+try:
+    from .crude_cat_blender import (
+        compare_mono_admm,
+        solve_crude_cat_blender,
+        solve_crude_cat_blender_admm,
+    )
+except ImportError:
+    compare_mono_admm = None  # type: ignore
+    solve_crude_cat_blender = None  # type: ignore
+    solve_crude_cat_blender_admm = None  # type: ignore
+
 __all__ = [
     "CrudeAssay",
     "InventorySpec",
@@ -258,4 +270,7 @@ __all__ = [
     "cdu_yields_and_props_from_assay",
     "build_heart_swing_library",
     "get_stream",
+    "compare_mono_admm",
+    "solve_crude_cat_blender",
+    "solve_crude_cat_blender_admm",
 ]
