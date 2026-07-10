@@ -10,7 +10,7 @@
       "pna": "vol frac",
       "tbp": "vol frac of whole crude"
     },
-    "notes": "Crude assays with feed properties that drive CDU (and downstream) yields. TBP cuts are vol fractions; PNA sum ~1.0."
+    "notes": "Crude assays with feed properties that drive CDU (and downstream) yields. TBP cuts are vol fractions; PNA sum ~1.0. Cold_Lake_Blend from EMTEC CLKBL23B (2023-10-26)."
   },
   "crudes": [
     {
@@ -26,11 +26,15 @@
       "max_supply_kbd": 100.0,
       "tbp_cut_vol": {
         "naphtha_ibp_350f": 0.28,
-        "distillate_350_650f": 0.30,
+        "distillate_350_650f": 0.3,
         "gasoil_650_1050f": 0.26,
         "resid_1050f_plus": 0.16
       },
-      "utility_use": {"fuel_gas": 0.015, "steam": 0.02, "power": 0.01}
+      "utility_use": {
+        "fuel_gas": 0.015,
+        "steam": 0.02,
+        "power": 0.01
+      }
     },
     {
       "name": "Mars_medium",
@@ -38,7 +42,7 @@
       "sulfur_wt": 1.85,
       "ccr_wt": 3.2,
       "nitrogen_ppm": 1800,
-      "paraffins_vol": 0.30,
+      "paraffins_vol": 0.3,
       "naphthenes_vol": 0.34,
       "aromatics_vol": 0.36,
       "price_usd_per_bbl": 72.0,
@@ -46,10 +50,14 @@
       "tbp_cut_vol": {
         "naphtha_ibp_350f": 0.18,
         "distillate_350_650f": 0.27,
-        "gasoil_650_1050f": 0.30,
+        "gasoil_650_1050f": 0.3,
         "resid_1050f_plus": 0.25
       },
-      "utility_use": {"fuel_gas": 0.018, "steam": 0.025, "power": 0.012}
+      "utility_use": {
+        "fuel_gas": 0.018,
+        "steam": 0.025,
+        "power": 0.012
+      }
     },
     {
       "name": "Maya_heavy",
@@ -58,17 +66,21 @@
       "ccr_wt": 11.5,
       "nitrogen_ppm": 3200,
       "paraffins_vol": 0.22,
-      "naphthenes_vol": 0.30,
+      "naphthenes_vol": 0.3,
       "aromatics_vol": 0.48,
       "price_usd_per_bbl": 62.0,
       "max_supply_kbd": 60.0,
       "tbp_cut_vol": {
-        "naphtha_ibp_350f": 0.10,
-        "distillate_350_650f": 0.20,
+        "naphtha_ibp_350f": 0.1,
+        "distillate_350_650f": 0.2,
         "gasoil_650_1050f": 0.28,
         "resid_1050f_plus": 0.42
       },
-      "utility_use": {"fuel_gas": 0.022, "steam": 0.03, "power": 0.015}
+      "utility_use": {
+        "fuel_gas": 0.022,
+        "steam": 0.03,
+        "power": 0.015
+      }
     },
     {
       "name": "Arab_Light",
@@ -77,7 +89,7 @@
       "ccr_wt": 3.8,
       "nitrogen_ppm": 1400,
       "paraffins_vol": 0.34,
-      "naphthenes_vol": 0.30,
+      "naphthenes_vol": 0.3,
       "aromatics_vol": 0.36,
       "price_usd_per_bbl": 74.0,
       "max_supply_kbd": 90.0,
@@ -87,7 +99,11 @@
         "gasoil_650_1050f": 0.28,
         "resid_1050f_plus": 0.22
       },
-      "utility_use": {"fuel_gas": 0.016, "steam": 0.022, "power": 0.011}
+      "utility_use": {
+        "fuel_gas": 0.016,
+        "steam": 0.022,
+        "power": 0.011
+      }
     },
     {
       "name": "Bonny_Light",
@@ -106,24 +122,89 @@
         "gasoil_650_1050f": 0.25,
         "resid_1050f_plus": 0.17
       },
-      "utility_use": {"fuel_gas": 0.014, "steam": 0.018, "power": 0.01}
+      "utility_use": {
+        "fuel_gas": 0.014,
+        "steam": 0.018,
+        "power": 0.01
+      }
+    },
+    {
+      "name": "Cold_Lake_Blend",
+      "reference": "CLKBL23B",
+      "assay_date": "2023-10-26",
+      "origin": "Alberta",
+      "comments": "EMTEC summer assay; heavy Canadian bitumen blend. High S, metals, MCR \u2014 coker candidate; poor FCC metals feed.",
+      "api": 19.5,
+      "sulfur_wt": 3.87,
+      "ccr_wt": 10.7,
+      "nitrogen_ppm": 3062,
+      "paraffins_vol": 0.152,
+      "naphthenes_vol": 0.217,
+      "aromatics_vol": 0.631,
+      "nickel_ppm": 55.8,
+      "vanadium_ppm": 145.2,
+      "metals_ni_v_ppm": 201.0,
+      "tan_mgkoh_g": 1.12,
+      "viscosity_cst_20c": 1019.3,
+      "density_15c_g_cc": 0.9367,
+      "price_usd_per_bbl": 58.0,
+      "max_supply_kbd": 50.0,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.164,
+        "distillate_350_650f": 0.211,
+        "gasoil_650_1050f": 0.301,
+        "resid_1050f_plus": 0.324
+      },
+      "tbp_cut_notes": "From assay vol yields: naph\u2248C5\u2013200C, dist\u2248200\u2013370C, gasoil\u2248370\u2013550C vac, resid\u2248550C+; renorm to 1.0.",
+      "cut_properties": {
+        "cdu_gasoil": {
+          "api": 14.5,
+          "sulfur_wt": 3.5,
+          "ccr_wt": 1.5
+        },
+        "cdu_resid": {
+          "api": 0.4,
+          "sulfur_wt": 6.74,
+          "ccr_wt": 28.7,
+          "nickel_ppm": 153.8,
+          "vanadium_ppm": 400.6,
+          "asphaltenes_wt": 27.2
+        }
+      },
+      "utility_use": {
+        "fuel_gas": 0.024,
+        "steam": 0.032,
+        "power": 0.018
+      }
     }
   ],
   "products": {
     "gasoline": {
       "price_usd_per_bbl": 105.0,
       "max_demand_kbd": 90.0,
-      "utility_use": {"fuel_gas": 0.004, "steam": 0.003, "power": 0.006}
+      "utility_use": {
+        "fuel_gas": 0.004,
+        "steam": 0.003,
+        "power": 0.006
+      }
     },
     "diesel": {
       "price_usd_per_bbl": 112.0,
       "max_demand_kbd": 80.0,
-      "utility_use": {"fuel_gas": 0.003, "steam": 0.004, "power": 0.005}
+      "utility_use": {
+        "fuel_gas": 0.003,
+        "steam": 0.004,
+        "power": 0.005
+      }
     },
     "fuel_oil": {
       "price_usd_per_bbl": 68.0,
       "max_demand_kbd": 70.0,
-      "utility_use": {"fuel_gas": 0.002, "steam": 0.002, "power": 0.003}
+      "utility_use": {
+        "fuel_gas": 0.002,
+        "steam": 0.002,
+        "power": 0.003
+      }
     }
   },
   "capacities": {
@@ -168,22 +249,34 @@
     "gasoline": {
       "cdu_naphtha": 0.35,
       "reformate": 0.45,
-      "fcc_naphtha": 0.20
+      "fcc_naphtha": 0.2
     },
     "diesel": {
       "cdu_distillate": 0.55,
       "fcc_lco": 0.25,
-      "coker_gasoil": 0.20
+      "coker_gasoil": 0.2
     },
     "fuel_oil": {
       "fcc_slurry": 0.35,
       "coker_gasoil": 0.25,
-      "cdu_resid": 0.40
+      "cdu_resid": 0.4
     }
   },
   "utilities": {
-    "fuel_gas": {"capacity": 6.0, "cost_usd_per_unit": 18.0, "unit": "kbd_equiv"},
-    "steam": {"capacity": 5.0, "cost_usd_per_unit": 12.0, "unit": "kbd_equiv"},
-    "power": {"capacity": 7.0, "cost_usd_per_unit": 25.0, "unit": "mwh_per_day_scaled"}
+    "fuel_gas": {
+      "capacity": 6.0,
+      "cost_usd_per_unit": 18.0,
+      "unit": "kbd_equiv"
+    },
+    "steam": {
+      "capacity": 5.0,
+      "cost_usd_per_unit": 12.0,
+      "unit": "kbd_equiv"
+    },
+    "power": {
+      "capacity": 7.0,
+      "cost_usd_per_unit": 25.0,
+      "unit": "mwh_per_day_scaled"
+    }
   }
 }
