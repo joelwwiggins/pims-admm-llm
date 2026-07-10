@@ -168,3 +168,15 @@ def test_wti_and_arab_medium_detailed_import():
         < am.product_properties["cdu_resid"]["sulfur_wt"]
         < clk.product_properties["cdu_resid"]["sulfur_wt"]
     )
+
+def test_vendor_wti_basrah_mars():
+    wti = import_crude_from_assays_package("WTI")
+    am = import_crude_from_assays_package("Arab_Medium")
+    mars = import_crude_from_assays_package("Mars")
+    assert "WTI" in wti.name or "Light" in wti.name
+    assert wti.whole_crude["api"] > 40
+    assert am.whole_crude["sulfur_wt"] > 2.5  # basrah medium proxy
+    assert mars.whole_crude["api"] > 25
+    for a in (wti, am, mars):
+        r = solve_cdu_from_cut_points(a, charge_kbd=50)
+        assert r.mass_balance["ok"]

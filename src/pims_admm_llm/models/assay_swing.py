@@ -262,9 +262,16 @@ DETAILED_ASSAY_FILES = {
     "clkbl23b": "cold_lake_blend_clkbl23b.json",
     "wti": "wti_detailed.json",
     "wti_light": "wti_detailed.json",
-    "arab_medium": "arab_medium_detailed.json",
+    "arab_medium": "basrah_medium_bp.json",
     "arab medium": "arab_medium_detailed.json",
-    "am": "arab_medium_detailed.json",
+    "am": "basrah_medium_bp.json",
+    "basrah_medium": "basrah_medium_bp.json",
+    "basrah medium": "basrah_medium_bp.json",
+    "mars": "mars_bp.json",
+    "mars_medium": "mars_bp.json",
+    "wti_light": "wti_detailed.json",
+    "wti light": "wti_detailed.json",
+    "wti light - export": "wti_detailed.json",
 }
 
 

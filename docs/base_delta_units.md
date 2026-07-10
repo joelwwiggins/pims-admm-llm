@@ -116,3 +116,18 @@ PYTHONPATH=src python -m demos.run_assay_cdu_demo --naphtha-ep 220 --gasoil-ep 5
 ```
 
 API: `POST /api/cdu/assay` with `naphtha_ep_c`, `distillate_ep_c`, `gasoil_ep_c`.
+
+
+## Vendor assays (BP / ExxonMobil)
+
+BP public assays: https://www.bp.com/en/global/bp-supply-trading-and-shipping/documents-and-downloads/technical-downloads/crudes-assays.html
+
+| Grade in model | Source file | Notes |
+|----------------|-------------|-------|
+| WTI / WTI_light | ExxonMobil `wti_light.xlsx` → `wti_detailed.json` | **WTI Light Export** (API ~47); BP does not publish WTI |
+| Arab_Medium | BP `basrah-medium.xls` → `basrah_medium_bp.json` | **Proxy**: BP list has no Saudi Arab Medium; Basrah Medium used with label |
+| Basrah_Medium | same BP file | Canonical BP grade |
+| Mars / Mars_medium | BP `mars.xls` | GOM medium sour |
+| Cold_Lake_Blend | EMTEC PDF (user) | Heavy Canadian |
+
+Importer: `models/vendor_assay_import.py` · raw files under `data/assays/vendor_raw/`.

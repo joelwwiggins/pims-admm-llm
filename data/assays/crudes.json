@@ -15,67 +15,86 @@
       "Cold_Lake_Blend": "data/assays/cold_lake_blend_clkbl23b.json",
       "WTI_light": "data/assays/wti_detailed.json",
       "WTI": "data/assays/wti_detailed.json",
-      "Arab_Medium": "data/assays/arab_medium_detailed.json"
-    }
+      "Basrah_Medium": "data/assays/basrah_medium_bp.json",
+      "Arab_Medium": "data/assays/basrah_medium_bp.json",
+      "Mars_medium": "data/assays/mars_bp.json",
+      "Mars": "data/assays/mars_bp.json"
+    },
+    "vendor_notes": "BP public crude assays page does not publish WTI or Saudi Arab Medium. WTI Light Export from ExxonMobil public assay library. Arab_Medium uses BP Basrah Medium as documented proxy. Mars from BP.",
+    "bp_assays_url": "https://www.bp.com/en/global/bp-supply-trading-and-shipping/documents-and-downloads/technical-downloads/crudes-assays.html"
   },
   "crudes": [
     {
       "name": "WTI_light",
       "aliases": [
         "WTI",
+        "WTI Light",
+        "WTI_Light",
         "wti"
       ],
-      "reference": "WTI-PLAN-01",
-      "assay_date": "planning-grade",
-      "origin": "USA (Cushing-like)",
-      "comments": "Light sweet; high naphtha/distillate; low metals/CCR",
+      "reference": "WTLEX26Y",
+      "origin": "",
+      "comments": "",
       "detailed_assay_file": "data/assays/wti_detailed.json",
-      "api": 39.6,
-      "sulfur_wt": 0.24,
-      "ccr_wt": 0.8,
-      "nitrogen_ppm": 900,
-      "paraffins_vol": 0.42,
-      "naphthenes_vol": 0.32,
-      "aromatics_vol": 0.26,
-      "nickel_ppm": 2.0,
-      "vanadium_ppm": 3.0,
-      "metals_ni_v_ppm": 5.0,
-      "price_usd_per_bbl": 78.0,
-      "max_supply_kbd": 100.0,
+      "api": 47.39987725648041,
+      "sulfur_wt": 0.0698981115791165,
+      "ccr_wt": 0.1185965915483614,
+      "nitrogen_ppm": 113.32936114366257,
+      "paraffins_vol": 0.4255761386139089,
+      "naphthenes_vol": 0.4479975255697073,
+      "aromatics_vol": 0.12399581526694574,
+      "nickel_ppm": 0.07450631944320657,
+      "vanadium_ppm": 0.11933899528501674,
+      "metals_ni_v_ppm": 0.1938453147282233,
+      "price_usd_per_bbl": 78,
+      "max_supply_kbd": 100,
       "tbp_cut_vol": {
-        "naphtha_ibp_350f": 0.28,
-        "distillate_350_650f": 0.265,
-        "gasoil_650_1050f": 0.27,
-        "resid_1050f_plus": 0.185
+        "naphtha_ibp_350f": 0.503,
+        "distillate_350_650f": 0.297,
+        "gasoil_650_1050f": 0.16,
+        "resid_1050f_plus": 0.041
       },
       "utility_use": {
         "fuel_gas": 0.015,
         "steam": 0.02,
-        "power": 0.011
-      }
+        "power": 0.01
+      },
+      "vendor_source": "data/assays/wti_detailed.json"
     },
     {
       "name": "Mars_medium",
-      "api": 28.9,
-      "sulfur_wt": 1.85,
-      "ccr_wt": 3.2,
-      "nitrogen_ppm": 1800,
+      "aliases": [
+        "Mars",
+        "MARS"
+      ],
+      "reference": "MM24MAR1",
+      "origin": "",
+      "comments": "",
+      "detailed_assay_file": "data/assays/mars_bp.json",
+      "api": 28.4,
+      "sulfur_wt": 2.17,
+      "ccr_wt": 6.0,
+      "nitrogen_ppm": 1600.0,
       "paraffins_vol": 0.3,
-      "naphthenes_vol": 0.34,
-      "aromatics_vol": 0.36,
-      "price_usd_per_bbl": 72.0,
-      "max_supply_kbd": 80.0,
+      "naphthenes_vol": 0.3,
+      "aromatics_vol": 0.4,
+      "nickel_ppm": 15.0,
+      "vanadium_ppm": 40.0,
+      "metals_ni_v_ppm": 55.0,
+      "price_usd_per_bbl": 72,
+      "max_supply_kbd": 80,
       "tbp_cut_vol": {
-        "naphtha_ibp_350f": 0.18,
-        "distillate_350_650f": 0.27,
-        "gasoil_650_1050f": 0.3,
-        "resid_1050f_plus": 0.25
+        "naphtha_ibp_350f": 0.194,
+        "distillate_350_650f": 0.278,
+        "gasoil_650_1050f": 0.236,
+        "resid_1050f_plus": 0.292
       },
       "utility_use": {
-        "fuel_gas": 0.018,
-        "steam": 0.025,
-        "power": 0.012
-      }
+        "fuel_gas": 0.015,
+        "steam": 0.02,
+        "power": 0.01
+      },
+      "vendor_source": "data/assays/mars_bp.json"
     },
     {
       "name": "Maya_heavy",
@@ -127,36 +146,39 @@
       "name": "Arab_Medium",
       "aliases": [
         "Arab Medium",
-        "AM"
+        "AM",
+        "Arabian Medium"
       ],
-      "reference": "AM-PLAN-01",
-      "assay_date": "planning-grade",
-      "origin": "Saudi Arabia",
-      "comments": "Medium sour; balanced middle distillates; moderate metals/CCR resid",
-      "detailed_assay_file": "data/assays/arab_medium_detailed.json",
-      "api": 31.1,
-      "sulfur_wt": 2.45,
-      "ccr_wt": 5.5,
-      "nitrogen_ppm": 1600,
-      "paraffins_vol": 0.32,
+      "reference": "MM24BME1 (proxy for Arab Medium)",
+      "origin": "",
+      "comments": "BP public assays do not list Saudi Arab Medium. Basrah Medium (Iraq, API~28, S~3.5) imported from BP as the closest published medium-sour ME grade. Replace when a true Arab Medium assay is provided.",
+      "detailed_assay_file": "data/assays/basrah_medium_bp.json",
+      "api": 28.2,
+      "sulfur_wt": 3.54,
+      "ccr_wt": 6.0,
+      "nitrogen_ppm": 1400.0,
+      "paraffins_vol": 0.3,
       "naphthenes_vol": 0.3,
-      "aromatics_vol": 0.38,
-      "nickel_ppm": 12.0,
-      "vanadium_ppm": 35.0,
-      "metals_ni_v_ppm": 47.0,
-      "price_usd_per_bbl": 70.0,
-      "max_supply_kbd": 85.0,
+      "aromatics_vol": 0.4,
+      "nickel_ppm": 15.0,
+      "vanadium_ppm": 40.0,
+      "metals_ni_v_ppm": 55.0,
+      "price_usd_per_bbl": 68,
+      "max_supply_kbd": 80,
       "tbp_cut_vol": {
-        "naphtha_ibp_350f": 0.205,
-        "distillate_350_650f": 0.24,
-        "gasoil_650_1050f": 0.3,
-        "resid_1050f_plus": 0.255
+        "naphtha_ibp_350f": 0.197,
+        "distillate_350_650f": 0.279,
+        "gasoil_650_1050f": 0.236,
+        "resid_1050f_plus": 0.288
       },
       "utility_use": {
-        "fuel_gas": 0.019,
+        "fuel_gas": 0.015,
         "steam": 0.02,
-        "power": 0.011
-      }
+        "power": 0.01
+      },
+      "vendor_source": "data/assays/basrah_medium_bp.json",
+      "proxy_for": "Arab Medium",
+      "actual_grade": "Basrah Medium"
     },
     {
       "name": "Bonny_Light",
@@ -229,6 +251,41 @@
         "steam": 0.032,
         "power": 0.018
       }
+    },
+    {
+      "name": "Basrah_Medium",
+      "aliases": [
+        "Basrah Medium",
+        "Arab_Medium_proxy"
+      ],
+      "reference": "MM24BME1",
+      "origin": "",
+      "comments": "",
+      "detailed_assay_file": "data/assays/basrah_medium_bp.json",
+      "api": 28.2,
+      "sulfur_wt": 3.54,
+      "ccr_wt": 6.0,
+      "nitrogen_ppm": 1400.0,
+      "paraffins_vol": 0.3,
+      "naphthenes_vol": 0.3,
+      "aromatics_vol": 0.4,
+      "nickel_ppm": 15.0,
+      "vanadium_ppm": 40.0,
+      "metals_ni_v_ppm": 55.0,
+      "price_usd_per_bbl": 68,
+      "max_supply_kbd": 80,
+      "tbp_cut_vol": {
+        "naphtha_ibp_350f": 0.197,
+        "distillate_350_650f": 0.279,
+        "gasoil_650_1050f": 0.236,
+        "resid_1050f_plus": 0.288
+      },
+      "utility_use": {
+        "fuel_gas": 0.015,
+        "steam": 0.02,
+        "power": 0.01
+      },
+      "vendor_source": "data/assays/basrah_medium_bp.json"
     }
   ],
   "products": {
