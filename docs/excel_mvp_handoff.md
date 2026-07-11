@@ -51,11 +51,12 @@ VERDICT: PASS
 
 ## Open residual (board)
 
-- `t_498f8cc3` — **NEXT:** Svelte UI Excel tab (upload + results panel)
+- `t_498f8cc3` — Svelte UI Excel tab (upload + results panel) — **implemented** (left dock Excel tab)
 
 ## Continue from dashboard
 
 1. Open http://127.0.0.1:9119  
 2. Kanban board: `pims-excel-admm-mvp-20260711`  
 3. Project workdir: `/home/joel/projects/pims-admm-llm`  
-4. Optional next: claim `t_498f8cc3` for Svelte Excel tab  
+4. UI: `cd ui && npm run dev` → http://127.0.0.1:5173 → left dock **Excel** tab  
+5. API must be up: `uvicorn api.main:app --port 8008` (from repo root, `PYTHONPATH=src`)  

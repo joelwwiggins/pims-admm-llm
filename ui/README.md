@@ -22,10 +22,22 @@ npm run dev    # http://127.0.0.1:5173
 
 | Zone | Role |
 |------|------|
-| **Top toolbar** | Run / Validate / Reset PFD / recovery path |
-| **Left dock** | Unit palette + optional solve results |
+| **Top toolbar** | Run / Validate / Reset PFD / recovery path / **Excel** |
+| **Left dock** | Tabs: **Palette** (units + graph results) · **Excel** (template / upload / mono+ADMM) |
 | **Canvas** | HYSYS-style PFD (nodes + stream edges) |
 | **Right inspector** | Unit or stream properties (click to select) |
+
+## Excel PIMS tab
+
+Uses the MVP API (Vite proxies `/api` → `:8008`):
+
+1. **Template** → `GET /api/excel/template`
+2. **Upload** a PIMS-shaped `.xlsx` (Crudes / Products / Capacities)
+3. **Solve Excel** → `POST /api/excel/solve` (multipart `file`)
+4. Results panel: mono/ADMM obj, gap, dual L∞ (online λ), rates, shadows
+5. **Download results .xlsx** → `GET /api/excel/results?path=<basename>`
+
+Honesty: primary ADMM shadows = free online λ, not recovered blender duals.
 
 ## Custom components
 
