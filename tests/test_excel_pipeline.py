@@ -73,8 +73,14 @@ def test_write_results_excel_sheets(tmp_path):
     import openpyxl
 
     wb = openpyxl.load_workbook(out)
-    for name in ("Summary", "Crudes_mono", "Products_mono", "Shadows"):
+    for name in ("How_to_read", "Summary", "Crudes_mono", "Products_mono", "Shadows"):
         assert name in wb.sheetnames
+    assert wb.sheetnames[0] == "How_to_read"
+    guide = wb["How_to_read"]
+    topics = [r[0].value for r in guide.iter_rows(min_row=2, max_col=1)]
+    assert "purpose" in topics
+    assert "ADMM_blocks" in topics
+    assert "6_Shadows" in topics
     sh = wb["Shadows"]
     headers = [c.value for c in sh[1]]
     assert "admm_online_econ" in headers

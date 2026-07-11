@@ -248,25 +248,155 @@ def run_excel_pipeline(
     return report
 
 
+def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
+    """Guide text for results workbook readers (PIMS users + ADMM math)."""
+    mono = report.get("mono") or {}
+    admm = report.get("admm") or {}
+    cmp_ = report.get("comparison") or {}
+    meta = report.get("meta") or {}
+    gap_pct = 100.0 * float(cmp_.get("objective_gap_rel") or 0.0)
+    dual_linf = cmp_.get("dual_linf_online")
+    path = admm.get("dual_recovery_path") or "package-admm"
+    return [
+        (
+            "purpose",
+            "This workbook is the audit trail for Excel PIMS-shaped input → mono LP + block-angular ADMM. "
+            "Hard feasibility is enforced by CBC/PuLP; Excel is the readable economics and dual report.",
+        ),
+        (
+            "how_this_differs_from_PIMS",
+            "Classic PIMS: one giant Excel/CPLEX model (submodels linked inside one matrix). "
+            "This MVP: classic 2-block decomposition (CDU production block + Blender use block) coordinated by ADMM "
+            "(prices λ, consensus z, residual ||r||). Same planning language (crudes, products, intermediate shadows); "
+            "different solve architecture.",
+        ),
+        (
+            "story_in_one_line",
+            "Buy crudes → CDU makes naphtha/distillate/gasoil/residue → blender turns them into gasoline/diesel/fuel_oil; "
+            "ADMM iterates until production and use of intermediates agree and objectives match mono.",
+        ),
+        ("--- READING ORDER ---", ""),
+        (
+            "1_How_to_read",
+            "This sheet. Start here, then Summary → rate sheets → Shadows.",
+        ),
+        (
+            "2_Summary",
+            "Pass/fail VERDICT, mono vs ADMM objectives, gap, ρ, ADMM iters, residuals, dual L∞, wall times. "
+            f"This run: mono_obj={mono.get('objective')}, admm_obj={admm.get('objective')}, "
+            f"gap={gap_pct:.4f}%, dual_L∞_online={dual_linf}, path={path}.",
+        ),
+        (
+            "3_Crudes_mono / Crudes_admm",
+            "Optimal crude purchase rates (kbd). Mono is the single full LP; ADMM is the coordinated solution. "
+            "They should nearly match when VERDICT=PASS.",
+        ),
+        (
+            "4_Products_mono / Products_admm",
+            "Product sales rates (kbd) for gasoline/diesel/fuel_oil (and any other products in the model).",
+        ),
+        (
+            "5_Inter_prod_mono / Inter_use_mono",
+            "Intermediate streams (naphtha, distillate, gasoil, residue). "
+            "Inter_prod = CDU production; Inter_use = blender consumption. "
+            "In a feasible plan these balance (use ≈ prod after free disposal/inventory rules).",
+        ),
+        (
+            "6_Shadows",
+            "Economic value ($/bbl) of intermediates — the PIMS-style make-buy-sell signal. "
+            "mono_shadow = duals of the monolithic LP. "
+            "admm_online_econ = free ADMM λ (PRIMARY for this MVP; online dual ascent). "
+            "admm_recovered_econ = duals from recovered primal/blender face (diagnostic; can differ). "
+            "abs_diff_online = |mono − online|. Dual L∞ on Summary is max abs_diff_online.",
+        ),
+        ("--- WHAT THE MATH IS DOING ---", ""),
+        (
+            "mono_LP",
+            "One maximize LP over all crudes, CDU yields, blend recipes, capacities, demand. "
+            "CBC solves it once. Objective ≈ product revenue − crude cost − utilities (model-dependent).",
+        ),
+        (
+            "ADMM_blocks",
+            "Block 1 (CDU): given prices λ on intermediates, choose crude slate / yields to maximize local profit. "
+            "Block 2 (Blender): given λ, choose intermediate use and product mix. "
+            "Master updates λ and consensus z until prod ≈ use (small primal residual ||r||).",
+        ),
+        (
+            "rho_and_residuals",
+            "ρ (admm_rho on Summary) is the ADMM penalty weight on disagreement between blocks. "
+            "primal_residual ||r|| measures remaining imbalance on linking streams. "
+            "Small gap_rel + small dual_L∞_online + both feasible ⇒ PASS.",
+        ),
+        (
+            "pass_criteria",
+            "Default MVP gates: both feasible; objective_gap_rel ≤ 0.50%; dual L∞ (online λ vs mono) ≤ 15. "
+            "See Summary.verdict for the exact line for this run.",
+        ),
+        ("--- WHERE INPUT DATA LIVES ---", ""),
+        (
+            "input_workbook",
+            "PIMS-shaped template (crudes_template.xlsx or your upload): "
+            "sheet Crudes (assays, prices, max_supply, optional y_* yields), "
+            "Products (price, max_demand), Capacities (cdu_kbd, …), optional Intermediates (properties). "
+            f"This solve input path: {meta.get('input')}.",
+        ),
+        (
+            "code_map",
+            "Loader: models/assay_loader.py (load_assays_excel). "
+            "Pipeline: models/excel_pipeline.py (run_excel_pipeline, write_results_excel). "
+            "Mono LP: models/blocks.py (solve_monolithic). "
+            "ADMM: admm/coordinator.py + admm/subproblems.py (CDU + blender blocks). "
+            "CLI: python -m demos.run_excel_pipeline_demo. "
+            "API: POST /api/excel/solve. UI: Excel dock tab.",
+        ),
+        (
+            "honesty",
+            "Primary ADMM shadows are free online λ, not silently injected mono duals. "
+            "Recovered blender duals are shown for diagnosis only. "
+            "Classic Excel path is 2-block CDU/blender, not full plant FCC/coker graph (use full-plant demos for that).",
+        ),
+        (
+            "next_math_sheets",
+            "Planned/optional extensions: Blocks, Linking (x_CDU, x_Blender, z, r, λ), "
+            "Submodel_CDU / Submodel_Blender detail, ADMM_Trace by iteration. "
+            "Ask for those sheets if you want deeper block-level LP audit in Excel.",
+        ),
+    ]
+
+
 def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
-    """Write solve results workbook (Summary / rates / shadows)."""
+    """Write solve results workbook (How_to_read / Summary / rates / shadows)."""
     import openpyxl
-    from openpyxl.styles import Font
+    from openpyxl.styles import Alignment, Font
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = openpyxl.Workbook()
     bold = Font(bold=True)
+    wrap = Alignment(wrap_text=True, vertical="top")
 
     mono = report.get("mono") or {}
     admm = report.get("admm") or {}
     cmp_ = report.get("comparison") or {}
     meta = report.get("meta") or {}
 
-    ws = wb.active
-    if ws is None:
-        ws = wb.create_sheet("Summary", 0)
-    ws.title = "Summary"
+    # Sheet 0: reader guide (first tab)
+    guide = wb.active
+    if guide is None:
+        guide = wb.create_sheet("How_to_read", 0)
+    guide.title = "How_to_read"
+    guide.append(["topic", "explanation"])
+    guide["A1"].font = bold
+    guide["B1"].font = bold
+    for topic, text in _how_to_read_rows(report):
+        guide.append([topic, text])
+    guide.column_dimensions["A"].width = 28
+    guide.column_dimensions["B"].width = 100
+    for row in guide.iter_rows(min_row=2, max_col=2):
+        row[1].alignment = wrap
+        guide.row_dimensions[row[0].row].height = 48 if row[0].value and not str(row[0].value).startswith("---") else 18
+
+    ws = wb.create_sheet("Summary", 1)
     ws.append(["key", "value"])
     ws["A1"].font = bold
     ws["B1"].font = bold
