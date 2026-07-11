@@ -26,8 +26,15 @@ htmlcov/
 demos/output/
 demos/artifacts/
 demos/video/audio/
+demos/video/audio_*/
 demos/video/frames/
-demos/video/silent.mp4
-demos/video/narration_full.mp3
-demos/video/audio_concat.txt
+demos/video/slides/
+demos/video/slides_*/
+demos/video/*.mp4
+demos/video/*.mp3
+demos/video/*_concat.txt
 demos/bench_parallel_last.json
+
+# Never commit demo/UI proof media — deliver in chat only
+*.mp4
+!ui/**/*.mp4

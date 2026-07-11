@@ -17,7 +17,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = Path(__file__).resolve().parent
+# Chat-only media: write under gitignored demos/output/ (never commit MP4s)
+OUT = ROOT / "demos" / "output" / "clips"
 SLIDES = OUT / "slides_excel_mvp"
 AUDIO = OUT / "audio_excel_mvp"
 FINAL = OUT / "excel_pims_admm_mvp_demo.mp4"
