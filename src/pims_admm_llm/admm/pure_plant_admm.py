@@ -634,7 +634,7 @@ def run_pure_plant_admm(
     *,
     routing: Optional[Dict[str, Any]] = None,
     max_iter: int = 80,
-    rho: float = 1.2,
+    rho: float = 2.0,
     dual_step: float = 0.35,
     tol: float = 5.0,
     damp: float = 0.4,

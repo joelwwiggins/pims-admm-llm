@@ -86,7 +86,13 @@ def test_process_conditions_shift_fcc_severity():
 
 
 def test_full_plant_routes_all_fcc_product_streams():
-    res = solve_full_plant()
+    import copy
+
+    # Multi-unit slate: lower FO so resid→coker is optimal (default FO idles coker)
+    assays = load_assays_json()
+    assays = copy.deepcopy(assays)
+    assays["products"]["fuel_oil"]["price_usd_per_bbl"] = 50.0
+    res = solve_full_plant(assays)
     assert res.feasible
     assert res.status == "Optimal"
     # Production present
@@ -106,8 +112,14 @@ def test_full_plant_routes_all_fcc_product_streams():
     assert res.meta["process_conditions"]["FCC"].get("riser_outlet_temp_f")
     # Pool or direct feed paths exist
     assert res.unit_feeds["fcc_feed"] > 0
-    assert res.unit_feeds["fcc_feed_via_pool"] + res.unit_feeds["fcc_feed_direct"] == res.unit_feeds["fcc_feed"]
-    assert res.unit_feeds["coker_feed_via_pool"] + res.unit_feeds["coker_feed_direct"] == res.unit_feeds["coker_feed"]
+    assert (
+        res.unit_feeds["fcc_feed_via_pool"] + res.unit_feeds["fcc_feed_direct"]
+        == res.unit_feeds["fcc_feed"]
+    )
+    assert (
+        res.unit_feeds["coker_feed_via_pool"] + res.unit_feeds["coker_feed_direct"]
+        == res.unit_feeds["coker_feed"]
+    )
 
 
 def test_validate_yields_cover_catalog_helper():

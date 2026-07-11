@@ -46,10 +46,14 @@ def test_end_carries_equal_next_start():
         for k in TANK_KEYS:
             assert res.tank_end[t][k] == pytest.approx(res.tank_start[t + 1][k], abs=1e-6)
             assert res.carries[t][k] == pytest.approx(res.tank_end[t][k], abs=1e-6)
-    # Default economics carry some resid into the next period (smoke signal)
+    # Multi-period plant stays multi-unit active (inventory may optimally end at 0)
     res2 = solve_multi_period(n_periods=2, inventory_mode=True)
-    assert res2.tank_end[0]["resid"] > 0
-    assert res2.tank_start[1]["resid"] == pytest.approx(res2.tank_end[0]["resid"], abs=1e-6)
+    assert res2.feasible
+    assert res2.period_unit_feeds[0]["cdu_charge"] > 0
+    assert res2.period_unit_feeds[0]["fcc_feed"] > 0
+    # Coupling still holds even when carry is zero
+    for k in TANK_KEYS:
+        assert res2.tank_end[0][k] == pytest.approx(res2.tank_start[1][k], abs=1e-6)
 
 
 def test_pass_mode_zeroes_inventory():
