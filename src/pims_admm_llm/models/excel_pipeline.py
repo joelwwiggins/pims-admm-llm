@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from .assay_loader import (
     assays_to_refinery_data,
@@ -115,6 +115,260 @@ def _verdict(
         f"PASS — both feasible; gap≤{gap_tol:.2%}; dual L∞≤{dual_tol:.0f} "
         f"(gap={gap_rel:.4%}, dual_L∞={dual_linf:.2f})"
     )
+
+
+def model_calculations_from_data(data: RefineryData) -> Dict[str, Any]:
+    """Export LP coefficients/equations used *before* ADMM runs (Excel math tables).
+
+    Mirrors ``admm/simple_mono.py``: yields, blend recipes, obj terms, bounds,
+    block map. Solver stays CBC/ADMM in Python — not Excel formulas.
+    """
+    inter = list(data.intermediates)
+    yields_rows: List[Dict[str, Any]] = []
+    for c in data.crudes:
+        row: Dict[str, Any] = {
+            "crude": c.name,
+            "price_usd_per_bbl": float(c.price_usd_per_bbl),
+            "max_supply_kbd": float(c.max_supply_kbd),
+            "api": float(c.api),
+            "sulfur_wt_pct": float(c.sulfur_wt_pct),
+        }
+        ysum = 0.0
+        for i in inter:
+            y = float(c.yields.get(i, 0.0))
+            row[f"y_{i}"] = y
+            ysum += y
+        row["yield_sum"] = ysum
+        yields_rows.append(row)
+
+    blend_rows: List[Dict[str, Any]] = []
+    for prod, recipe in (data.blend_recipes or {}).items():
+        row: Dict[str, Any] = {"product": prod}
+        rsum = 0.0
+        for i in inter:
+            v = float(recipe.get(i, 0.0))
+            row[f"use_{i}"] = v
+            rsum += v
+        row["recipe_sum"] = rsum
+        spec = data.products.get(prod)
+        if spec:
+            row["price_usd_per_bbl"] = float(spec.price_usd_per_bbl)
+            row["max_demand_kbd"] = float(spec.max_demand_kbd)
+        blend_rows.append(row)
+
+    obj_terms: List[Dict[str, Any]] = []
+    for c in data.crudes:
+        obj_terms.append(
+            {
+                "term": f"crude_cost[{c.name}]",
+                "variable": f"crude_{c.name}",
+                "coeff": -float(c.price_usd_per_bbl),
+                "unit": "USD/bbl",
+                "formula": f"obj += ({-c.price_usd_per_bbl}) * crude_{c.name}",
+                "block": "CDU",
+            }
+        )
+    for name, spec in data.products.items():
+        obj_terms.append(
+            {
+                "term": f"product_rev[{name}]",
+                "variable": f"product_{name}",
+                "coeff": float(spec.price_usd_per_bbl),
+                "unit": "USD/bbl",
+                "formula": f"obj += ({spec.price_usd_per_bbl}) * product_{name}",
+                "block": "BLENDER",
+            }
+        )
+
+    equations: List[Dict[str, Any]] = [
+        {
+            "id": "OBJ",
+            "name": "margin",
+            "type": "maximize",
+            "equation": "max  Σ_p price_p * product_p  −  Σ_c price_c * crude_c",
+            "notes": "No utility/inventory terms on classic Excel path",
+        },
+        {
+            "id": "CAP_CDU",
+            "name": "cdu_capacity",
+            "type": "<=",
+            "equation": f"Σ_c crude_c  ≤  {float(data.cdu_capacity_kbd)}",
+            "notes": "Total CDU charge limit (kbd)",
+        },
+    ]
+    for i in inter:
+        terms = " + ".join(
+            f"{float(c.yields.get(i, 0.0)):.6g}*crude_{c.name}" for c in data.crudes
+        )
+        equations.append(
+            {
+                "id": f"YLD_{i}",
+                "name": f"yield_{i}",
+                "type": "=",
+                "equation": f"prod_{i} = {terms}",
+                "notes": "CDU yield definition (linear)",
+            }
+        )
+        equations.append(
+            {
+                "id": f"BAL_{i}",
+                "name": f"balance_{i}",
+                "type": "=",
+                "equation": f"prod_{i} − use_{i} = 0",
+                "notes": "Linking constraint CDU↔Blender (ADMM consensus target)",
+            }
+        )
+        rhs_parts = []
+        for p, recipe in (data.blend_recipes or {}).items():
+            coef = float(recipe.get(i, 0.0))
+            if abs(coef) > 1e-15:
+                rhs_parts.append(f"{coef:.6g}*product_{p}")
+        rhs = " + ".join(rhs_parts) if rhs_parts else "0"
+        equations.append(
+            {
+                "id": f"BLD_{i}",
+                "name": f"blend_use_{i}",
+                "type": ">=",
+                "equation": f"use_{i} ≥ {rhs}",
+                "notes": "Blender intermediate requirement from product recipes",
+            }
+        )
+
+    bounds: List[Dict[str, Any]] = []
+    for c in data.crudes:
+        bounds.append(
+            {
+                "variable": f"crude_{c.name}",
+                "lo": 0.0,
+                "up": float(c.max_supply_kbd),
+                "block": "CDU",
+            }
+        )
+    for name, spec in data.products.items():
+        bounds.append(
+            {
+                "variable": f"product_{name}",
+                "lo": 0.0,
+                "up": float(spec.max_demand_kbd),
+                "block": "BLENDER",
+            }
+        )
+    for i in inter:
+        bounds.append({"variable": f"prod_{i}", "lo": 0.0, "up": None, "block": "CDU"})
+        bounds.append(
+            {"variable": f"use_{i}", "lo": 0.0, "up": None, "block": "BLENDER"}
+        )
+
+    blocks = [
+        {
+            "block": "CDU",
+            "role": "production",
+            "local_vars": "crude_*, prod_*",
+            "local_constraints": "cdu_capacity, yield_*",
+            "sees_prices": "λ on intermediates (ADMM duals)",
+            "exports": "prod_i proposals → consensus z_i",
+        },
+        {
+            "block": "BLENDER",
+            "role": "consumption / products",
+            "local_vars": "use_*, product_*",
+            "local_constraints": "blend_use_*",
+            "sees_prices": "λ on intermediates",
+            "exports": "use_i proposals → consensus z_i",
+        },
+        {
+            "block": "MASTER_ADMM",
+            "role": "coordination only (outside Excel)",
+            "local_vars": "λ_i, z_i",
+            "local_constraints": "dual ascent on residual r_i = prod_i − use_i",
+            "sees_prices": "updates λ with dual_step / ρ",
+            "exports": "converged λ, z, recovered primal",
+        },
+    ]
+    linking = [
+        {
+            "stream": i,
+            "cdu_var": f"prod_{i}",
+            "blender_var": f"use_{i}",
+            "balance": f"prod_{i} = use_{i}",
+            "admm_role": "linking / consensus stream",
+        }
+        for i in inter
+    ]
+    return {
+        "form": "classic_2block_excel_path",
+        "source": "admm/simple_mono.py + admm/subproblems CDU/blender",
+        "solver_note": (
+            "Coefficients below are the model. Mono uses CBC once; ADMM iterates "
+            "the same blocks. Excel does not run the solver."
+        ),
+        "intermediates": inter,
+        "cdu_capacity_kbd": float(data.cdu_capacity_kbd),
+        "yields": yields_rows,
+        "blend_recipes": blend_rows,
+        "objective_terms": obj_terms,
+        "equations": equations,
+        "bounds": bounds,
+        "blocks": blocks,
+        "linking": linking,
+    }
+
+
+def model_calc_check(
+    model: Dict[str, Any], mono: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """Plug mono rates into yield/blend identities (numeric audit)."""
+    rows: List[Dict[str, Any]] = []
+    crude_rates = mono.get("crude_rates") or {}
+    prod = mono.get("intermediate_prod") or {}
+    use = mono.get("intermediate_use") or {}
+    products = mono.get("product_rates") or {}
+    yields = {r["crude"]: r for r in model.get("yields") or []}
+    blends = {r["product"]: r for r in model.get("blend_recipes") or []}
+    inter = model.get("intermediates") or []
+
+    for i in inter:
+        pred = 0.0
+        for cname, rate in crude_rates.items():
+            yrow = yields.get(cname) or {}
+            pred += float(yrow.get(f"y_{i}", 0.0)) * float(rate)
+        actual = float(prod.get(i, 0.0))
+        rows.append(
+            {
+                "check": f"yield_{i}",
+                "predicted": pred,
+                "actual": actual,
+                "abs_err": abs(pred - actual),
+                "ok": abs(pred - actual) <= 1e-4,
+            }
+        )
+        u = float(use.get(i, 0.0))
+        rows.append(
+            {
+                "check": f"balance_{i}",
+                "predicted": actual,
+                "actual": u,
+                "abs_err": abs(actual - u),
+                "ok": abs(actual - u) <= 1e-4,
+            }
+        )
+
+    for i in inter:
+        need = 0.0
+        for pname, prate in products.items():
+            brow = blends.get(pname) or {}
+            need += float(brow.get(f"use_{i}", 0.0)) * float(prate)
+        actual_u = float(use.get(i, 0.0))
+        rows.append(
+            {
+                "check": f"blend_use_{i}_rhs",
+                "predicted": need,
+                "actual": actual_u,
+                "abs_err": max(0.0, need - actual_u),
+                "ok": actual_u + 1e-4 >= need,
+            }
+        )
+    return rows
 
 
 def run_excel_pipeline(
@@ -225,6 +479,7 @@ def run_excel_pipeline(
                 "separately; they need not match mono when crude slate differs."
             ),
         },
+        "model": model_calculations_from_data(data),
         "mono": mono_part,
         "admm": admm_part,
         "comparison": {
@@ -256,116 +511,90 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     meta = report.get("meta") or {}
     gap_pct = 100.0 * float(cmp_.get("objective_gap_rel") or 0.0)
     dual_linf = cmp_.get("dual_linf_online")
-    path = admm.get("dual_recovery_path") or "package-admm"
+    path_ = admm.get("dual_recovery_path") or "package-admm"
     return [
         (
             "purpose",
-            "This workbook is the audit trail for Excel PIMS-shaped input → mono LP + block-angular ADMM. "
-            "Hard feasibility is enforced by CBC/PuLP; Excel is the readable economics and dual report.",
+            "Audit trail: Excel PIMS-shaped input → model calculations (Calc_*) → mono CBC + "
+            "block-angular ADMM. Solver is external; Excel holds coefficients, equations, rates, duals.",
         ),
         (
             "how_this_differs_from_PIMS",
-            "Classic PIMS: one giant Excel/CPLEX model (submodels linked inside one matrix). "
-            "This MVP: classic 2-block decomposition (CDU production block + Blender use block) coordinated by ADMM "
-            "(prices λ, consensus z, residual ||r||). Same planning language (crudes, products, intermediate shadows); "
-            "different solve architecture.",
+            "PIMS: one Excel/CPLEX matrix. Here: 2-block LP (CDU + Blender) with explicit yields/recipes "
+            "in Calc_* sheets, then ADMM coordinates linking balances with prices λ.",
         ),
         (
             "story_in_one_line",
-            "Buy crudes → CDU makes naphtha/distillate/gasoil/residue → blender turns them into gasoline/diesel/fuel_oil; "
-            "ADMM iterates until production and use of intermediates agree and objectives match mono.",
+            "Buy crudes → CDU yields intermediates → blender recipes make products; "
+            "ADMM equates prod_i ≈ use_i and matches mono objective.",
         ),
         ("--- READING ORDER ---", ""),
+        ("1_How_to_read", "This guide."),
         (
-            "1_How_to_read",
-            "This sheet. Start here, then Summary → rate sheets → Shadows.",
+            "2_Calc_Yields",
+            "CDU technology: y_i per crude. prod_i = Σ_c y[c,i]*crude_c.",
         ),
         (
-            "2_Summary",
-            "Pass/fail VERDICT, mono vs ADMM objectives, gap, ρ, ADMM iters, residuals, dual L∞, wall times. "
-            f"This run: mono_obj={mono.get('objective')}, admm_obj={admm.get('objective')}, "
-            f"gap={gap_pct:.4f}%, dual_L∞_online={dual_linf}, path={path}.",
+            "3_Calc_Blend",
+            "Blender recipes: use_i ≥ Σ_p recipe[p,i]*product_p.",
         ),
         (
-            "3_Crudes_mono / Crudes_admm",
-            "Optimal crude purchase rates (kbd). Mono is the single full LP; ADMM is the coordinated solution. "
-            "They should nearly match when VERDICT=PASS.",
+            "4_Calc_Objective",
+            "Linear margin terms: +price*product − price*crude (no utilities on classic path).",
         ),
         (
-            "4_Products_mono / Products_admm",
-            "Product sales rates (kbd) for gasoline/diesel/fuel_oil (and any other products in the model).",
+            "5_Calc_Equations",
+            "Full symbolic mono LP (OBJ, CAP_CDU, YLD_*, BAL_*, BLD_*). Source: admm/simple_mono.py.",
+        ),
+        ("6_Calc_Bounds", "Variable bounds crude/product/prod/use."),
+        (
+            "7_Calc_Blocks",
+            "Block-angular map up to ADMM handoff. MASTER_ADMM is coordinator only (not an Excel LP).",
+        ),
+        ("8_Calc_Linking", "Intermediates linking CDU prod_* to Blender use_*."),
+        (
+            "9_Summary",
+            f"VERDICT + metrics. This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "
+            f"gap={gap_pct:.4f}%, dual_L∞={dual_linf}, path={path_}.",
+        ),
+        ("10_rate_sheets", "Optimal kbd after solve (mono vs ADMM)."),
+        (
+            "11_Shadows",
+            "mono_shadow vs admm_online_econ (PRIMARY) vs recovered (diagnostic).",
         ),
         (
-            "5_Inter_prod_mono / Inter_use_mono",
-            "Intermediate streams (naphtha, distillate, gasoil, residue). "
-            "Inter_prod = CDU production; Inter_use = blender consumption. "
-            "In a feasible plan these balance (use ≈ prod after free disposal/inventory rules).",
+            "12_Calc_Check",
+            "Plug mono rates into Calc_Yields/Calc_Blend; abs_err ~ 0 proves tables match solve.",
         ),
-        (
-            "6_Shadows",
-            "Economic value ($/bbl) of intermediates — the PIMS-style make-buy-sell signal. "
-            "mono_shadow = duals of the monolithic LP. "
-            "admm_online_econ = free ADMM λ (PRIMARY for this MVP; online dual ascent). "
-            "admm_recovered_econ = duals from recovered primal/blender face (diagnostic; can differ). "
-            "abs_diff_online = |mono − online|. Dual L∞ on Summary is max abs_diff_online.",
-        ),
-        ("--- WHAT THE MATH IS DOING ---", ""),
+        ("--- MATH / SOLVER ---", ""),
         (
             "mono_LP",
-            "One maximize LP over all crudes, CDU yields, blend recipes, capacities, demand. "
-            "CBC solves it once. Objective ≈ product revenue − crude cost − utilities (model-dependent).",
+            "CBC maximizes margin subject to Calc_Equations. Duals → mono_shadow.",
         ),
         (
-            "ADMM_blocks",
-            "Block 1 (CDU): given prices λ on intermediates, choose crude slate / yields to maximize local profit. "
-            "Block 2 (Blender): given λ, choose intermediate use and product mix. "
-            "Master updates λ and consensus z until prod ≈ use (small primal residual ||r||).",
-        ),
-        (
-            "rho_and_residuals",
-            "ρ (admm_rho on Summary) is the ADMM penalty weight on disagreement between blocks. "
-            "primal_residual ||r|| measures remaining imbalance on linking streams. "
-            "Small gap_rel + small dual_L∞_online + both feasible ⇒ PASS.",
+            "ADMM_handoff",
+            "Same coefficients split across CDU/BLENDER blocks; master updates λ,z,ρ outside Excel "
+            "(admm/coordinator.py). Excel stops at defining the model + reporting results.",
         ),
         (
             "pass_criteria",
-            "Default MVP gates: both feasible; objective_gap_rel ≤ 0.50%; dual L∞ (online λ vs mono) ≤ 15. "
-            "See Summary.verdict for the exact line for this run.",
+            "both feasible; gap_rel ≤ 0.50%; dual L∞(online) ≤ 15. See Summary.verdict.",
         ),
-        ("--- WHERE INPUT DATA LIVES ---", ""),
         (
             "input_workbook",
-            "PIMS-shaped template (crudes_template.xlsx or your upload): "
-            "sheet Crudes (assays, prices, max_supply, optional y_* yields), "
-            "Products (price, max_demand), Capacities (cdu_kbd, …), optional Intermediates (properties). "
-            f"This solve input path: {meta.get('input')}.",
+            "Crudes / Products / Capacities / Intermediates template. "
+            f"This solve input: {meta.get('input')}.",
         ),
         (
             "code_map",
-            "Loader: models/assay_loader.py (load_assays_excel). "
-            "Pipeline: models/excel_pipeline.py (run_excel_pipeline, write_results_excel). "
-            "Mono LP: models/blocks.py (solve_monolithic). "
-            "ADMM: admm/coordinator.py + admm/subproblems.py (CDU + blender blocks). "
-            "CLI: python -m demos.run_excel_pipeline_demo. "
-            "API: POST /api/excel/solve. UI: Excel dock tab.",
-        ),
-        (
-            "honesty",
-            "Primary ADMM shadows are free online λ, not silently injected mono duals. "
-            "Recovered blender duals are shown for diagnosis only. "
-            "Classic Excel path is 2-block CDU/blender, not full plant FCC/coker graph (use full-plant demos for that).",
-        ),
-        (
-            "next_math_sheets",
-            "Planned/optional extensions: Blocks, Linking (x_CDU, x_Blender, z, r, λ), "
-            "Submodel_CDU / Submodel_Blender detail, ADMM_Trace by iteration. "
-            "Ask for those sheets if you want deeper block-level LP audit in Excel.",
+            "excel_pipeline.model_calculations_from_data → simple_mono + run_admm. "
+            "CLI: python -m demos.run_excel_pipeline_demo",
         ),
     ]
 
 
 def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
-    """Write solve results workbook (How_to_read / Summary / rates / shadows)."""
+    """Write How_to_read + Calc_* model math + Summary / rates / shadows."""
     import openpyxl
     from openpyxl.styles import Alignment, Font
 
@@ -379,8 +608,8 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
     admm = report.get("admm") or {}
     cmp_ = report.get("comparison") or {}
     meta = report.get("meta") or {}
+    model = report.get("model") or {}
 
-    # Sheet 0: reader guide (first tab)
     guide = wb.active
     if guide is None:
         guide = wb.create_sheet("How_to_read", 0)
@@ -394,12 +623,98 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
     guide.column_dimensions["B"].width = 100
     for row in guide.iter_rows(min_row=2, max_col=2):
         row[1].alignment = wrap
-        guide.row_dimensions[row[0].row].height = 48 if row[0].value and not str(row[0].value).startswith("---") else 18
+        t = row[0].value
+        guide.row_dimensions[row[0].row].height = (
+            18 if t and str(t).startswith("---") else 40
+        )
 
-    ws = wb.create_sheet("Summary", 1)
-    ws.append(["key", "value"])
-    ws["A1"].font = bold
-    ws["B1"].font = bold
+    def _header(ws, headers):
+        ws.append(headers)
+        for c in ws[1]:
+            c.font = bold
+
+    def _dict_rows_sheet(name, rows, preferred=None):
+        s = wb.create_sheet(name)
+        if not rows:
+            _header(s, ["(empty)"])
+            return
+        keys = []
+        if preferred:
+            keys.extend([k for k in preferred if any(k in r for r in rows)])
+        for r in rows:
+            for k in r.keys():
+                if k not in keys:
+                    keys.append(k)
+        _header(s, keys)
+        for r in rows:
+            s.append([r.get(k) for k in keys])
+
+    if model:
+        note = wb.create_sheet("Calc_ModelNote")
+        _header(note, ["key", "value"])
+        for k in ("form", "source", "solver_note", "cdu_capacity_kbd"):
+            note.append([k, model.get(k)])
+        note.append(["intermediates", ", ".join(model.get("intermediates") or [])])
+
+        _dict_rows_sheet(
+            "Calc_Yields",
+            list(model.get("yields") or []),
+            preferred=[
+                "crude",
+                "price_usd_per_bbl",
+                "max_supply_kbd",
+                "api",
+                "sulfur_wt_pct",
+            ],
+        )
+        _dict_rows_sheet(
+            "Calc_Blend",
+            list(model.get("blend_recipes") or []),
+            preferred=["product", "price_usd_per_bbl", "max_demand_kbd"],
+        )
+        _dict_rows_sheet(
+            "Calc_Objective",
+            list(model.get("objective_terms") or []),
+            preferred=["term", "variable", "coeff", "unit", "block", "formula"],
+        )
+        _dict_rows_sheet(
+            "Calc_Equations",
+            list(model.get("equations") or []),
+            preferred=["id", "name", "type", "equation", "notes"],
+        )
+        if "Calc_Equations" in wb.sheetnames:
+            wb["Calc_Equations"].column_dimensions["D"].width = 90
+            wb["Calc_Equations"].column_dimensions["E"].width = 42
+        _dict_rows_sheet(
+            "Calc_Bounds",
+            list(model.get("bounds") or []),
+            preferred=["variable", "lo", "up", "block"],
+        )
+        _dict_rows_sheet(
+            "Calc_Blocks",
+            list(model.get("blocks") or []),
+            preferred=[
+                "block",
+                "role",
+                "local_vars",
+                "local_constraints",
+                "sees_prices",
+                "exports",
+            ],
+        )
+        _dict_rows_sheet(
+            "Calc_Linking",
+            list(model.get("linking") or []),
+            preferred=["stream", "cdu_var", "blender_var", "balance", "admm_role"],
+        )
+        _dict_rows_sheet(
+            "Calc_Check",
+            model_calc_check(model, mono),
+            preferred=["check", "predicted", "actual", "abs_err", "ok"],
+        )
+
+    ws = wb.create_sheet("Summary")
+    _header(ws, ["key", "value"])
     for k, v in [
         ("verdict", report.get("verdict")),
         ("input", meta.get("input")),
@@ -420,14 +735,15 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
         ("gap_rel", cmp_.get("objective_gap_rel")),
         ("both_feasible", cmp_.get("both_feasible")),
         ("pipeline_wall_s", meta.get("pipeline_wall_s")),
+        ("dual_linf_online", cmp_.get("dual_linf_online")),
+        ("dual_linf_recovered", cmp_.get("dual_linf_recovered")),
+        ("model_form", model.get("form")),
     ]:
         ws.append([k, v])
 
-    def rate_sheet(name: str, rates: Dict[str, Any]) -> None:
+    def rate_sheet(name, rates):
         s = wb.create_sheet(name)
-        s.append(["name", "kbd"])
-        s["A1"].font = bold
-        s["B1"].font = bold
+        _header(s, ["name", "kbd"])
         for k, v in sorted((rates or {}).items()):
             s.append([k, float(v)])
 
@@ -439,31 +755,23 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
     rate_sheet("Inter_use_mono", mono.get("intermediate_use") or {})
 
     sh = wb.create_sheet("Shadows")
-    sh.append(
+    _header(
+        sh,
         [
             "stream",
             "mono_shadow",
             "admm_online_econ",
             "admm_recovered_econ",
             "abs_diff_online",
-        ]
+        ],
     )
-    for c in sh[1]:
-        c.font = bold
     mono_sh = mono.get("shadow_prices") or {}
     admm_sh = admm.get("shadow_prices") or {}
     rec_sh = admm.get("shadow_prices_recovered") or {}
     for k in sorted(set(mono_sh) | set(admm_sh) | set(rec_sh)):
-        m = mono_sh.get(k)
-        a = admm_sh.get(k)
-        r = rec_sh.get(k)
-        diff = None
-        if m is not None and a is not None:
-            diff = abs(float(m) - float(a))
+        m, a, r = mono_sh.get(k), admm_sh.get(k), rec_sh.get(k)
+        diff = abs(float(m) - float(a)) if m is not None and a is not None else None
         sh.append([k, m, a, r, diff])
-
-    ws.append(["dual_linf_online", (cmp_ or {}).get("dual_linf_online")])
-    ws.append(["dual_linf_recovered", (cmp_ or {}).get("dual_linf_recovered")])
 
     wb.save(path)
     return path

@@ -73,18 +73,40 @@ def test_write_results_excel_sheets(tmp_path):
     import openpyxl
 
     wb = openpyxl.load_workbook(out)
-    for name in ("How_to_read", "Summary", "Crudes_mono", "Products_mono", "Shadows"):
-        assert name in wb.sheetnames
+    for name in (
+        "How_to_read",
+        "Calc_Yields",
+        "Calc_Blend",
+        "Calc_Equations",
+        "Calc_Blocks",
+        "Calc_Linking",
+        "Calc_Check",
+        "Summary",
+        "Crudes_mono",
+        "Products_mono",
+        "Shadows",
+    ):
+        assert name in wb.sheetnames, name
     assert wb.sheetnames[0] == "How_to_read"
     guide = wb["How_to_read"]
     topics = [r[0].value for r in guide.iter_rows(min_row=2, max_col=1)]
     assert "purpose" in topics
-    assert "ADMM_blocks" in topics
-    assert "6_Shadows" in topics
+    assert "2_Calc_Yields" in topics
+    assert "ADMM_handoff" in topics
+    y_headers = [c.value for c in wb["Calc_Yields"][1]]
+    assert "y_naphtha" in y_headers
+    eqs = [r[0].value for r in wb["Calc_Equations"].iter_rows(min_row=2, max_col=1)]
+    assert any(e and "BAL_" in str(e) for e in eqs)
+    chk_headers = [c.value for c in wb["Calc_Check"][1]]
+    ok_i = chk_headers.index("ok")
+    for row in wb["Calc_Check"].iter_rows(min_row=2, values_only=True):
+        if row[0]:
+            assert row[ok_i] is True, row
     sh = wb["Shadows"]
     headers = [c.value for c in sh[1]]
     assert "admm_online_econ" in headers
     assert "admm_recovered_econ" in headers
+    assert report.get("model", {}).get("form") == "classic_2block_excel_path"
 
 
 def test_load_pims_excel_has_crudes(tmp_path):
