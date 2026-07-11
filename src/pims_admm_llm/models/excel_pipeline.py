@@ -371,6 +371,223 @@ def model_calc_check(
     return rows
 
 
+
+def block_angular_matrix(model: Dict[str, Any]) -> Dict[str, Any]:
+    """Classic block-angular view of the Excel-path LP (for teaching + audit).
+
+    Layout (constraint rows × variable columns)::
+
+              crude_*   prod_*   use_*   product_*
+      CDU:      A1        A1
+      BLENDER:                     A2       A2
+      LINK:               B        B
+
+    A1 = Calc_Yields + cdu capacity; A2 = Calc_Blend; B = balance linking.
+    MASTER_ADMM is not a matrix block — it updates duals λ / consensus z outside Excel.
+    """
+    inter = list(model.get("intermediates") or [])
+    crudes = [r["crude"] for r in model.get("yields") or []]
+    products = [r["product"] for r in model.get("blend_recipes") or []]
+    col_vars: List[str] = (
+        [f"crude_{c}" for c in crudes]
+        + [f"prod_{i}" for i in inter]
+        + [f"use_{i}" for i in inter]
+        + [f"product_{p}" for p in products]
+    )
+
+    # Map var → column index for sparse coeff rows
+    def empty_row() -> Dict[str, Any]:
+        return {v: None for v in col_vars}
+
+    matrix_rows: List[Dict[str, Any]] = []
+    # --- CDU capacity ---
+    r = empty_row()
+    r.update(
+        {
+            "row_id": "CAP_CDU",
+            "block": "CDU (A1)",
+            "type": "<=",
+            "rhs": model.get("cdu_capacity_kbd"),
+            "source_sheet": "input Capacities / Calc_ModelNote",
+            "editable": "edit max CDU on input Capacities sheet",
+            "equation": f"Σ crude ≤ {model.get('cdu_capacity_kbd')}",
+        }
+    )
+    for c in crudes:
+        r[f"crude_{c}"] = 1.0
+    matrix_rows.append(r)
+
+    yields_by = {row["crude"]: row for row in model.get("yields") or []}
+    for i in inter:
+        r = empty_row()
+        r.update(
+            {
+                "row_id": f"YLD_{i}",
+                "block": "CDU (A1)",
+                "type": "=",
+                "rhs": 0.0,
+                "source_sheet": "Calc_Yields",
+                "editable": "edit y_* on Calc_Yields / input Crudes y_*",
+                "equation": f"prod_{i} − Σ y[c,{i}]*crude_c = 0",
+            }
+        )
+        r[f"prod_{i}"] = 1.0
+        for c in crudes:
+            y = float((yields_by.get(c) or {}).get(f"y_{i}", 0.0))
+            if abs(y) > 1e-15:
+                r[f"crude_{c}"] = -y
+        matrix_rows.append(r)
+
+    blends_by = {row["product"]: row for row in model.get("blend_recipes") or []}
+    for i in inter:
+        r = empty_row()
+        r.update(
+            {
+                "row_id": f"BLD_{i}",
+                "block": "BLENDER (A2)",
+                "type": ">=",
+                "rhs": 0.0,
+                "source_sheet": "Calc_Blend",
+                "editable": "edit use_* recipe on Calc_Blend",
+                "equation": f"use_{i} − Σ recipe[p,{i}]*product_p ≥ 0",
+            }
+        )
+        r[f"use_{i}"] = 1.0
+        for p in products:
+            coef = float((blends_by.get(p) or {}).get(f"use_{i}", 0.0))
+            if abs(coef) > 1e-15:
+                r[f"product_{p}"] = -coef
+        matrix_rows.append(r)
+
+    for i in inter:
+        r = empty_row()
+        r.update(
+            {
+                "row_id": f"BAL_{i}",
+                "block": "LINKING (B)",
+                "type": "=",
+                "rhs": 0.0,
+                "source_sheet": "Calc_Linking",
+                "editable": "structure fixed; values solved; ADMM prices this row (λ)",
+                "equation": f"prod_{i} − use_{i} = 0",
+            }
+        )
+        r[f"prod_{i}"] = 1.0
+        r[f"use_{i}"] = -1.0
+        matrix_rows.append(r)
+
+    # Compact block map for a second small table
+    map_rows = [
+        {
+            "region": "A1 local",
+            "block": "CDU",
+            "variables": "crude_*, prod_*",
+            "constraints": "CAP_CDU, YLD_*",
+            "data_from": "Calc_Yields + Capacities",
+            "modify_how": "Change crude yields/prices/supply on input Crudes; CDU cap on Capacities",
+        },
+        {
+            "region": "A2 local",
+            "block": "BLENDER",
+            "variables": "use_*, product_*",
+            "constraints": "BLD_*",
+            "data_from": "Calc_Blend + Products",
+            "modify_how": "Change recipes on Calc_Blend / product prices & demand on Products",
+        },
+        {
+            "region": "B linking",
+            "block": "balances",
+            "variables": "prod_* and use_* (same streams)",
+            "constraints": "BAL_*",
+            "data_from": "Calc_Linking",
+            "modify_how": "Do not edit structure; ADMM duals λ live on these rows (see Shadows)",
+        },
+        {
+            "region": "Master",
+            "block": "MASTER_ADMM",
+            "variables": "λ_i, z_i, ρ",
+            "constraints": "dual ascent / consensus (not in A matrix)",
+            "data_from": "Summary admm_rho / dual_recovery_path",
+            "modify_how": "Tune ρ, dual_step, max_iter in code/config — not Excel cells",
+        },
+    ]
+
+    legend = [
+        {
+            "symbol": "A1",
+            "meaning": "CDU block diagonal — local technology + capacity",
+            "sheet": "Calc_Yields",
+        },
+        {
+            "symbol": "A2",
+            "meaning": "Blender block diagonal — recipes + product bounds",
+            "sheet": "Calc_Blend",
+        },
+        {
+            "symbol": "B",
+            "meaning": "Linking columns/rows coupling blocks (material balance)",
+            "sheet": "Calc_Linking / BAL_* rows",
+        },
+        {
+            "symbol": "λ / u",
+            "meaning": "ADMM dual / shadow price on linking residual",
+            "sheet": "Shadows.admm_online_econ",
+        },
+        {
+            "symbol": "z",
+            "meaning": "Consensus target for intermediates (ADMM master)",
+            "sheet": "not exported as activity; residual on Summary",
+        },
+    ]
+
+    process = [
+        {
+            "step": 1,
+            "name": "Edit input",
+            "where": "crudes_template.xlsx: Crudes, Products, Capacities, Intermediates",
+            "what": "Planner data — prices, supplies, yields, demands, CDU cap",
+        },
+        {
+            "step": 2,
+            "name": "Materialize model",
+            "where": "Calc_Yields, Calc_Blend, Calc_Objective, Calc_Equations, Calc_Bounds",
+            "what": "Pipeline expands input into LP coefficients (this is the A-matrix content)",
+        },
+        {
+            "step": 3,
+            "name": "See block structure",
+            "where": "Calc_BlockAngular + Calc_Blocks + Calc_Linking",
+            "what": "How A splits into A1, A2, B — what is local vs linking",
+        },
+        {
+            "step": 4,
+            "name": "Solve mono (truth)",
+            "where": "CBC on full matrix",
+            "what": "One-shot full LP → Crudes_mono, Products_mono, mono_shadow",
+        },
+        {
+            "step": 5,
+            "name": "Solve ADMM (decomposition)",
+            "where": "Python coordinator; not Excel",
+            "what": "Each block sub-LP with λ-penalty; master updates λ,z until ||r|| small",
+        },
+        {
+            "step": 6,
+            "name": "Read results",
+            "where": "Summary, rate sheets, Shadows, Calc_Check",
+            "what": "VERDICT, gap, dual L∞, economic shadows; Calc_Check proves yields/recipes hold",
+        },
+    ]
+
+    return {
+        "columns": col_vars,
+        "matrix_rows": matrix_rows,
+        "map_rows": map_rows,
+        "legend": legend,
+        "process": process,
+    }
+
+
 def run_excel_pipeline(
     input_path: PathLike,
     *,
@@ -527,6 +744,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
             "story_in_one_line",
             "Buy crudes → CDU yields intermediates → blender recipes make products; "
             "ADMM equates prod_i ≈ use_i and matches mono objective.",
+        ),
+        (
+            "block_angular_view",
+            "See Calc_BlockAngular (sparse A-matrix with A1/A2/B labels), Calc_BA_Map (what to edit where), Calc_BA_Legend, and Calc_Process (normal workflow). Classic form: Block1 A1 on crude/prod; Block2 A2 on use/product; linking B is prod−use=0.",
         ),
         ("--- READING ORDER ---", ""),
         ("1_How_to_read", "This guide."),
@@ -706,6 +927,38 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
             "Calc_Linking",
             list(model.get("linking") or []),
             preferred=["stream", "cdu_var", "blender_var", "balance", "admm_role"],
+        )
+        ba = block_angular_matrix(model)
+        _dict_rows_sheet(
+            "Calc_BlockAngular",
+            list(ba.get("matrix_rows") or []),
+            preferred=[
+                "row_id",
+                "block",
+                "type",
+                "rhs",
+                "source_sheet",
+                "editable",
+                "equation",
+            ],
+        )
+        if "Calc_BlockAngular" in wb.sheetnames:
+            wb["Calc_BlockAngular"].column_dimensions["G"].width = 55
+            wb["Calc_BlockAngular"].column_dimensions["F"].width = 42
+        _dict_rows_sheet(
+            "Calc_BA_Map",
+            list(ba.get("map_rows") or []),
+            preferred=["region", "block", "variables", "constraints", "data_from", "modify_how"],
+        )
+        _dict_rows_sheet(
+            "Calc_BA_Legend",
+            list(ba.get("legend") or []),
+            preferred=["symbol", "meaning", "sheet"],
+        )
+        _dict_rows_sheet(
+            "Calc_Process",
+            list(ba.get("process") or []),
+            preferred=["step", "name", "where", "what"],
         )
         _dict_rows_sheet(
             "Calc_Check",
