@@ -85,3 +85,59 @@ export async function postGraph(graph) {
   }
   return r.json();
 }
+
+/** Absolute/relative URL for Excel results download (basename under api_excel/). */
+export function excelResultsUrl(pathOrBasename) {
+  const base = String(pathOrBasename || '').split(/[/\\]/).pop();
+  if (!base) return '';
+  return `${BASE}/api/excel/results?path=${encodeURIComponent(base)}`;
+}
+
+/** Download PIMS-shaped template (.xlsx blob). */
+export async function getExcelTemplateBlob() {
+  const r = await fetch(`${BASE}/api/excel/template`);
+  if (!r.ok) {
+    let detail = `${r.status}`;
+    try {
+      const j = await r.json();
+      detail = j.error || j.detail || detail;
+    } catch (_) {
+      /* ignore */
+    }
+    throw new Error(`excel template ${detail}`);
+  }
+  return r.blob();
+}
+
+/**
+ * Upload PIMS-shaped workbook → mono + ADMM JSON summary.
+ * @param {File|Blob} file
+ * @param {{ returnXlsx?: boolean }} [opts]
+ * @returns {Promise<object|Blob>} JSON body, or Blob when returnXlsx
+ */
+export async function postExcelSolve(file, opts = {}) {
+  const form = new FormData();
+  const name = file?.name || 'model.xlsx';
+  form.append('file', file, name);
+  const q = opts.returnXlsx ? '?return_xlsx=true' : '';
+  const r = await fetch(`${BASE}/api/excel/solve${q}`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!r.ok) {
+    let detail = `${r.status}`;
+    try {
+      const j = await r.json();
+      detail = j.error || j.detail || detail;
+    } catch (_) {
+      try {
+        detail = (await r.text()).slice(0, 200) || detail;
+      } catch (__) {
+        /* ignore */
+      }
+    }
+    throw new Error(`excel solve ${detail}`);
+  }
+  if (opts.returnXlsx) return r.blob();
+  return r.json();
+}

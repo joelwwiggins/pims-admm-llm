@@ -14,6 +14,7 @@
   import StreamEdge from './lib/edges/StreamEdge.svelte';
   import InspectorPanel from './lib/InspectorPanel.svelte';
   import ResultsPanel from './lib/ResultsPanel.svelte';
+  import ExcelPanel from './lib/ExcelPanel.svelte';
   import { createFullPlantPfd, UNIT_COLORS, UNIT_PORTS } from './lib/data/plantTemplate.js';
   import { PROCESS_UNITS, SUPPLY_UNITS, paletteByType } from './lib/palette.js';
   import { postConnect, postGraph, postAutoWire, postBaseDeltaSolve, getRouting, getHealth } from './lib/api.js';
@@ -38,6 +39,8 @@
   let apiOk = $state(false);
   let lastGraph = $state(null);
   let showResults = $state(false);
+  /** left dock: palette | excel */
+  let leftTab = $state('palette');
   let nodeSeq = $state(50);
 
   let recoveryPath = $state('mono-oracle');
@@ -394,45 +397,73 @@
       <button type="button" class:on={showResults} onclick={() => (showResults = !showResults)}>
         Results
       </button>
+      <button
+        type="button"
+        class:on={leftTab === 'excel'}
+        title="Excel PIMS → mono+ADMM"
+        onclick={() => (leftTab = leftTab === 'excel' ? 'palette' : 'excel')}
+      >
+        Excel
+      </button>
     </div>
   </header>
 
   <div class="main">
     <!-- LEFT DOCK -->
     <aside class="dock">
-      <h2>Unit palette</h2>
-      <div class="palette-group">Process</div>
-      {#each PROCESS_UNITS as u}
+      <div class="dock-tabs">
         <button
           type="button"
-          class="pal"
-          draggable="true"
-          ondragstart={(e) => ondragstart(e, u.type)}
-          onclick={() => addFromPalette(u.type)}
-        >
-          <span class="swatch" style:background={UNIT_COLORS[u.type]?.accent || u.color}></span>
-          {u.label}
-        </button>
-      {/each}
-      <div class="palette-group">Supply chain</div>
-      {#each SUPPLY_UNITS as u}
+          class="dock-tab"
+          class:on={leftTab === 'palette'}
+          onclick={() => (leftTab = 'palette')}
+        >Palette</button>
         <button
           type="button"
-          class="pal"
-          draggable="true"
-          ondragstart={(e) => ondragstart(e, u.type)}
-          onclick={() => addFromPalette(u.type)}
-        >
-          <span class="swatch" style:background={UNIT_COLORS[u.type]?.accent || u.color}></span>
-          {u.label}
-        </button>
-      {/each}
+          class="dock-tab"
+          class:on={leftTab === 'excel'}
+          onclick={() => (leftTab = 'excel')}
+        >Excel</button>
+      </div>
 
-      {#if showResults && lastGraph}
-        <div class="res-wrap">
-          <h2>Solve results</h2>
-          <ResultsPanel result={lastGraph} />
-        </div>
+      {#if leftTab === 'excel'}
+        <h2>Excel PIMS MVP</h2>
+        <ExcelPanel onStatus={(msg) => (status = msg)} />
+      {:else}
+        <h2>Unit palette</h2>
+        <div class="palette-group">Process</div>
+        {#each PROCESS_UNITS as u}
+          <button
+            type="button"
+            class="pal"
+            draggable="true"
+            ondragstart={(e) => ondragstart(e, u.type)}
+            onclick={() => addFromPalette(u.type)}
+          >
+            <span class="swatch" style:background={UNIT_COLORS[u.type]?.accent || u.color}></span>
+            {u.label}
+          </button>
+        {/each}
+        <div class="palette-group">Supply chain</div>
+        {#each SUPPLY_UNITS as u}
+          <button
+            type="button"
+            class="pal"
+            draggable="true"
+            ondragstart={(e) => ondragstart(e, u.type)}
+            onclick={() => addFromPalette(u.type)}
+          >
+            <span class="swatch" style:background={UNIT_COLORS[u.type]?.accent || u.color}></span>
+            {u.label}
+          </button>
+        {/each}
+
+        {#if showResults && lastGraph}
+          <div class="res-wrap">
+            <h2>Solve results</h2>
+            <ResultsPanel result={lastGraph} />
+          </div>
+        {/if}
       {/if}
     </aside>
 

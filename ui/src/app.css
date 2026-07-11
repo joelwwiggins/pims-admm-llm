@@ -155,6 +155,34 @@ body,
   color: #6a8098;
 }
 
+.dock-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.55rem;
+}
+
+.dock-tab {
+  flex: 1;
+  background: #151e2a;
+  color: #9eb0c4;
+  border: 1px solid #2a3a4c;
+  border-radius: 5px;
+  padding: 0.3rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dock-tab:hover {
+  border-color: #4a90d9;
+}
+
+.dock-tab.on {
+  background: #1a3a58;
+  border-color: #3d8ec8;
+  color: #d8e8f8;
+}
+
 .palette-group {
   font-size: 0.6rem;
   color: #5a6e84;
