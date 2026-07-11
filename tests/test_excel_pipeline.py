@@ -82,6 +82,12 @@ def test_write_results_excel_sheets(tmp_path):
         "Calc_BlockAngular",
         "Calc_BA_Map",
         "Calc_Process",
+        "Submodel_Index",
+        "Submodel_CDU_Tech",
+        "Submodel_CDU_A",
+        "Submodel_Blender_Tech",
+        "Submodel_Blender_A",
+        "Submodel_Linking_B",
         "Calc_Linking",
         "Calc_Check",
         "Summary",
@@ -110,6 +116,20 @@ def test_write_results_excel_sheets(tmp_path):
     assert "admm_online_econ" in headers
     assert "admm_recovered_econ" in headers
     assert report.get("model", {}).get("form") == "classic_2block_excel_path"
+    # submodel data present in dense A1
+    cdu_h = [c.value for c in wb["Submodel_CDU_Tech"][1]]
+    assert "y_naphtha" in cdu_h
+    bl_h = [c.value for c in wb["Submodel_Blender_Tech"][1]]
+    assert "recipe_naphtha" in bl_h
+    # A1 matrix has numeric yield coeffs
+    ah = [c.value for c in wb["Submodel_CDU_A"][1]]
+    found = False
+    for row in wb["Submodel_CDU_A"].iter_rows(min_row=2, values_only=True):
+        d = dict(zip(ah, row))
+        if d.get("constraint") == "YLD_naphtha" and d.get("crude_WTI_light") is not None:
+            found = True
+            assert abs(float(d["crude_WTI_light"])) > 0.1
+    assert found
 
 
 def test_load_pims_excel_has_crudes(tmp_path):

@@ -588,6 +588,163 @@ def block_angular_matrix(model: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+
+def submodel_matrix_tables(model: Dict[str, Any]) -> Dict[str, Any]:
+    """Dense local submodel matrices A1 (CDU), A2 (Blender), and linking B.
+
+    These are the *data* of each block (yields, recipes), not only structural labels.
+    Column sets are local to each block so the submodel is readable without the full
+    sparse mega-matrix.
+    """
+    inter = list(model.get("intermediates") or [])
+    crudes = [r["crude"] for r in model.get("yields") or []]
+    products = [r["product"] for r in model.get("blend_recipes") or []]
+    yields_by = {row["crude"]: row for row in model.get("yields") or []}
+    blends_by = {row["product"]: row for row in model.get("blend_recipes") or []}
+
+    # --- A1 technology table (submodel data = yield matrix + economics) ---
+    cdu_tech: List[Dict[str, Any]] = []
+    for c in crudes:
+        y = yields_by.get(c) or {}
+        row: Dict[str, Any] = {
+            "submodel": "CDU (A1)",
+            "crude": c,
+            "price_usd_per_bbl": y.get("price_usd_per_bbl"),
+            "max_supply_kbd": y.get("max_supply_kbd"),
+            "api": y.get("api"),
+            "sulfur_wt_pct": y.get("sulfur_wt_pct"),
+        }
+        for i in inter:
+            row[f"y_{i}"] = float(y.get(f"y_{i}", 0.0))
+        row["yield_sum"] = y.get("yield_sum")
+        row["local_vars"] = f"crude_{c}, prod_* (shared)"
+        row["data_sheet"] = "Calc_Yields / input Crudes"
+        cdu_tech.append(row)
+
+    # Dense A1 constraint matrix: only CDU local columns
+    cdu_cols = [f"crude_{c}" for c in crudes] + [f"prod_{i}" for i in inter]
+    cdu_A: List[Dict[str, Any]] = []
+    r: Dict[str, Any] = {
+        "constraint": "CAP_CDU",
+        "type": "<=",
+        "rhs": model.get("cdu_capacity_kbd"),
+        "meaning": "total crude charge",
+        "submodel_data_from": "Capacities.cdu_kbd",
+    }
+    for c in crudes:
+        r[f"crude_{c}"] = 1.0
+    for i in inter:
+        r[f"prod_{i}"] = None
+    cdu_A.append(r)
+    for i in inter:
+        r = {
+            "constraint": f"YLD_{i}",
+            "type": "=",
+            "rhs": 0.0,
+            "meaning": f"prod_{i} = Σ y[c,{i}]*crude_c  (submodel yield tech)",
+            "submodel_data_from": f"Calc_Yields.y_{i}",
+        }
+        for c in crudes:
+            yv = float((yields_by.get(c) or {}).get(f"y_{i}", 0.0))
+            r[f"crude_{c}"] = -yv
+        for j in inter:
+            r[f"prod_{j}"] = 1.0 if j == i else None
+        cdu_A.append(r)
+
+    # --- A2 technology table (blend recipes) ---
+    blend_tech: List[Dict[str, Any]] = []
+    for p in products:
+        b = blends_by.get(p) or {}
+        row = {
+            "submodel": "BLENDER (A2)",
+            "product": p,
+            "price_usd_per_bbl": b.get("price_usd_per_bbl"),
+            "max_demand_kbd": b.get("max_demand_kbd"),
+        }
+        for i in inter:
+            row[f"recipe_{i}"] = float(b.get(f"use_{i}", 0.0))
+        row["recipe_sum"] = b.get("recipe_sum")
+        row["local_vars"] = f"product_{p}, use_* (shared)"
+        row["data_sheet"] = "Calc_Blend / input Products"
+        blend_tech.append(row)
+
+    blend_cols = [f"use_{i}" for i in inter] + [f"product_{p}" for p in products]
+    blend_A: List[Dict[str, Any]] = []
+    for i in inter:
+        r = {
+            "constraint": f"BLD_{i}",
+            "type": ">=",
+            "rhs": 0.0,
+            "meaning": f"use_{i} ≥ Σ recipe[p,{i}]*product_p  (submodel recipe tech)",
+            "submodel_data_from": f"Calc_Blend.use_{i}",
+        }
+        for j in inter:
+            r[f"use_{j}"] = 1.0 if j == i else None
+        for p in products:
+            coef = float((blends_by.get(p) or {}).get(f"use_{i}", 0.0))
+            r[f"product_{p}"] = -coef if abs(coef) > 1e-15 else None
+        blend_A.append(r)
+
+    # --- Linking B (no local tech table; structure only + dual home) ---
+    link_A: List[Dict[str, Any]] = []
+    for i in inter:
+        link_A.append(
+            {
+                "constraint": f"BAL_{i}",
+                "type": "=",
+                "rhs": 0.0,
+                "prod_coeff": 1.0,
+                "use_coeff": -1.0,
+                "meaning": f"prod_{i} − use_{i} = 0",
+                "submodel_data_from": "structure fixed; ADMM λ on this row → Shadows",
+                "cdu_var": f"prod_{i}",
+                "blender_var": f"use_{i}",
+            }
+        )
+
+    # Compact "where is the submodel data" index
+    index = [
+        {
+            "block": "CDU (A1)",
+            "tech_table": "Submodel_CDU_Tech",
+            "constraint_matrix": "Submodel_CDU_A",
+            "includes": "yields y_i, crude prices/supply, CAP_CDU, YLD_* rows with numeric coeffs",
+            "edit_via": "input Crudes (y_*, price, max_supply) + Capacities",
+        },
+        {
+            "block": "BLENDER (A2)",
+            "tech_table": "Submodel_Blender_Tech",
+            "constraint_matrix": "Submodel_Blender_A",
+            "includes": "blend recipes, product prices/demand, BLD_* rows with numeric coeffs",
+            "edit_via": "input Products + recipes (Calc_Blend / pipeline defaults)",
+        },
+        {
+            "block": "LINKING (B)",
+            "tech_table": "(none — balances only)",
+            "constraint_matrix": "Submodel_Linking_B",
+            "includes": "prod_i − use_i = 0; duals λ are ADMM/mono shadows",
+            "edit_via": "do not edit; see Shadows for prices",
+        },
+        {
+            "block": "MASTER_ADMM",
+            "tech_table": "(outside Excel)",
+            "constraint_matrix": "(not an A block)",
+            "includes": "ρ, dual ascent, consensus z",
+            "edit_via": "code ADMMConfig (rho, dual_step, max_iter)",
+        },
+    ]
+    return {
+        "cdu_tech": cdu_tech,
+        "cdu_A": cdu_A,
+        "cdu_cols": cdu_cols,
+        "blend_tech": blend_tech,
+        "blend_A": blend_A,
+        "blend_cols": blend_cols,
+        "link_A": link_A,
+        "index": index,
+    }
+
+
 def run_excel_pipeline(
     input_path: PathLike,
     *,
@@ -748,6 +905,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "block_angular_view",
             "See Calc_BlockAngular (sparse A-matrix with A1/A2/B labels), Calc_BA_Map (what to edit where), Calc_BA_Legend, and Calc_Process (normal workflow). Classic form: Block1 A1 on crude/prod; Block2 A2 on use/product; linking B is prod−use=0.",
+        ),
+        (
+            "submodel_data",
+            "Block-angular alone is structure. Submodel *data* lives in Submodel_CDU_Tech (yields) + Submodel_CDU_A (A1 matrix), Submodel_Blender_Tech (recipes) + Submodel_Blender_A (A2 matrix), Submodel_Linking_B (balances). Submodel_Index maps block → sheets. Calc_BlockAngular is the full sparse assembly of those blocks.",
         ),
         ("--- READING ORDER ---", ""),
         ("1_How_to_read", "This guide."),
@@ -959,6 +1120,60 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
             "Calc_Process",
             list(ba.get("process") or []),
             preferred=["step", "name", "where", "what"],
+        )
+        # Dense submodel data (A1/A2 tech + local A matrices + linking B)
+        sm = submodel_matrix_tables(model)
+        _dict_rows_sheet(
+            "Submodel_Index",
+            list(sm.get("index") or []),
+            preferred=["block", "tech_table", "constraint_matrix", "includes", "edit_via"],
+        )
+        _dict_rows_sheet(
+            "Submodel_CDU_Tech",
+            list(sm.get("cdu_tech") or []),
+            preferred=[
+                "submodel",
+                "crude",
+                "price_usd_per_bbl",
+                "max_supply_kbd",
+                "api",
+                "sulfur_wt_pct",
+            ],
+        )
+        _dict_rows_sheet(
+            "Submodel_CDU_A",
+            list(sm.get("cdu_A") or []),
+            preferred=["constraint", "type", "rhs", "meaning", "submodel_data_from"],
+        )
+        _dict_rows_sheet(
+            "Submodel_Blender_Tech",
+            list(sm.get("blend_tech") or []),
+            preferred=[
+                "submodel",
+                "product",
+                "price_usd_per_bbl",
+                "max_demand_kbd",
+            ],
+        )
+        _dict_rows_sheet(
+            "Submodel_Blender_A",
+            list(sm.get("blend_A") or []),
+            preferred=["constraint", "type", "rhs", "meaning", "submodel_data_from"],
+        )
+        _dict_rows_sheet(
+            "Submodel_Linking_B",
+            list(sm.get("link_A") or []),
+            preferred=[
+                "constraint",
+                "type",
+                "rhs",
+                "prod_coeff",
+                "use_coeff",
+                "cdu_var",
+                "blender_var",
+                "meaning",
+                "submodel_data_from",
+            ],
         )
         _dict_rows_sheet(
             "Calc_Check",
