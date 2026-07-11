@@ -76,10 +76,17 @@ def main(argv: list[str] | None = None) -> int:
           f"rho={admm['rho']}  ||r||={admm['primal_residual']:.4g}")
     print(f"       dual_recovery_path={admm['dual_recovery_path']}")
     print(f"Gap:   abs={cmp_['objective_gap_abs']:.6f}  rel={cmp_['objective_gap_rel']:.6%}")
+    print(
+        f"Dual:  L∞ online={cmp_.get('dual_linf_online')}  "
+        f"L∞ recovered={cmp_.get('dual_linf_recovered')}"
+    )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
     print(f"Shadows mono:  { {k: round(v, 2) for k, v in mono['shadow_prices'].items()} }")
     print(f"Shadows ADMM:  { {k: round(v, 2) for k, v in admm['shadow_prices'].items()} }")
+    rec = admm.get('shadow_prices_recovered') or {}
+    if rec:
+        print(f"Shadows recov: { {k: round(v, 2) for k, v in rec.items()} }")
     print()
     print(f"Results Excel: {xlsx_out}")
     print(f"Results JSON:  {json_out}")
