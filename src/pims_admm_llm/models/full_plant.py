@@ -940,7 +940,8 @@ def admm_price_directed_plant(
             assays,
             routing=routing,
             max_iter=max(max_iter, 80),
-            rho=1.2 if rho < 0.5 else rho,
+            # ρ≈2 keeps FCC active on current assay slate; ρ≈1.2 collapses FCC feed
+            rho=2.0 if rho < 0.5 else rho,
             dual_step=0.35 if dual_step > 0.6 else dual_step,
             tol=max(tol, 5.0),
             damp=0.4,

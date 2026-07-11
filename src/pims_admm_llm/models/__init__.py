@@ -42,6 +42,13 @@ from .assay_loader import (
     load_routing,
     write_template_excel,
 )
+from .excel_pipeline import (
+    ensure_template,
+    excel_to_refinery_data,
+    load_pims_excel,
+    run_excel_pipeline,
+    write_results_excel,
+)
 from .properties import FeedProperties, crude_to_props
 from .quality_blender import (
     GasolineQualityConfig,
@@ -227,6 +234,11 @@ __all__ = [
     "load_intermediates_json",
     "load_routing",
     "write_template_excel",
+    "ensure_template",
+    "excel_to_refinery_data",
+    "load_pims_excel",
+    "run_excel_pipeline",
+    "write_results_excel",
     "cdu_yields_from_assay",
     "coker_yields",
     "fcc_yields",

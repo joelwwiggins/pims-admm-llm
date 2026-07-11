@@ -95,7 +95,14 @@ def test_property_yields_respond_to_feed():
 
 
 def test_full_plant_mono_optimal():
-    res = solve_full_plant()
+    # Depress FO netback so resid→coker is optimal (multi-unit demo path).
+    # Default FO=$68 makes light-slate resid→FO preferred (see test_resid_swing_exists).
+    import copy
+
+    assays = load_assays_json()
+    assays = copy.deepcopy(assays)
+    assays["products"]["fuel_oil"]["price_usd_per_bbl"] = 50.0
+    res = solve_full_plant(assays)
     assert res.feasible
     assert res.status == "Optimal"
     assert res.objective > 0
@@ -107,9 +114,26 @@ def test_full_plant_mono_optimal():
     assert res.streams["go_to_fcc"] > 0
     assert res.streams["resid_to_coker"] > 0
     assert res.arc_flows["fcc_naph_to_gas"] > 0
-    assert (res.arc_flows.get("sr_heavy_to_reformer", 0) + res.arc_flows.get("sr_heavy_to_ref_pool", 0) + res.arc_flows.get("ref_pool_to_reformer", 0)) > 0
+    assert (
+        res.arc_flows.get("sr_heavy_to_reformer", 0)
+        + res.arc_flows.get("sr_heavy_to_ref_pool", 0)
+        + res.arc_flows.get("ref_pool_to_reformer", 0)
+    ) > 0
     assert sum(res.products.values()) > 0
     assert res.quality_duals  # quality constraints present
+
+
+def test_default_economics_may_idle_coker():
+    """Honesty: with FO at default $68, resid→FO can beat coker on light slate."""
+    res = solve_full_plant()
+    assert res.feasible
+    assert res.unit_feeds["cdu_charge"] > 0
+    assert res.unit_feeds["fcc_feed"] > 0
+    # coker may be idle; swing destinations still both available in arc space
+    assert res.arc_flows["resid_to_coker"] + res.arc_flows["resid_to_fo"] > 0
+    assert res.routing_splits["resid_frac_coker"] + res.routing_splits["resid_frac_fo"] == pytest.approx(
+        1.0, abs=1e-6
+    )
 
 
 def test_fcc_naphtha_not_forced_to_reformer():

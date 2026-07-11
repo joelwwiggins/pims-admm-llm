@@ -172,10 +172,16 @@ def test_excel_roundtrip(tmp_path):
     assert "WTI_light" in names
     assert "Maya_heavy" in names
     wti = next(c for c in loaded["crudes"] if c["name"] == "WTI_light")
-    assert abs(wti["api"] - 39.6) < 1e-6
-    assert abs(wti["sulfur_wt"] - 0.24) < 1e-6
+    wti0 = next(c for c in orig["crudes"] if c["name"] == "WTI_light")
+    # Assert against live JSON (detailed assays may update API/S/TBP)
+    assert abs(wti["api"] - float(wti0["api"])) < 1e-6
+    assert abs(wti["sulfur_wt"] - float(wti0["sulfur_wt"])) < 1e-6
     assert "tbp_cut_vol" in wti
-    assert abs(wti["tbp_cut_vol"]["naphtha_ibp_350f"] - 0.28) < 1e-6
+    tbp0 = wti0.get("tbp_cut_vol") or {}
+    if "naphtha_ibp_350f" in tbp0:
+        assert abs(
+            wti["tbp_cut_vol"]["naphtha_ibp_350f"] - float(tbp0["naphtha_ibp_350f"])
+        ) < 1e-6
     # intermediates sheet present
     assert loaded.get("intermediates")
     assert any(i["name"] == "cdu_gasoil" for i in loaded["intermediates"])

@@ -26,6 +26,23 @@ uvicorn api.main:app --reload --port 8008
 | GET | `/api/routing` | — | units, arcs from `data/routing.json`, palette defaults |
 | POST | `/api/graph` | `{nodes, edges, recovery_path?, run_admm?, stub_only?}` | solve result or stub |
 | POST | `/api/connect` | edge attempt + port attrs | `{allowed, score, reason}` |
+| GET | `/api/excel/template` | — | PIMS-shaped `.xlsx` template download |
+| POST | `/api/excel/solve` | multipart `file` (+ optional `return_xlsx`) | JSON mono+ADMM summary or results `.xlsx` |
+| GET | `/api/excel/results?path=` | basename only | prior results workbook |
+
+### Excel PIMS MVP
+
+```bash
+# template
+curl -OJ http://127.0.0.1:8008/api/excel/template
+# solve (JSON)
+curl -F "file=@data/assays/crudes_template.xlsx" http://127.0.0.1:8008/api/excel/solve
+# solve (return workbook)
+curl -F "file=@data/assays/crudes_template.xlsx" \
+  "http://127.0.0.1:8008/api/excel/solve?return_xlsx=true" -o results.xlsx
+```
+
+OpenAPI try-it UI: http://127.0.0.1:8008/docs → **POST /api/excel/solve**
 
 ### POST `/api/graph` response (real solve)
 

@@ -1,4 +1,5 @@
-# Wave3 flowsheet UI backend
+# Wave3 flowsheet UI backend + Excel MVP upload
 fastapi>=0.110
 uvicorn[standard]>=0.27
 pydantic>=2.0
+python-multipart>=0.0.9
