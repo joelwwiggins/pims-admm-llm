@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -21,8 +22,8 @@ ROUTING_PATH = REPO_ROOT / "data" / "routing.json"
 
 app = FastAPI(
     title="pims-admm-llm flowsheet API",
-    version="0.2.0-wave5",
-    description="SvelteFlow snap-together routing UI + graph→LP/ADMM.",
+    version="0.3.0-excel-mvp",
+    description="SvelteFlow graph→LP/ADMM + Excel PIMS-shaped upload→solve MVP.",
 )
 
 
@@ -493,6 +494,186 @@ def post_cdu_assay(payload: AssayCduPayload) -> dict[str, Any]:
         return {"ok": False, "status": "Error", "error": str(e)}
 
 
+# ---------------------------------------------------------------------------
+# Excel PIMS MVP: template download + upload → mono/ADMM → results
+# ---------------------------------------------------------------------------
+
+
+def _ensure_src_path() -> None:
+    import sys
+
+    src = str(REPO_ROOT / "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)
+
+
+def _excel_output_dir() -> Path:
+    d = REPO_ROOT / "demos" / "output" / "api_excel"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+@app.get("/api/excel/template")
+def get_excel_template():
+    """Download current PIMS-shaped assay/model template (.xlsx)."""
+    from fastapi.responses import FileResponse, JSONResponse
+
+    _ensure_src_path()
+    try:
+        from pims_admm_llm.models.excel_pipeline import ensure_template
+
+        path = ensure_template(REPO_ROOT / "data" / "assays" / "crudes_template.xlsx")
+        return FileResponse(
+            path,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename="pims_admm_template.xlsx",
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)})
+
+
+@app.post("/api/excel/solve")
+async def post_excel_solve(
+    file: UploadFile = File(...),
+    return_xlsx: bool = Query(
+        False,
+        description="If true, respond with results .xlsx file; else JSON summary",
+    ),
+):
+    """Upload a PIMS-shaped Excel model → mono + ADMM → results.
+
+    Accepts multipart form field ``file`` (.xlsx). Writes results under
+    ``demos/output/api_excel/`` and returns JSON (default) or the results workbook.
+    """
+    from fastapi.responses import FileResponse, JSONResponse
+
+    _ensure_src_path()
+    name = (file.filename or "model.xlsx").strip()
+    if not name.lower().endswith((".xlsx", ".xlsm")):
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Upload must be .xlsx (PIMS-shaped template)"},
+        )
+
+    try:
+        from pims_admm_llm.models.excel_pipeline import run_excel_pipeline
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": f"pipeline import failed: {e}"},
+        )
+
+    out_dir = _excel_output_dir()
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    safe_stem = Path(name).stem.replace(" ", "_")[:40] or "model"
+    in_path = out_dir / f"{stamp}_{safe_stem}_input.xlsx"
+    xlsx_out = out_dir / f"{stamp}_{safe_stem}_results.xlsx"
+    json_out = out_dir / f"{stamp}_{safe_stem}_results.json"
+
+    try:
+        raw = await file.read()
+        if not raw:
+            return JSONResponse(
+                status_code=400,
+                content={"ok": False, "error": "empty upload"},
+            )
+        in_path.write_bytes(raw)
+        report = run_excel_pipeline(
+            in_path,
+            results_xlsx=xlsx_out,
+            results_json=json_out,
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": f"{type(e).__name__}: {e}",
+                "input_saved": str(in_path) if in_path.is_file() else None,
+            },
+        )
+
+    verdict = str(report.get("verdict") or "")
+    body: dict[str, Any] = {
+        "ok": verdict.startswith("PASS"),
+        "verdict": verdict,
+        "mono": {
+            "status": report["mono"].get("status"),
+            "objective": report["mono"].get("objective"),
+            "feasible": report["mono"].get("feasible"),
+            "crude_rates": report["mono"].get("crude_rates"),
+            "product_rates": report["mono"].get("product_rates"),
+            "shadow_prices": report["mono"].get("shadow_prices"),
+            "wall_time_s": report["mono"].get("wall_time_s"),
+        },
+        "admm": {
+            "status": report["admm"].get("status"),
+            "objective": report["admm"].get("objective"),
+            "feasible": report["admm"].get("feasible"),
+            "iteration_count": report["admm"].get("iteration_count"),
+            "rho": report["admm"].get("rho"),
+            "primal_residual": report["admm"].get("primal_residual"),
+            "dual_recovery_path": report["admm"].get("dual_recovery_path"),
+            "crude_rates": report["admm"].get("crude_rates"),
+            "product_rates": report["admm"].get("product_rates"),
+            "shadow_prices": report["admm"].get("shadow_prices"),
+            "wall_time_s": report["admm"].get("wall_time_s"),
+        },
+        "comparison": report.get("comparison"),
+        "meta": {
+            "input_filename": name,
+            "input_path": str(in_path.relative_to(REPO_ROOT)),
+            "results_xlsx": str(xlsx_out.relative_to(REPO_ROOT)),
+            "results_json": str(json_out.relative_to(REPO_ROOT)),
+            "n_crudes": report.get("meta", {}).get("n_crudes"),
+            "cdu_capacity_kbd": report.get("meta", {}).get("cdu_capacity_kbd"),
+            "pipeline_wall_s": report.get("meta", {}).get("pipeline_wall_s"),
+            "download_results_xlsx": f"/api/excel/results?path={xlsx_out.name}",
+        },
+    }
+
+    if return_xlsx and xlsx_out.is_file():
+        return FileResponse(
+            xlsx_out,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=f"{safe_stem}_results.xlsx",
+            headers={"X-PIMS-Verdict": verdict[:200]},
+        )
+    return body
+
+
+@app.get("/api/excel/results")
+def get_excel_results(
+    path: str = Query(..., description="Basename under demos/output/api_excel/"),
+):
+    """Download a previously written Excel result workbook (basename only)."""
+    from fastapi.responses import FileResponse, JSONResponse
+
+    # Prevent path traversal: basename only
+    base = Path(path).name
+    if base != path or ".." in path or "/" in path or "\\" in path:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "path must be a basename only"},
+        )
+    if not base.endswith(".xlsx"):
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "only .xlsx results are served"},
+        )
+    target = _excel_output_dir() / base
+    if not target.is_file():
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "error": f"not found: {base}"},
+        )
+    return FileResponse(
+        target,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=base,
+    )
+
+
 @app.get("/")
 def root() -> dict[str, str]:
     return {
@@ -505,4 +686,7 @@ def root() -> dict[str, str]:
         "base_delta_solve": "POST /api/base_delta/solve",
         "assays": "GET /api/assays",
         "cdu_assay": "POST /api/cdu/assay",
+        "excel_template": "GET /api/excel/template",
+        "excel_solve": "POST /api/excel/solve",
+        "excel_results": "GET /api/excel/results?path=<basename.xlsx>",
     }
