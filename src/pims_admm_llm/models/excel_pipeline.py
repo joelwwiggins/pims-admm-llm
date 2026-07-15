@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
 
 from .assay_loader import (
     assays_to_refinery_data,
@@ -702,13 +702,13 @@ def submodel_matrix_tables(model: Dict[str, Any]) -> Dict[str, Any]:
             }
         )
 
-    # Compact "where is the submodel data" index
+    # Compact "where is the submodel data" index (classic 2-block + base-delta units)
     index = [
         {
             "block": "CDU (A1)",
             "tech_table": "Submodel_CDU_Tech",
             "constraint_matrix": "Submodel_CDU_A",
-            "includes": "yields y_i, crude prices/supply, CAP_CDU, YLD_* rows with numeric coeffs",
+            "includes": "classic path: y_i, crude prices/supply, CAP_CDU, YLD_* (Excel mono/ADMM)",
             "edit_via": "input Crudes (y_*, price, max_supply) + Capacities",
         },
         {
@@ -719,10 +719,24 @@ def submodel_matrix_tables(model: Dict[str, Any]) -> Dict[str, Any]:
             "edit_via": "input Products + recipes (Calc_Blend / pipeline defaults)",
         },
         {
+            "block": "FCC (base-delta)",
+            "tech_table": "Submodel_FCC (PIMS BASE/DELTA matrix)",
+            "constraint_matrix": "Submodel_FCC + Submodel_FCC_FixedYield",
+            "includes": "FEED_FFD, BASE, D_* deltas, E_BASE_REF, E_quality_REF (−999), FREE — Aspen How-To 07 style",
+            "edit_via": "base_delta.build_fcc_base_delta (export); cascade solve_cdu_fcc",
+        },
+        {
+            "block": "COKER (base-delta)",
+            "tech_table": "Submodel_Coker (PIMS BASE/DELTA matrix)",
+            "constraint_matrix": "Submodel_Coker + Submodel_Coker_FixedYield",
+            "includes": "FEED_CFD, BASE, D_* deltas, E-rows, FREE — Aspen How-To 07 style",
+            "edit_via": "base_delta.build_coker_base_delta (export); cascade solve_cdu_fcc_coker",
+        },
+        {
             "block": "LINKING (B)",
             "tech_table": "(none — balances only)",
             "constraint_matrix": "Submodel_Linking_B",
-            "includes": "prod_i − use_i = 0; duals λ are ADMM/mono shadows",
+            "includes": "classic path: prod_i − use_i = 0; duals λ are ADMM/mono shadows",
             "edit_via": "do not edit; see Shadows for prices",
         },
         {
@@ -733,6 +747,8 @@ def submodel_matrix_tables(model: Dict[str, Any]) -> Dict[str, Any]:
             "edit_via": "code ADMMConfig (rho, dual_step, max_iter)",
         },
     ]
+    # Unit base-delta LP submodels (FCC + COKER) — always attached so Excel has full unit suite
+    unit_bd = base_delta_unit_submodel_tables()
     return {
         "cdu_tech": cdu_tech,
         "cdu_A": cdu_A,
@@ -742,6 +758,452 @@ def submodel_matrix_tables(model: Dict[str, Any]) -> Dict[str, Any]:
         "blend_cols": blend_cols,
         "link_A": link_A,
         "index": index,
+        **unit_bd,
+    }
+
+
+def base_delta_unit_submodel_tables() -> Dict[str, Any]:
+    """Dense FCC + COKER base-delta LP submodel tables for Excel export.
+
+    Classic Excel mono/ADMM still solves CDU+Blender only. These sheets expose the
+    PIMS-style BASE/DELTA unit submodels (yields, deltas, SOS1 modes, exits, local A)
+    from ``models.base_delta`` so planners can access FCC/Coker submodel data.
+    """
+    from .base_delta import (
+        build_coker_base_delta,
+        build_fcc_base_delta,
+        process_modes_coker,
+        process_modes_fcc,
+    )
+
+    def _flat_conditions(cond: Mapping[str, Any] | None) -> Dict[str, Any]:
+        out: Dict[str, Any] = {}
+        for k, v in (cond or {}).items():
+            if isinstance(v, dict):
+                for kk, vv in v.items():
+                    out[f"{k}.{kk}"] = vv
+            else:
+                out[str(k)] = v
+        return out
+
+    def _unit_pack(unit_name: str, model, modes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        products = list(model.products)
+        exits_by = {e.stream: e for e in model.exits}
+        # --- Tech (BASE yields + exit routing) ---
+        tech: List[Dict[str, Any]] = []
+        for p in products:
+            ex = exits_by.get(p)
+            tech.append(
+                {
+                    "submodel": unit_name,
+                    "product": p,
+                    "base_yield": float(model.base_yields.get(p, 0.0)),
+                    "default_sink": getattr(ex, "default_sink", None) if ex else None,
+                    "basis": getattr(ex, "basis", None) if ex else None,
+                    "alt_sinks": (
+                        ",".join(getattr(ex, "alt_sinks", []) or []) if ex else ""
+                    ),
+                    "exit_note": getattr(ex, "note", None) if ex else None,
+                    "form": "BASE + DELTA · SOS1 process modes",
+                    "code": f"build_{unit_name.lower()}_base_delta",
+                }
+            )
+        # yield_sum of base (liquids may exclude coke intentionally; still report sum)
+        tech_sum = sum(float(model.base_yields.get(p, 0.0)) for p in products)
+        for row in tech:
+            row["base_yield_sum_all_products"] = tech_sum
+
+        # --- Reference feed + process conditions (one row each) ---
+        ref_feed = [
+            {"submodel": unit_name, "kind": "reference_feed", "key": k, "value": v}
+            for k, v in (model.reference_feed or {}).items()
+        ]
+        ref_cond_flat = _flat_conditions(model.reference_conditions)
+        ref_cond = [
+            {"submodel": unit_name, "kind": "reference_conditions", "key": k, "value": v}
+            for k, v in ref_cond_flat.items()
+        ]
+        drivers = [
+            {"submodel": unit_name, "driver": d, "role": "BASE/DELTA process or feed quality"}
+            for d in (model.drivers or [])
+        ]
+
+        # --- Deltas: product × driver ---
+        deltas: List[Dict[str, Any]] = []
+        for p in products:
+            dmap = model.deltas.get(p) or {}
+            for driver, coef in dmap.items():
+                deltas.append(
+                    {
+                        "submodel": unit_name,
+                        "product": p,
+                        "driver": driver,
+                        "delta_yield_per_unit": float(coef),
+                        "meaning": f"Δy[{p}] / Δ{driver} around reference",
+                    }
+                )
+
+        # --- Modes (SOS1 severity bands) ---
+        mode_rows: List[Dict[str, Any]] = []
+        for m in modes:
+            row: Dict[str, Any] = {
+                "submodel": unit_name,
+                "mode_id": m.get("id"),
+                "unit": m.get("unit", unit_name),
+            }
+            for ck, cv in _flat_conditions(m.get("conditions")).items():
+                row[f"cond_{ck}"] = cv
+            ylds = m.get("yields") or {}
+            for p in products:
+                row[f"y_{p}"] = float(ylds.get(p, 0.0))
+            row["yield_sum"] = sum(float(ylds.get(p, 0.0)) for p in products)
+            mode_rows.append(row)
+
+        # --- Exits table ---
+        exit_rows: List[Dict[str, Any]] = []
+        for e in model.exits:
+            exit_rows.append(
+                {
+                    "submodel": unit_name,
+                    "stream": e.stream,
+                    "default_sink": e.default_sink,
+                    "basis": e.basis,
+                    "required": bool(e.required),
+                    "alt_sinks": ",".join(e.alt_sinks or []),
+                    "note": e.note,
+                }
+            )
+
+        # --- Dense local A: SOS1 modes + mode-linked yield identities ---
+        # vars: feed, y_mode_*, prod_p
+        # MODE_SUM: Σ y_mode = 1
+        # YLD_p: prod_p − Σ_m y[m,p] * (feed · mode_m)  ≈  linearized as
+        #   for teaching: coeffs of feed at each mode shown; full big-M is in cdu_fcc.py
+        mode_ids = [str(m.get("id")) for m in modes]
+        A: List[Dict[str, Any]] = []
+        r_sum: Dict[str, Any] = {
+            "constraint": "MODE_SOS1",
+            "type": "=",
+            "rhs": 1.0,
+            "meaning": "exactly one process mode active (SOS1)",
+            "submodel_data_from": f"Submodel_{unit_name}_Modes",
+            "feed": None,
+        }
+        for mid in mode_ids:
+            r_sum[f"mode_{mid}"] = 1.0
+        for p in products:
+            r_sum[f"prod_{p}"] = None
+        A.append(r_sum)
+
+        # Prefer mid severity as "base" capacity note
+        A.append(
+            {
+                "constraint": f"CAP_{unit_name}",
+                "type": "<=",
+                "rhs": None,
+                "meaning": f"feed ≤ unit capacity (set in full-plant / base_delta solve; not classic Excel mono)",
+                "submodel_data_from": "Capacities / unit_specs (full plant path)",
+                "feed": 1.0,
+                **{f"mode_{mid}": None for mid in mode_ids},
+                **{f"prod_{p}": None for p in products},
+            }
+        )
+
+        # Yield rows: for each product, show mode yield coeffs on feed (teaching form)
+        # prod_p = Σ_m y[m,p] * feed when mode m active
+        for p in products:
+            r: Dict[str, Any] = {
+                "constraint": f"YLD_{p}",
+                "type": "=",
+                "rhs": 0.0,
+                "meaning": (
+                    f"prod_{p} = y[mode,{p}] * feed  (mode-linked; big-M in cdu_fcc._mode_linked_product)"
+                ),
+                "submodel_data_from": f"Submodel_{unit_name}_Modes.y_{p}",
+                "feed": None,  # mode-dependent; see mode_* columns as y[m,p] when that mode on
+            }
+            for m in modes:
+                mid = str(m.get("id"))
+                yv = float((m.get("yields") or {}).get(p, 0.0))
+                # teaching: coefficient of feed under mode m is y[m,p]; stored under mode col
+                r[f"mode_{mid}"] = yv
+            for j in products:
+                r[f"prod_{j}"] = 1.0 if j == p else None
+            A.append(r)
+
+        # Feed balance note row (source stream)
+        feed_src = "cdu_gasoil" if unit_name == "FCC" else "cdu_resid"
+        A.append(
+            {
+                "constraint": f"FEED_FROM_{feed_src}",
+                "type": "=",
+                "rhs": 0.0,
+                "meaning": f"feed = upstream {feed_src} (auto-wire when unit active)",
+                "submodel_data_from": "base_delta.auto_wire_edges_for_units / cdu_fcc cascade",
+                "feed": 1.0,
+                **{f"mode_{mid}": None for mid in mode_ids},
+                **{f"prod_{p}": None for p in products},
+            }
+        )
+
+        notes = [
+            {"submodel": unit_name, "note": n} for n in (model.notes or [])
+        ]
+        notes.append(
+            {
+                "submodel": unit_name,
+                "note": (
+                    "PIMS How-To 07 style: Submodel_{u} is the BASE/DELTA matrix "
+                    "(FEED + BASE + DELTA_* columns, E-rows, FREE). "
+                    "Classic Excel mono/ADMM still solves CDU+Blender only; "
+                    "cascade solve = solve_cdu_fcc / solve_cdu_fcc_coker."
+                ).format(u=unit_name if unit_name != "Coker" else "Coker"),
+            }
+        )
+        notes.append(
+            {
+                "submodel": unit_name,
+                "note": (
+                    "Aspen video map: fixed/direct yield → Submodel_*_FixedYield "
+                    "(mode columns). Base-Delta → Submodel_* (this matrix). "
+                    "−999 under FEED = quality pickup placeholder (PIMS convention)."
+                ),
+            }
+        )
+
+        # --- PIMS How-To 07 BASE/DELTA matrix (primary planner view) ---
+        # Columns: FEED + BASE + D_<driver> ; Rows: product MB, E_BASE_REF,
+        # E_<quality>_REF, FREE. Matches AspenTech "Submodels continued".
+        feed_tag = "FFD" if unit_name == "FCC" else "CFD"
+        feed_src = "cdu_gasoil" if unit_name == "FCC" else "cdu_resid"
+        feed_col = f"FEED_{feed_tag}"
+        drivers_list = list(model.drivers or [])
+        # Prefer feed-quality drivers first, then process conditions
+        ref_all: Dict[str, Any] = {}
+        ref_all.update(dict(model.reference_feed or {}))
+        ref_all.update(_flat_conditions(model.reference_conditions))
+
+        pims_matrix: List[Dict[str, Any]] = []
+        # Product material-balance rows (BASE + DELTA yield coeffs)
+        for p in products:
+            r: Dict[str, Any] = {
+                "row": f"MB_{p}",
+                "row_type": "material_balance",
+                "rhs": 0.0,
+                feed_col: None,
+                "BASE": float(model.base_yields.get(p, 0.0)),
+            }
+            dmap = model.deltas.get(p) or {}
+            for drv in drivers_list:
+                r[f"D_{drv}"] = float(dmap.get(drv, 0.0)) if drv in dmap else None
+            r["meaning"] = (
+                f"{p} yield = BASE·y0 + Σ D_k·(Δy/Δk); "
+                f"exit→{getattr(exits_by.get(p), 'default_sink', '?')}"
+            )
+            r["equation"] = (
+                f"activity_BASE * {r['BASE']:.6g}"
+                + "".join(
+                    f" + activity_D_{drv} * {float((dmap or {}).get(drv, 0.0)):.6g}"
+                    for drv in drivers_list
+                    if abs(float((dmap or {}).get(drv, 0.0))) > 1e-18
+                )
+                + f"  →  {p}"
+            )
+            r["pims_note"] = "yield MB row (video: material balance rows under BASE/DELTA)"
+            pims_matrix.append(r)
+
+        # E_BASE_REF: BASE = FEED (drives yields at actual feed rate)
+        e_base: Dict[str, Any] = {
+            "row": "E_BASE_REF",
+            "row_type": "E_row",
+            "rhs": 0.0,
+            feed_col: 1.0,
+            "BASE": -1.0,
+            "meaning": f"BASE activity = FEED_{feed_tag} (feed rate drives base yields)",
+            "equation": f"FEED_{feed_tag} − BASE = 0",
+            "pims_note": "video: E row sets base vector equal to feed vector",
+        }
+        for drv in drivers_list:
+            e_base[f"D_{drv}"] = None
+        pims_matrix.append(e_base)
+
+        # E_<driver>_REF: quality/condition barrel balance
+        for drv in drivers_list:
+            q_base = ref_all.get(drv)
+            e_q: Dict[str, Any] = {
+                "row": f"E_{drv}_REF",
+                "row_type": "E_row_quality",
+                "rhs": 0.0,
+                feed_col: -999.0 if drv in (model.reference_feed or {}) else None,
+                "BASE": float(q_base) if q_base is not None else None,
+                "meaning": (
+                    f"quality/condition balance for {drv}: "
+                    f"BASE holds q_base={q_base}; D_{drv} = deviation; "
+                    f"{'-999 on FEED = PIMS quality pickup from ' + feed_src if drv in (model.reference_feed or {}) else 'process condition (no stream quality pickup)'}"
+                ),
+                "equation": (
+                    f"BASE*{q_base} + D_{drv}*1"
+                    + (f" + FEED*(-999→q_stream)" if drv in (model.reference_feed or {}) else "")
+                    + " = 0  (rearranged: D ≈ FEED*(q − q_base) style)"
+                    if q_base is not None
+                    else f"D_{drv} free deviation around reference"
+                ),
+                "pims_note": (
+                    "video: E quality REF — base quality under BASE, deviation under DELTA, "
+                    "−999 under FEED for stream quality tag"
+                ),
+            }
+            for d2 in drivers_list:
+                e_q[f"D_{d2}"] = 1.0 if d2 == drv else None
+            pims_matrix.append(e_q)
+
+        # FREE row: all DELTA columns free (+/−)
+        free_row: Dict[str, Any] = {
+            "row": "FREE",
+            "row_type": "FREE",
+            "rhs": None,
+            feed_col: None,
+            "BASE": None,
+            "meaning": "DELTA vectors free (quality may be above or below base)",
+            "equation": "D_* unrestricted sign",
+            "pims_note": "video: put 1 under each DELTA in FREE row",
+        }
+        for drv in drivers_list:
+            free_row[f"D_{drv}"] = 1.0
+        pims_matrix.append(free_row)
+
+        # CAP row (capacity on feed)
+        cap_row: Dict[str, Any] = {
+            "row": f"CAP_{unit_name}",
+            "row_type": "capacity",
+            "rhs": None,
+            feed_col: 1.0,
+            "BASE": None,
+            "meaning": f"FEED_{feed_tag} ≤ unit capacity (full-plant / unit_specs)",
+            "equation": f"FEED_{feed_tag} ≤ CAP",
+            "pims_note": "capacity on feed activity",
+        }
+        for drv in drivers_list:
+            cap_row[f"D_{drv}"] = None
+        pims_matrix.append(cap_row)
+
+        # Legend / meta rows (append as notes in matrix for in-sheet reading)
+        pims_matrix.append(
+            {
+                "row": "META_feed_source",
+                "row_type": "meta",
+                "rhs": None,
+                feed_col: None,
+                "BASE": None,
+                **{f"D_{drv}": None for drv in drivers_list},
+                "meaning": f"FEED_{feed_tag} stream = {feed_src} (auto-wire when unit active)",
+                "equation": f"FEED ← {feed_src}",
+                "pims_note": "VolSamp analogue: SCCU cat cracker / SDHT style unit table",
+            }
+        )
+        pims_matrix.append(
+            {
+                "row": "META_base_point",
+                "row_type": "meta",
+                "rhs": None,
+                feed_col: None,
+                "BASE": None,
+                **{f"D_{drv}": None for drv in drivers_list},
+                "meaning": "BASE yields at reference_feed + reference_conditions (see Submodel_*_Ref)",
+                "equation": "y = y0(q_base, u_base)",
+                "pims_note": "video: collect base quality and corresponding yield fractions first",
+            }
+        )
+
+        # --- Fixed / direct yield view (video first half) via SOS1 modes ---
+        fixed_yield: List[Dict[str, Any]] = []
+        mode_ids = [str(m.get("id")) for m in modes]
+        for p in products:
+            r = {
+                "row": f"MB_{p}",
+                "row_type": "fixed_yield_MB",
+                "rhs": 0.0,
+                feed_col: None,
+                "meaning": f"fixed yield fractions per discrete mode (not quality-dependent in this view)",
+                "pims_note": "video: fixed/direct yield submodel — coeffs fixed on feed; modes ≈ discrete yields",
+            }
+            for m in modes:
+                mid = str(m.get("id"))
+                r[f"MODE_{mid}"] = float((m.get("yields") or {}).get(p, 0.0))
+            fixed_yield.append(r)
+        r_sos = {
+            "row": "MODE_SOS1",
+            "row_type": "SOS1",
+            "rhs": 1.0,
+            feed_col: None,
+            "meaning": "exactly one severity mode active",
+            "pims_note": "discrete mode selection (MIP/SOS1); alternative to continuous DELTA",
+        }
+        for mid in mode_ids:
+            r_sos[f"MODE_{mid}"] = 1.0
+        fixed_yield.append(r_sos)
+        r_feed = {
+            "row": "FEED_BALANCE",
+            "row_type": "link",
+            "rhs": 0.0,
+            feed_col: 1.0,
+            "meaning": f"feed from {feed_src}",
+            "pims_note": "feed column only (fixed-yield style)",
+        }
+        for mid in mode_ids:
+            r_feed[f"MODE_{mid}"] = None
+        fixed_yield.append(r_feed)
+
+        return {
+            "tech": tech,
+            "ref_feed": ref_feed,
+            "ref_cond": ref_cond,
+            "drivers": drivers,
+            "deltas": deltas,
+            "modes": mode_rows,
+            "exits": exit_rows,
+            "A": A,
+            "notes": notes,
+            "products": products,
+            "mode_ids": mode_ids,
+            "pims_matrix": pims_matrix,
+            "fixed_yield": fixed_yield,
+            "feed_col": feed_col,
+            "feed_tag": feed_tag,
+            "feed_src": feed_src,
+            "drivers_list": drivers_list,
+        }
+
+    fcc_model = build_fcc_base_delta()
+    coker_model = build_coker_base_delta()
+    fcc = _unit_pack("FCC", fcc_model, list(process_modes_fcc(fcc_model)))
+    coker = _unit_pack("Coker", coker_model, list(process_modes_coker(coker_model)))
+
+    return {
+        "fcc_tech": fcc["tech"],
+        "fcc_ref_feed": fcc["ref_feed"],
+        "fcc_ref_cond": fcc["ref_cond"],
+        "fcc_drivers": fcc["drivers"],
+        "fcc_deltas": fcc["deltas"],
+        "fcc_modes": fcc["modes"],
+        "fcc_exits": fcc["exits"],
+        "fcc_A": fcc["A"],
+        "fcc_notes": fcc["notes"],
+        "fcc_pims_matrix": fcc["pims_matrix"],
+        "fcc_fixed_yield": fcc["fixed_yield"],
+        "fcc_feed_col": fcc["feed_col"],
+        "coker_tech": coker["tech"],
+        "coker_ref_feed": coker["ref_feed"],
+        "coker_ref_cond": coker["ref_cond"],
+        "coker_drivers": coker["drivers"],
+        "coker_deltas": coker["deltas"],
+        "coker_modes": coker["modes"],
+        "coker_exits": coker["exits"],
+        "coker_A": coker["A"],
+        "coker_notes": coker["notes"],
+        "coker_pims_matrix": coker["pims_matrix"],
+        "coker_fixed_yield": coker["fixed_yield"],
+        "coker_feed_col": coker["feed_col"],
     }
 
 
@@ -878,7 +1340,7 @@ def run_excel_pipeline(
 
 
 def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
-    """Guide text for results workbook readers (PIMS users + ADMM math)."""
+    """Guide for lean PIMS-style results workbook (≤15 sheets)."""
     mono = report.get("mono") or {}
     admm = report.get("admm") or {}
     cmp_ = report.get("comparison") or {}
@@ -888,95 +1350,77 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     path_ = admm.get("dual_recovery_path") or "package-admm"
     return [
         (
-            "purpose",
-            "Audit trail: Excel PIMS-shaped input → model calculations (Calc_*) → mono CBC + "
-            "block-angular ADMM. Solver is external; Excel holds coefficients, equations, rates, duals.",
+            "goal",
+            "≤15 sheets; one tab per unit submodel; FCC/Coker = Aspen How-To 07 BASE/DELTA matrices.",
         ),
         (
-            "how_this_differs_from_PIMS",
-            "PIMS: one Excel/CPLEX matrix. Here: 2-block LP (CDU + Blender) with explicit yields/recipes "
-            "in Calc_* sheets, then ADMM coordinates linking balances with prices λ.",
+            "tabs",
+            "Index → Calc_Yields / Calc_Blend → Submodel_CDU / Blender / FCC / Coker / Linking → Rates → Shadows → Summary → Check",
         ),
         (
-            "story_in_one_line",
-            "Buy crudes → CDU yields intermediates → blender recipes make products; "
-            "ADMM equates prod_i ≈ use_i and matches mono objective.",
+            "Submodel_CDU / Submodel_Blender",
+            "Each sheet has TECH + A sections (merged). Classic mono/ADMM solve uses these yields/recipes.",
         ),
         (
-            "block_angular_view",
-            "See Calc_BlockAngular (sparse A-matrix with A1/A2/B labels), Calc_BA_Map (what to edit where), Calc_BA_Legend, and Calc_Process (normal workflow). Classic form: Block1 A1 on crude/prod; Block2 A2 on use/product; linking B is prod−use=0.",
+            "Submodel_FCC / Submodel_Coker",
+            "PIMS matrix: FEED · BASE · D_* · MB_* · E_BASE_REF · E_quality_REF (−999) · FREE. No satellite tabs.",
         ),
         (
-            "submodel_data",
-            "Block-angular alone is structure. Submodel *data* lives in Submodel_CDU_Tech (yields) + Submodel_CDU_A (A1 matrix), Submodel_Blender_Tech (recipes) + Submodel_Blender_A (A2 matrix), Submodel_Linking_B (balances). Submodel_Index maps block → sheets. Calc_BlockAngular is the full sparse assembly of those blocks.",
-        ),
-        ("--- READING ORDER ---", ""),
-        ("1_How_to_read", "This guide."),
-        (
-            "2_Calc_Yields",
-            "CDU technology: y_i per crude. prod_i = Σ_c y[c,i]*crude_c.",
-        ),
-        (
-            "3_Calc_Blend",
-            "Blender recipes: use_i ≥ Σ_p recipe[p,i]*product_p.",
-        ),
-        (
-            "4_Calc_Objective",
-            "Linear margin terms: +price*product − price*crude (no utilities on classic path).",
-        ),
-        (
-            "5_Calc_Equations",
-            "Full symbolic mono LP (OBJ, CAP_CDU, YLD_*, BAL_*, BLD_*). Source: admm/simple_mono.py.",
-        ),
-        ("6_Calc_Bounds", "Variable bounds crude/product/prod/use."),
-        (
-            "7_Calc_Blocks",
-            "Block-angular map up to ADMM handoff. MASTER_ADMM is coordinator only (not an Excel LP).",
-        ),
-        ("8_Calc_Linking", "Intermediates linking CDU prod_* to Blender use_*."),
-        (
-            "9_Summary",
-            f"VERDICT + metrics. This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "
+            "solve_boundary",
+            f"Mono+ADMM still CDU+Blender only. Cascade FCC/Coker = solve_cdu_fcc. "
+            f"This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "
             f"gap={gap_pct:.4f}%, dual_L∞={dual_linf}, path={path_}.",
         ),
-        ("10_rate_sheets", "Optimal kbd after solve (mono vs ADMM)."),
         (
-            "11_Shadows",
-            "mono_shadow vs admm_online_econ (PRIMARY) vs recovered (diagnostic).",
-        ),
-        (
-            "12_Calc_Check",
-            "Plug mono rates into Calc_Yields/Calc_Blend; abs_err ~ 0 proves tables match solve.",
-        ),
-        ("--- MATH / SOLVER ---", ""),
-        (
-            "mono_LP",
-            "CBC maximizes margin subject to Calc_Equations. Duals → mono_shadow.",
-        ),
-        (
-            "ADMM_handoff",
-            "Same coefficients split across CDU/BLENDER blocks; master updates λ,z,ρ outside Excel "
-            "(admm/coordinator.py). Excel stops at defining the model + reporting results.",
-        ),
-        (
-            "pass_criteria",
-            "both feasible; gap_rel ≤ 0.50%; dual L∞(online) ≤ 15. See Summary.verdict.",
-        ),
-        (
-            "input_workbook",
-            "Crudes / Products / Capacities / Intermediates template. "
-            f"This solve input: {meta.get('input')}.",
-        ),
-        (
-            "code_map",
-            "excel_pipeline.model_calculations_from_data → simple_mono + run_admm. "
-            "CLI: python -m demos.run_excel_pipeline_demo",
+            "input",
+            f"Template Crudes/Products/Capacities. Input: {meta.get('input')}. Re-solve via Python/API.",
         ),
     ]
 
 
+def _sheet_header_map(ws) -> Dict[str, str]:
+    """Header name -> column letter for row 1."""
+    from openpyxl.utils import get_column_letter
+
+    out: Dict[str, str] = {}
+    for cell in ws[1]:
+        if cell.value is None:
+            continue
+        out[str(cell.value)] = get_column_letter(cell.column)
+    return out
+
+
+def _apply_excel_formula_links(wb, model: Dict[str, Any], mono: Dict[str, Any]) -> None:
+    """Minimal formulas: yield_sum / recipe_sum on Calc_Yields / Calc_Blend only.
+
+    Lean workbook drops Live_* sprawl; re-solve stays in Python/API.
+    """
+    if "Calc_Yields" not in wb.sheetnames or "Calc_Blend" not in wb.sheetnames:
+        return
+    inter = list(model.get("intermediates") or [])
+    yields = list(model.get("yields") or [])
+    blends = list(model.get("blend_recipes") or [])
+    n_c, n_p = len(yields), len(blends)
+    if n_c == 0 or n_p == 0 or not inter:
+        return
+    yws, bws = wb["Calc_Yields"], wb["Calc_Blend"]
+    ymap, bmap = _sheet_header_map(yws), _sheet_header_map(bws)
+    y_cols = [ymap[f"y_{i}"] for i in inter if f"y_{i}" in ymap]
+    if "yield_sum" in ymap and y_cols:
+        for r in range(2, 2 + n_c):
+            yws[f"{ymap['yield_sum']}{r}"] = "=" + "+".join(f"{c}{r}" for c in y_cols)
+    u_cols = [bmap[f"use_{i}"] for i in inter if f"use_{i}" in bmap]
+    if "recipe_sum" in bmap and u_cols:
+        for r in range(2, 2 + n_p):
+            bws[f"{bmap['recipe_sum']}{r}"] = "=" + "+".join(f"{c}{r}" for c in u_cols)
+
+
 def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
-    """Write How_to_read + Calc_* model math + Summary / rates / shadows."""
+    """Lean PIMS-style results workbook (target ≤15 sheets).
+
+    One tab per unit submodel: CDU, Blender, FCC, Coker, Linking.
+    FCC/Coker are Aspen How-To 07 BASE/DELTA matrices.
+    """
     import openpyxl
     from openpyxl.styles import Alignment, Font
 
@@ -992,6 +1436,7 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
     meta = report.get("meta") or {}
     model = report.get("model") or {}
 
+    # --- How_to_read ---
     guide = wb.active
     if guide is None:
         guide = wb.create_sheet("How_to_read", 0)
@@ -999,169 +1444,139 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
     guide.append(["topic", "explanation"])
     guide["A1"].font = bold
     guide["B1"].font = bold
-    for topic, text in _how_to_read_rows(report):
-        guide.append([topic, text])
-    guide.column_dimensions["A"].width = 28
+    for topic, text_ in _how_to_read_rows(report):
+        guide.append([topic, text_])
+    guide.column_dimensions["A"].width = 22
     guide.column_dimensions["B"].width = 100
     for row in guide.iter_rows(min_row=2, max_col=2):
         row[1].alignment = wrap
-        t = row[0].value
-        guide.row_dimensions[row[0].row].height = (
-            18 if t and str(t).startswith("---") else 40
-        )
+        guide.row_dimensions[row[0].row].height = 36
 
     def _header(ws, headers):
         ws.append(headers)
         for c in ws[1]:
             c.font = bold
 
-    def _dict_rows_sheet(name, rows, preferred=None):
-        s = wb.create_sheet(name)
-        if not rows:
-            _header(s, ["(empty)"])
-            return
-        keys = []
+    def _keys_for_rows(rows, preferred=None):
+        keys: List[str] = []
         if preferred:
             keys.extend([k for k in preferred if any(k in r for r in rows)])
+        dyn = []
+        for r in rows:
+            for k in r.keys():
+                if k not in keys and (str(k).startswith("D_") or str(k).startswith("MODE_")):
+                    if k not in dyn:
+                        dyn.append(k)
+        insert_at = None
+        for marker in ("BASE", "FEED_FFD", "FEED_CFD", "rhs"):
+            if marker in keys:
+                insert_at = keys.index(marker) + 1
+                break
+        if insert_at is None:
+            keys.extend(dyn)
+        else:
+            keys[insert_at:insert_at] = dyn
         for r in rows:
             for k in r.keys():
                 if k not in keys:
                     keys.append(k)
+        return keys
+
+    def _dict_rows_sheet(name, rows, preferred=None):
+        s = wb.create_sheet(name)
+        if not rows:
+            _header(s, ["(empty)"])
+            return s
+        keys = _keys_for_rows(rows, preferred)
         _header(s, keys)
         for r in rows:
             s.append([r.get(k) for k in keys])
+        return s
+
+    def _sectioned_sheet(name, sections):
+        """sections: list of (section_title, rows, preferred)."""
+        s = wb.create_sheet(name)
+        first = True
+        for title, rows, preferred in sections:
+            if not first:
+                s.append([])
+            first = False
+            s.append([f"=== {title} ==="])
+            s.cell(s.max_row, 1).font = bold
+            if not rows:
+                s.append(["(empty)"])
+                continue
+            keys = _keys_for_rows(rows, preferred)
+            s.append(keys)
+            for c in s[s.max_row]:
+                c.font = bold
+            for r in rows:
+                s.append([r.get(k) for k in keys])
+        return s
 
     if model:
-        note = wb.create_sheet("Calc_ModelNote")
-        _header(note, ["key", "value"])
-        for k in ("form", "source", "solver_note", "cdu_capacity_kbd"):
-            note.append([k, model.get(k)])
-        note.append(["intermediates", ", ".join(model.get("intermediates") or [])])
-
+        sm = submodel_matrix_tables(model)
+        lean_index = [
+            {"block": "CDU", "sheet": "Submodel_CDU", "what": "TECH yields + A matrix (CAP/YLD) — classic solve"},
+            {"block": "BLENDER", "sheet": "Submodel_Blender", "what": "TECH recipes + A matrix (BLD) — classic solve"},
+            {"block": "FCC", "sheet": "Submodel_FCC", "what": "PIMS BASE/DELTA matrix (FEED_FFD, BASE, D_*, E-rows, FREE)"},
+            {"block": "COKER", "sheet": "Submodel_Coker", "what": "PIMS BASE/DELTA matrix (FEED_CFD, BASE, D_*, E-rows, FREE)"},
+            {"block": "LINKING", "sheet": "Submodel_Linking", "what": "prod−use balances; duals → Shadows"},
+            {"block": "MASTER_ADMM", "sheet": "(outside Excel)", "what": "ρ / dual ascent / consensus — Python only"},
+        ]
+        _dict_rows_sheet("Submodel_Index", lean_index, preferred=["block", "sheet", "what"])
         _dict_rows_sheet(
             "Calc_Yields",
             list(model.get("yields") or []),
-            preferred=[
-                "crude",
-                "price_usd_per_bbl",
-                "max_supply_kbd",
-                "api",
-                "sulfur_wt_pct",
-            ],
+            preferred=["crude", "price_usd_per_bbl", "max_supply_kbd", "api", "sulfur_wt_pct"],
         )
         _dict_rows_sheet(
             "Calc_Blend",
             list(model.get("blend_recipes") or []),
             preferred=["product", "price_usd_per_bbl", "max_demand_kbd"],
         )
-        _dict_rows_sheet(
-            "Calc_Objective",
-            list(model.get("objective_terms") or []),
-            preferred=["term", "variable", "coeff", "unit", "block", "formula"],
+        _sectioned_sheet(
+            "Submodel_CDU",
+            [
+                (
+                    "TECH — yields / economics",
+                    list(sm.get("cdu_tech") or []),
+                    ["submodel", "crude", "price_usd_per_bbl", "max_supply_kbd", "api", "sulfur_wt_pct"],
+                ),
+                (
+                    "A — CAP + YLD constraints",
+                    list(sm.get("cdu_A") or []),
+                    ["constraint", "type", "rhs", "meaning", "submodel_data_from"],
+                ),
+            ],
         )
-        _dict_rows_sheet(
-            "Calc_Equations",
-            list(model.get("equations") or []),
-            preferred=["id", "name", "type", "equation", "notes"],
-        )
-        if "Calc_Equations" in wb.sheetnames:
-            wb["Calc_Equations"].column_dimensions["D"].width = 90
-            wb["Calc_Equations"].column_dimensions["E"].width = 42
-        _dict_rows_sheet(
-            "Calc_Bounds",
-            list(model.get("bounds") or []),
-            preferred=["variable", "lo", "up", "block"],
-        )
-        _dict_rows_sheet(
-            "Calc_Blocks",
-            list(model.get("blocks") or []),
-            preferred=[
-                "block",
-                "role",
-                "local_vars",
-                "local_constraints",
-                "sees_prices",
-                "exports",
+        _sectioned_sheet(
+            "Submodel_Blender",
+            [
+                (
+                    "TECH — recipes / economics",
+                    list(sm.get("blend_tech") or []),
+                    ["submodel", "product", "price_usd_per_bbl", "max_demand_kbd"],
+                ),
+                (
+                    "A — BLD constraints",
+                    list(sm.get("blend_A") or []),
+                    ["constraint", "type", "rhs", "meaning", "submodel_data_from"],
+                ),
             ],
         )
         _dict_rows_sheet(
-            "Calc_Linking",
-            list(model.get("linking") or []),
-            preferred=["stream", "cdu_var", "blender_var", "balance", "admm_role"],
-        )
-        ba = block_angular_matrix(model)
-        _dict_rows_sheet(
-            "Calc_BlockAngular",
-            list(ba.get("matrix_rows") or []),
-            preferred=[
-                "row_id",
-                "block",
-                "type",
-                "rhs",
-                "source_sheet",
-                "editable",
-                "equation",
-            ],
-        )
-        if "Calc_BlockAngular" in wb.sheetnames:
-            wb["Calc_BlockAngular"].column_dimensions["G"].width = 55
-            wb["Calc_BlockAngular"].column_dimensions["F"].width = 42
-        _dict_rows_sheet(
-            "Calc_BA_Map",
-            list(ba.get("map_rows") or []),
-            preferred=["region", "block", "variables", "constraints", "data_from", "modify_how"],
+            "Submodel_FCC",
+            list(sm.get("fcc_pims_matrix") or []),
+            preferred=["row", "row_type", "rhs", "FEED_FFD", "BASE", "meaning", "equation", "pims_note"],
         )
         _dict_rows_sheet(
-            "Calc_BA_Legend",
-            list(ba.get("legend") or []),
-            preferred=["symbol", "meaning", "sheet"],
+            "Submodel_Coker",
+            list(sm.get("coker_pims_matrix") or []),
+            preferred=["row", "row_type", "rhs", "FEED_CFD", "BASE", "meaning", "equation", "pims_note"],
         )
         _dict_rows_sheet(
-            "Calc_Process",
-            list(ba.get("process") or []),
-            preferred=["step", "name", "where", "what"],
-        )
-        # Dense submodel data (A1/A2 tech + local A matrices + linking B)
-        sm = submodel_matrix_tables(model)
-        _dict_rows_sheet(
-            "Submodel_Index",
-            list(sm.get("index") or []),
-            preferred=["block", "tech_table", "constraint_matrix", "includes", "edit_via"],
-        )
-        _dict_rows_sheet(
-            "Submodel_CDU_Tech",
-            list(sm.get("cdu_tech") or []),
-            preferred=[
-                "submodel",
-                "crude",
-                "price_usd_per_bbl",
-                "max_supply_kbd",
-                "api",
-                "sulfur_wt_pct",
-            ],
-        )
-        _dict_rows_sheet(
-            "Submodel_CDU_A",
-            list(sm.get("cdu_A") or []),
-            preferred=["constraint", "type", "rhs", "meaning", "submodel_data_from"],
-        )
-        _dict_rows_sheet(
-            "Submodel_Blender_Tech",
-            list(sm.get("blend_tech") or []),
-            preferred=[
-                "submodel",
-                "product",
-                "price_usd_per_bbl",
-                "max_demand_kbd",
-            ],
-        )
-        _dict_rows_sheet(
-            "Submodel_Blender_A",
-            list(sm.get("blend_A") or []),
-            preferred=["constraint", "type", "rhs", "meaning", "submodel_data_from"],
-        )
-        _dict_rows_sheet(
-            "Submodel_Linking_B",
+            "Submodel_Linking",
             list(sm.get("link_A") or []),
             preferred=[
                 "constraint",
@@ -1172,7 +1587,6 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
                 "cdu_var",
                 "blender_var",
                 "meaning",
-                "submodel_data_from",
             ],
         )
         _dict_rows_sheet(
@@ -1206,33 +1620,29 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
         ("dual_linf_online", cmp_.get("dual_linf_online")),
         ("dual_linf_recovered", cmp_.get("dual_linf_recovered")),
         ("model_form", model.get("form")),
+        (
+            "sheet_guide",
+            "How_to_read → Index → Calc_Yields/Blend → Submodel_CDU/Blender/FCC/Coker/Linking → Rates → Shadows → Summary",
+        ),
+        ("n_sheets_target", "≤15 lean PIMS-style"),
     ]:
         ws.append([k, v])
 
-    def rate_sheet(name, rates):
-        s = wb.create_sheet(name)
-        _header(s, ["name", "kbd"])
-        for k, v in sorted((rates or {}).items()):
-            s.append([k, float(v)])
-
-    rate_sheet("Crudes_mono", mono.get("crude_rates") or {})
-    rate_sheet("Products_mono", mono.get("product_rates") or {})
-    rate_sheet("Crudes_admm", admm.get("crude_rates") or {})
-    rate_sheet("Products_admm", admm.get("product_rates") or {})
-    rate_sheet("Inter_prod_mono", mono.get("intermediate_prod") or {})
-    rate_sheet("Inter_use_mono", mono.get("intermediate_use") or {})
+    rates = wb.create_sheet("Rates")
+    _header(rates, ["kind", "name", "mono_kbd", "admm_kbd", "delta_kbd"])
+    for kind, mdict, adict in [
+        ("crude", mono.get("crude_rates") or {}, admm.get("crude_rates") or {}),
+        ("product", mono.get("product_rates") or {}, admm.get("product_rates") or {}),
+        ("inter_prod", mono.get("intermediate_prod") or {}, admm.get("intermediate_prod") or {}),
+        ("inter_use", mono.get("intermediate_use") or {}, admm.get("intermediate_use") or {}),
+    ]:
+        for name in sorted(set(mdict) | set(adict)):
+            mv = float(mdict.get(name, 0.0))
+            av = float(adict.get(name, 0.0))
+            rates.append([kind, name, mv, av, av - mv])
 
     sh = wb.create_sheet("Shadows")
-    _header(
-        sh,
-        [
-            "stream",
-            "mono_shadow",
-            "admm_online_econ",
-            "admm_recovered_econ",
-            "abs_diff_online",
-        ],
-    )
+    _header(sh, ["stream", "mono_shadow", "admm_online_econ", "admm_recovered_econ", "abs_diff_online"])
     mono_sh = mono.get("shadow_prices") or {}
     admm_sh = admm.get("shadow_prices") or {}
     rec_sh = admm.get("shadow_prices_recovered") or {}
@@ -1241,8 +1651,18 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
         diff = abs(float(m) - float(a)) if m is not None and a is not None else None
         sh.append([k, m, a, r, diff])
 
+    if model:
+        _apply_excel_formula_links(wb, model, mono)
+
+    # Goal gate: ≤15 sheets
+    if len(wb.sheetnames) > 15:
+        raise RuntimeError(
+            f"Excel lean goal failed: {len(wb.sheetnames)} sheets > 15: {wb.sheetnames}"
+        )
+
     wb.save(path)
     return path
+
 
 
 def ensure_template(path: PathLike | None = None) -> Path:
