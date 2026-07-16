@@ -1421,16 +1421,18 @@ def offline_block_solve_readiness_report(
     box_delta: float = 1.0,
     include_admm_residual: bool = True,
     include_admm_block_subproblem: bool = True,
+    include_admm_coordination: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
     One call answers \"ready for wire discussion?\" without re-implementing
     parity/priced math. Does **not** mean wire is shipped or duals are owned.
 
-    ``admm_residual_ok`` and ``admm_block_subproblem_ok`` are **additive**
-    pre-wire checklist info (does **not** change ``ready_for_wire_discussion``
-    semantics: still parity∧priced∧timings∧honesty). Never claims wire shipped
-    when residual/subproblem ok.
+    ``admm_residual_ok``, ``admm_block_subproblem_ok``, and
+    ``admm_coordination_ok`` are **additive** pre-wire checklist info (does
+    **not** change ``ready_for_wire_discussion`` semantics: still
+    parity∧priced∧timings∧honesty). Never claims wire shipped or plant linking
+    when residual/subproblem/coordination ok.
     """
     base = multi_unit_block_solve_timing_report(
         n_repeats=n_repeats,
@@ -1464,6 +1466,16 @@ def offline_block_solve_readiness_report(
         except Exception:  # pragma: no cover - defensive
             admm_block_subproblem_ok = False
     base["admm_block_subproblem_ok"] = admm_block_subproblem_ok
+    admm_coordination_ok: Optional[bool] = None
+    if include_admm_coordination:
+        try:
+            coord_rep = multi_unit_admm_coordination_report(
+                n_rounds=2, rho=1.0, delta=0.5
+            )
+            admm_coordination_ok = bool(coord_rep.get("ok"))
+        except Exception:  # pragma: no cover - defensive
+            admm_coordination_ok = False
+    base["admm_coordination_ok"] = admm_coordination_ok
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1472,9 +1484,10 @@ def offline_block_solve_readiness_report(
         "dual_recovery_path remains None; on_excel_case1_path=False; "
         "timings/prices/gradients/ADMM residuals are NOT ADMM λ / Case 1 shadows; "
         "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
-        "admm_residual_ok and admm_block_subproblem_ok are additive pre-wire "
-        "checklist items (synthetic λ,z,ρ residual / block subproblem harnesses) "
-        "and do not redefine ready_for_wire_discussion."
+        "admm_residual_ok, admm_block_subproblem_ok, and admm_coordination_ok are "
+        "additive pre-wire checklist items (synthetic λ,z,ρ residual / block "
+        "subproblem / multi-round coordination harnesses; per-unit synthetic not "
+        "plant linking) and do not redefine ready_for_wire_discussion."
     )
     return base
 
