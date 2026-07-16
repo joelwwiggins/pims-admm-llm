@@ -90,6 +90,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_plant_named_linking_available": True,
         "wire_preflight_available": True,
         "admm_case1_shaped_linking_available": True,
+        "admm_case1_dual_space_form_contract_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -126,7 +127,13 @@ def honesty_metadata() -> Dict[str, Any]:
             "linear quality/pooling residual under synthetic λ,z,ρ on Case 1 intermediate "
             "streams; dual-ban; wire_shipped=False; skeleton ≠ wire; skeleton λ ≠ Case 1 "
             "PRIMARY/SECONDARY duals; blender_surface=linear_quality_pooling (not affine "
-            "UNITS); does not clear DEFAULT_WIRE_BLOCKERS."
+            "UNITS); does not clear DEFAULT_WIRE_BLOCKERS. "
+            "Offline Case-1 dual-space / form-label contract available "
+            "(offline_case1_dual_space_form_contract_report): planned TF-aware form label "
+            "registry without flipping Case 1; dual-space stream map Case 1 intermediates "
+            "↔ skeleton λ slots; dual_linf_under_wire status=unproven + open checklist; "
+            "dual-ban; wire_shipped=False; does not clear DEFAULT_WIRE_BLOCKERS; does not "
+            "redefine ready_for_wire_discussion; not wire; not dual L∞ proven under wire."
         ),
     }
 
@@ -1444,6 +1451,7 @@ def offline_block_solve_readiness_report(
     include_admm_plant_linking: bool = True,
     include_admm_plant_named_linking: bool = True,
     include_admm_case1_shaped_linking: bool = True,
+    include_admm_case1_dual_space_form_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1451,8 +1459,9 @@ def offline_block_solve_readiness_report(
     parity/priced math. Does **not** mean wire is shipped or duals are owned.
 
     ``admm_residual_ok``, ``admm_block_subproblem_ok``, ``admm_coordination_ok``,
-    ``admm_plant_linking_ok``, ``admm_plant_named_linking_ok``, and
-    ``admm_case1_shaped_linking_ok`` are
+    ``admm_plant_linking_ok``, ``admm_plant_named_linking_ok``,
+    ``admm_case1_shaped_linking_ok``, and
+    ``admm_case1_dual_space_form_contract_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1531,6 +1540,17 @@ def offline_block_solve_readiness_report(
         except Exception:  # pragma: no cover - defensive
             admm_case1_shaped_linking_ok = False
     base["admm_case1_shaped_linking_ok"] = admm_case1_shaped_linking_ok
+    admm_case1_dual_space_form_contract_ok: Optional[bool] = None
+    if include_admm_case1_dual_space_form_contract:
+        try:
+            # Pure compose — no maximizer / no Case 1 solve on contract hot path.
+            ds_rep = offline_case1_dual_space_form_contract_report()
+            admm_case1_dual_space_form_contract_ok = bool(ds_rep.get("ok"))
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_dual_space_form_contract_ok = False
+    base["admm_case1_dual_space_form_contract_ok"] = (
+        admm_case1_dual_space_form_contract_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1540,14 +1560,18 @@ def offline_block_solve_readiness_report(
         "timings/prices/gradients/ADMM residuals are NOT ADMM λ / Case 1 shadows; "
         "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
         "admm_residual_ok, admm_block_subproblem_ok, admm_coordination_ok, "
-        "admm_plant_linking_ok, admm_plant_named_linking_ok, and "
-        "admm_case1_shaped_linking_ok are additive "
+        "admm_plant_linking_ok, admm_plant_named_linking_ok, "
+        "admm_case1_shaped_linking_ok, and "
+        "admm_case1_dual_space_form_contract_ok are additive "
         "pre-wire checklist items (synthetic λ,z,ρ residual / block subproblem / "
         "multi-round coordination / multi-block plant-linking synthetic + plant-named "
-        "topology modes / Case-1-shaped CDU↔Blender offline skeleton; coordination is "
+        "topology modes / Case-1-shaped CDU↔Blender offline skeleton / dual-space "
+        "form-label contract; coordination is "
         "per-unit synthetic not plant linking; plant-linking modes are offline demos; "
         "Case-1-shaped skeleton is offline-only (not wire, not Case 1 duals, not full "
-        "plant mass balance) and do not redefine ready_for_wire_discussion."
+        "plant mass balance); dual-space/form contract registers planned form + stream "
+        "map + dual_linf unproven checklist without flipping Case 1 or shipping wire — "
+        "and do not redefine ready_for_wire_discussion."
     )
     return base
 
@@ -3773,6 +3797,7 @@ def offline_wire_preflight_report(
     include_admm_plant_linking: bool = True,
     include_admm_plant_named_linking: bool = True,
     include_admm_case1_shaped_linking: bool = True,
+    include_admm_case1_dual_space_form_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -3805,6 +3830,9 @@ def offline_wire_preflight_report(
         include_admm_plant_linking=include_admm_plant_linking,
         include_admm_plant_named_linking=include_admm_plant_named_linking,
         include_admm_case1_shaped_linking=include_admm_case1_shaped_linking,
+        include_admm_case1_dual_space_form_contract=(
+            include_admm_case1_dual_space_form_contract
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -3822,6 +3850,9 @@ def offline_wire_preflight_report(
     admm_plant_linking_ok = readiness.get("admm_plant_linking_ok")
     admm_plant_named_linking_ok = readiness.get("admm_plant_named_linking_ok")
     admm_case1_shaped_linking_ok = readiness.get("admm_case1_shaped_linking_ok")
+    admm_case1_dual_space_form_contract_ok = readiness.get(
+        "admm_case1_dual_space_form_contract_ok"
+    )
 
     blockers_documented = (
         len(wire_blockers) > 0
@@ -3848,6 +3879,10 @@ def offline_wire_preflight_report(
         (admm_plant_linking_ok, include_admm_plant_linking),
         (admm_plant_named_linking_ok, include_admm_plant_named_linking),
         (admm_case1_shaped_linking_ok, include_admm_case1_shaped_linking),
+        (
+            admm_case1_dual_space_form_contract_ok,
+            include_admm_case1_dual_space_form_contract,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -3870,7 +3905,8 @@ def offline_wire_preflight_report(
     note = (
         "Offline dual-honest wire preflight: composes offline_block_solve_readiness_report "
         "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
-        "plant_linking/plant_named gates) and lists machine-readable wire_blockers true at "
+        "plant_linking/plant_named/case1_shaped/dual_space_form_contract gates) and lists "
+        "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
         "or blockers). wire_shipped=False always; dual_recovery_path=None; not Case 1 solve; "
@@ -3903,6 +3939,7 @@ def offline_wire_preflight_report(
         "admm_plant_linking_ok": admm_plant_linking_ok,
         "admm_plant_named_linking_ok": admm_plant_named_linking_ok,
         "admm_case1_shaped_linking_ok": admm_case1_shaped_linking_ok,
+        "admm_case1_dual_space_form_contract_ok": admm_case1_dual_space_form_contract_ok,
         # Blockers
         "wire_blockers": wire_blockers,
         "wire_blocker_notes": wire_blocker_notes,
@@ -4702,6 +4739,326 @@ def multi_block_case1_shaped_linking_admm_report(
     return offline_case1_shaped_cdu_blender_linking_report(**kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Offline Case-1 dual-space / form-label contract (goal 5 + goal 3 residual)
+# ---------------------------------------------------------------------------
+# Always-on numpy. Registers planned TF-aware form label WITHOUT flipping
+# Case 1; maps dual-space stream slots (Case 1 intermediates ↔ skeleton λ);
+# records dual_linf_under_wire as unproven with open checklist.
+# dual_recovery_path=None; wire_shipped=False; does NOT clear DEFAULT_WIRE_BLOCKERS;
+# does NOT redefine ready_for_wire_discussion; does NOT re-run maximizers;
+# no TF / no PuLP / no live Case 1 solve on hot path.
+
+CASE1_DUAL_SPACE_FORM_CONTRACT_KIND = "offline_case1_dual_space_form_contract"
+
+# Form-label registry (no flip). Planned name is distinct from current classic.
+CASE1_FORM_CURRENT = "classic_2block_excel_path"
+CASE1_PLANNED_TF_AWARE_FORM = "tf_affine_cdu_blender_shaped_excel_path"
+
+# dual_linf under wire remains unproven at HEAD — open items only.
+CASE1_DUAL_LINF_UNDER_WIRE_STATUS = "unproven"
+CASE1_DUAL_LINF_PROOF_CHECKLIST: Dict[str, str] = {
+    "isolation_rewrite_with_wire": "open",
+    "form_label_change_shipped": "open",  # registered planned form ≠ form shipped
+    "online_linf_gate_under_tf_path": "open",
+    "wire_shipped": "false_today",
+    "blender_affine_kernel_or_honest_pooling_path": "open",
+}
+
+# Critical blockers that must remain true after contract ships (prep ≠ cleared).
+CASE1_CONTRACT_CRITICAL_BLOCKERS: tuple = (
+    "form_label_change_required",
+    "dual_linf_under_wire_unproven",
+    "wire_not_shipped",
+    "isolation_rewrite_required",
+    "case1_is_cdu_blender_package_admm",
+    "no_blender_offline_affine_kernel",
+)
+
+
+def case1_form_label_contract() -> Dict[str, Any]:
+    """Form-label registry fields (current classic vs planned TF-aware; no flip)."""
+    form_current = CASE1_FORM_CURRENT
+    form_planned = CASE1_PLANNED_TF_AWARE_FORM
+    planned_distinct = form_planned != form_current and form_planned != (
+        "classic_2block_excel_path"
+    )
+    form_unchanged = form_current == "classic_2block_excel_path"
+    form_label_change_required_still_true = (
+        "form_label_change_required" in DEFAULT_WIRE_BLOCKERS
+        and planned_distinct
+        and form_unchanged
+    )
+    return {
+        "form_current": form_current,
+        "form_planned": form_planned,
+        "planned_form": form_planned,
+        "form_unchanged": form_unchanged,
+        "case1_form_unchanged": form_unchanged,
+        "planned_form_distinct": planned_distinct,
+        "form_label_change_required_still_true": form_label_change_required_still_true,
+        "form_label_change_required": form_label_change_required_still_true,
+        "form_contract_ok": bool(
+            form_unchanged and planned_distinct and form_label_change_required_still_true
+        ),
+        "note": (
+            "Planned TF-aware form is registered only — Case 1 still uses "
+            f"{form_current}. Never silent reuse of classic as planned name; "
+            "never mutate Excel model.form from this surface."
+        ),
+    }
+
+
+def case1_dual_space_stream_map() -> Dict[str, Any]:
+    """Map Case 1 intermediates ↔ Case-1-shaped skeleton λ/z slots (name-set).
+
+    No numeric dual equality. No live PuLP duals. Skeleton λ ≠ Case 1 duals.
+    """
+    streams = list(CASE1_SHAPED_LINKING_STREAMS)
+    skeleton_lambda_slots = list(CASE1_SHAPED_LINKING_STREAMS)
+    expected = ["naphtha", "distillate", "gasoil", "residue"]
+    stream_alignment_ok = (
+        streams == skeleton_lambda_slots
+        and streams == expected
+        and "resid" not in streams  # plant-linking spelling is separate
+    )
+    stream_dual_roles = {
+        s: {
+            "skeleton_lambda_slot": s,
+            "package_dual_gate": "online_lambda",
+            "package_dual_secondary": "recovered_blender",
+            "gate_role": "PRIMARY",
+            "secondary_role": "SECONDARY_not_gate",
+        }
+        for s in streams
+    }
+    return {
+        "streams": streams,
+        "linking_streams": streams,
+        "skeleton_lambda_slots": skeleton_lambda_slots,
+        "stream_alignment_ok": stream_alignment_ok,
+        "package_dual_gate": "online_lambda",
+        "package_dual_secondary": "recovered_blender",
+        "package_dual_gate_role": "PRIMARY",
+        "package_dual_secondary_role": "SECONDARY_not_gate",
+        "skeleton_lambda_is_not_case1_online_lambda": True,
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": True,
+        "dual_recovery_path": None,
+        "stream_dual_roles": stream_dual_roles,
+        "note": (
+            "Name-set alignment for future dual L∞ compare under wire. "
+            "Case 1 package dual gate is PRIMARY online λ; SECONDARY recovered "
+            "blender face is not the VERDICT gate. Skeleton λ/z slots reuse "
+            "CASE1_SHAPED_LINKING_STREAMS identity map at HEAD — not numeric "
+            "dual equality; not pure-ADMM dual recovery."
+        ),
+    }
+
+
+def case1_dual_linf_proof_checklist() -> Dict[str, Any]:
+    """Machine-readable dual_linf_under_wire prep checklist (status unproven)."""
+    checklist = dict(CASE1_DUAL_LINF_PROOF_CHECKLIST)
+    open_ids = [
+        k
+        for k, v in checklist.items()
+        if str(v).lower() in ("open", "false_today", "unproven")
+    ]
+    status = CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    status_unproven = status == "unproven"
+    blocker_still = "dual_linf_under_wire_unproven" in DEFAULT_WIRE_BLOCKERS
+    return {
+        "dual_linf_under_wire": status,
+        "dual_linf_under_wire_status": status,
+        "dual_linf_under_wire_unproven_still_true": bool(
+            status_unproven and blocker_still
+        ),
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "dual_linf_proof_checklist_n_open": len(open_ids),
+        "dual_linf_status_unproven_ok": bool(
+            status_unproven and len(open_ids) > 0 and blocker_still
+        ),
+        "note": (
+            "Contract existence does not flip dual_linf_under_wire to proven. "
+            "Online λ L∞ gate under a TF-aware path remains open until isolation "
+            "rewrite + form label change + wire ship a dual-honest path."
+        ),
+    }
+
+
+def _case1_dual_space_form_contract_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-wire locks for the dual-space/form contract."""
+    return {
+        "kind": CASE1_DUAL_SPACE_FORM_CONTRACT_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "skeleton_lambda_is_not_case1_online_lambda": True,
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": True,
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_is_base_delta_affine_unit": False,
+        "excel_cdu_matrix_matches_affine": None,
+        "excel_blender_matrix_matches_affine": None,
+        "scope": "case1_dual_space_form_contract_offline",
+        "note": (
+            "Offline Case-1 dual-space / form-label contract: registers planned "
+            f"TF-aware form ({CASE1_PLANNED_TF_AWARE_FORM}) without flipping Case 1 "
+            f"form ({CASE1_FORM_CURRENT}); maps Case 1 intermediates "
+            "(naphtha/distillate/gasoil/residue) to Case-1-shaped skeleton λ slots; "
+            "records dual_linf_under_wire=unproven with open checklist. "
+            "dual_recovery_path=None; solver=False; on_excel_case1_path=False; "
+            "wire_shipped=False; not pure-ADMM dual recovery; not full plant mass "
+            "balance; not isolation rewrite; not full TF→ADMM wire. Skeleton λ ≠ "
+            "Case 1 PRIMARY online λ / SECONDARY recovered duals. "
+            "blender_surface=linear_quality_pooling — not base_delta_affine_unit; "
+            "UNITS stay FCC/COKER/CDU. Does not invent excel_cdu_matrix_matches_affine "
+            "/ excel_blender_matrix_matches_affine. Does not clear DEFAULT_WIRE_BLOCKERS. "
+            "Does not redefine ready_for_wire_discussion. Always-on numpy; no TF/PuLP "
+            "on hot path; no live Case 1 solve; no maximizer re-run."
+        ),
+    }
+
+
+def offline_case1_dual_space_form_contract_report() -> Dict[str, Any]:
+    """Always-on dual-space + form-label contract report (no TF, no PuLP, no solve).
+
+    Aggregate ``ok`` = honesty locks ∧ stream_alignment_ok ∧ form_contract_ok ∧
+    dual_linf status unproven ∧ blockers still documented.
+    **Not** wire shipped. **Not** dual L∞ under wire proven. **Not** form flip.
+    Does **not** re-implement maximizer / skeleton rounds.
+    """
+    honesty = _case1_dual_space_form_contract_honesty_fields()
+    form = case1_form_label_contract()
+    streams = case1_dual_space_stream_map()
+    dual_linf = case1_dual_linf_proof_checklist()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    honesty_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and "BLENDER" not in UNITS
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["on_case1_solve"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == CASE1_DUAL_SPACE_FORM_CONTRACT_KIND
+        and honesty["wire_shipped"] is False
+        and honesty["not_wire_shipped"] is True
+        and honesty["not_full_plant_mass_balance"] is True
+        and honesty["not_pure_admm_dual_recovery"] is True
+        and honesty["not_case1_solve"] is True
+        and honesty["case1_form_unchanged"] is True
+        and honesty["skeleton_lambda_is_not_case1_online_lambda"] is True
+        and honesty["skeleton_lambda_is_not_case1_primary_or_secondary_duals"] is True
+        and honesty["blender_surface"] == CASE1_SHAPED_BLENDER_SURFACE
+        and honesty["blender_is_base_delta_affine_unit"] is False
+        and honesty["excel_cdu_matrix_matches_affine"] is None
+        and honesty["excel_blender_matrix_matches_affine"] is None
+        and honesty["not_isolation_rewrite"] is True
+        and honesty["not_full_tf_admm_wire"] is True
+    )
+
+    form_contract_ok = bool(form.get("form_contract_ok"))
+    stream_alignment_ok = bool(streams.get("stream_alignment_ok"))
+    dual_linf_status_unproven_ok = bool(dual_linf.get("dual_linf_status_unproven_ok"))
+
+    ok = bool(
+        honesty_ok
+        and form_contract_ok
+        and stream_alignment_ok
+        and dual_linf_status_unproven_ok
+        and blockers_still_documented
+        and honesty["wire_shipped"] is False
+    )
+
+    ok_criteria = (
+        "honesty_ok ∧ form_contract_ok ∧ stream_alignment_ok ∧ "
+        "dual_linf_status_unproven_ok ∧ blockers_still_documented ∧ "
+        "wire_shipped=False; "
+        "NOT wire shipped; NOT dual_linf proven; NOT form flip; NOT ready redefined"
+    )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "honesty_ok": honesty_ok,
+        "form_contract_ok": form_contract_ok,
+        "stream_alignment_ok": stream_alignment_ok,
+        "dual_linf_status_unproven_ok": dual_linf_status_unproven_ok,
+        "blockers_still_documented": blockers_still_documented,
+        "ok_criteria": ok_criteria,
+        # Form-label contract
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form": form["planned_form"],
+        "form_unchanged": form["form_unchanged"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_label_change_required_still_true": form[
+            "form_label_change_required_still_true"
+        ],
+        "form": form,
+        # Dual-space stream map
+        "streams": streams["streams"],
+        "linking_streams": streams["linking_streams"],
+        "skeleton_lambda_slots": streams["skeleton_lambda_slots"],
+        "package_dual_gate": streams["package_dual_gate"],
+        "package_dual_secondary": streams["package_dual_secondary"],
+        "package_dual_gate_role": streams["package_dual_gate_role"],
+        "package_dual_secondary_role": streams["package_dual_secondary_role"],
+        "stream_dual_roles": streams["stream_dual_roles"],
+        "stream_map": streams,
+        # dual_linf checklist
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_proof_checklist": dual_linf["dual_linf_proof_checklist"],
+        "dual_linf_proof_checklist_open_ids": dual_linf[
+            "dual_linf_proof_checklist_open_ids"
+        ],
+        "dual_linf_proof_checklist_n_open": dual_linf[
+            "dual_linf_proof_checklist_n_open"
+        ],
+        "dual_linf": dual_linf,
+        # Blockers remain (prep surface documents; does not clear)
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "units_affine_unchanged": list(UNITS),
+        "tf_available": tf_available(),
+        "case1_shaped_streams_source": "CASE1_SHAPED_LINKING_STREAMS",
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "does_not_clear_default_wire_blockers": True,
+        "note": honesty["note"],
+    }
+
+
+def multi_unit_case1_dual_space_form_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_form_contract_report``."""
+    return offline_case1_dual_space_form_contract_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -4889,6 +5246,17 @@ __all__ = [
     "case1_shaped_cdu_blender_linking_round",
     "offline_case1_shaped_cdu_blender_linking_report",
     "multi_block_case1_shaped_linking_admm_report",
+    "CASE1_DUAL_SPACE_FORM_CONTRACT_KIND",
+    "CASE1_FORM_CURRENT",
+    "CASE1_PLANNED_TF_AWARE_FORM",
+    "CASE1_DUAL_LINF_UNDER_WIRE_STATUS",
+    "CASE1_DUAL_LINF_PROOF_CHECKLIST",
+    "CASE1_CONTRACT_CRITICAL_BLOCKERS",
+    "case1_form_label_contract",
+    "case1_dual_space_stream_map",
+    "case1_dual_linf_proof_checklist",
+    "offline_case1_dual_space_form_contract_report",
+    "multi_unit_case1_dual_space_form_contract_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
