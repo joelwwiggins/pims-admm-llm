@@ -3,6 +3,9 @@
 Planning-grade **BASE + DELTA** LP submodels. Add units only after yields, optimization,
 and **mass balances** pass on the enabled set.
 
+Optional TensorFlow exact-linear surface (offline, not Excel Case 1): see
+[`tf_linear_blocks.md`](tf_linear_blocks.md).
+
 ## Enabled set (current)
 
 | Units | Status |

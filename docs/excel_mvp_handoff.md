@@ -30,9 +30,26 @@ Dual L∞ (online λ vs mono) ≈ 2.66
 VERDICT: PASS
 ```
 
+## Lean results workbook (authoritative sheet map)
+
+Target **≤15 sheets**, one planner tab per unit. Source of truth: `tests/test_excel_pipeline.py` (`REQUIRED` / `BANNED_*`) and `write_results_excel`.
+
+| Sheet | Role |
+|-------|------|
+| How_to_read | Planner guide |
+| Submodel_Index | Unit map |
+| Calc_Yields / Calc_Blend | Editable coefficients |
+| Submodel_CDU / Submodel_Blender | Classic **live** 2-block solve tables |
+| Submodel_FCC / Submodel_Coker | PIMS BASE/DELTA **export** matrices (not live ADMM blocks on this path) |
+| Submodel_Linking | prod−use balances → duals |
+| Calc_Check | Identity / feasibility checks |
+| Summary / Rates / Shadows | Verdict, rates, mono vs online-λ vs recovered duals |
+
+`model.form == classic_2block_excel_path` — Excel solve remains CDU+Blender only; FCC/Coker tabs are teaching/export from `base_delta`.
+
 ## Honesty
 
-- Primary ADMM shadows = **free online λ** (not recovered blender duals).
+- Primary ADMM shadows = **free online λ** (not recovered blender duals). Path label: `…+online_lambda_shadows` on Summary/`dual_recovery_path`.
 - Default FO **$68** may idle coker on light WTI+Cold Lake (resid→FO). Multi-unit tests use FO **$50**.
 - Pure-ADMM default **ρ=2.0** (ρ=1.2 collapsed FCC feed).
 - Classic 2-block CDU/blender Excel path only (not full-plant Excel yet).

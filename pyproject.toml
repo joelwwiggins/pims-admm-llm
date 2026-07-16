@@ -19,6 +19,10 @@ dependencies = [
 [project.optional-dependencies]
 scipy = ["scipy>=1.11"]
 llm = ["openai>=1.0"]
+# Optional TensorFlow for exact-linear block direction (charter goal 5).
+# Never required for Case 1 Excel / PuLP ADMM. Install: pip install -e ".[tf]"
+# On Jetson/hosts without a wheel, leave uninstalled — isolation tests enforce this.
+tf = ["tensorflow>=2.13"]
 dev = ["pytest>=7.0", "scipy>=1.11"]
 all = ["scipy>=1.11", "openai>=1.0", "openpyxl>=3.1", "pytest>=7.0"]
 

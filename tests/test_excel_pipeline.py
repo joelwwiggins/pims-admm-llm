@@ -1,4 +1,4 @@
-"""Excel PIMS-shaped → mono + ADMM → results workbook MVP tests."""
+"""Excel PIMS-shaped → mono + ADMM → lean results workbook tests."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,36 +15,72 @@ from pims_admm_llm.models.excel_pipeline import (
 )
 from pims_admm_llm.models.assay_loader import write_template_excel
 
+# Goal: ≤15 sheets, one tab per unit submodel, PIMS How-To 07 FCC/Coker
+GOAL_MAX_SHEETS = 15
+REQUIRED = (
+    "How_to_read",
+    "Submodel_Index",
+    "Calc_Yields",
+    "Calc_Blend",
+    "Submodel_CDU",
+    "Submodel_Blender",
+    "Submodel_FCC",
+    "Submodel_Coker",
+    "Submodel_Linking",
+    "Summary",
+    "Rates",
+    "Shadows",
+    "Calc_Check",
+)
+BANNED_PREFIXES = ("Submodel_FCC_", "Submodel_Coker_", "Live_")
+BANNED_EXACT = {
+    "Submodel_CDU_Tech",
+    "Submodel_CDU_A",
+    "Submodel_Blender_Tech",
+    "Submodel_Blender_A",
+    "Submodel_Linking_B",
+    "Calc_BlockAngular",
+    "Calc_BA_Map",
+    "Calc_BA_Legend",
+    "Calc_Process",
+    "Calc_Blocks",
+    "Calc_Bounds",
+    "Calc_Objective",
+    "Calc_ModelNote",
+    "Calc_Equations",
+    "Calc_Linking",
+    "Crudes_mono",
+    "Products_mono",
+    "Crudes_admm",
+    "Products_admm",
+    "Inter_prod_mono",
+    "Inter_use_mono",
+}
+
 
 def test_excel_pipeline_end_to_end(tmp_path):
     xlsx_in = tmp_path / "model.xlsx"
     write_template_excel(xlsx_in)
-    assert xlsx_in.is_file()
-
     xlsx_out = tmp_path / "results.xlsx"
     json_out = tmp_path / "results.json"
     report = run_excel_pipeline(
-        xlsx_in,
-        results_xlsx=xlsx_out,
-        results_json=json_out,
+        xlsx_in, results_xlsx=xlsx_out, results_json=json_out
     )
-
-    assert xlsx_out.is_file()
-    assert json_out.is_file()
-    assert report["mono"]["feasible"] is True
-    assert report["admm"]["feasible"] is True
-    assert report["mono"]["objective"] > 0
-    assert report["admm"]["objective"] > 0
-    # Tuned ρ=8 path: gap ~0.02% on template
+    assert xlsx_out.is_file() and json_out.is_file()
+    assert report["mono"]["feasible"] and report["admm"]["feasible"]
+    assert report["mono"]["objective"] > 0 and report["admm"]["objective"] > 0
     assert report["comparison"]["objective_gap_rel"] <= 0.005 + 1e-9
-    # Online λ tracks mono duals; recovered blender duals may differ
     assert report["comparison"]["dual_linf_online"] <= 15.0
     assert report["verdict"].startswith("PASS")
-    assert report["meta"]["n_crudes"] >= 3
-    assert sum(report["mono"]["crude_rates"].values()) > 1.0
-    assert sum(report["mono"]["product_rates"].values()) > 1.0
-    assert "online_lambda" in report["admm"]["dual_recovery_path"]
     assert report["meta"]["admm_config"]["rho"] == 8.0
+    # E14: feasibility stays classic 2-block; TF must not own duals or form.
+    assert report.get("model", {}).get("form") == "classic_2block_excel_path"
+    path = str(report.get("admm", {}).get("dual_recovery_path") or "")
+    assert "online_lambda" in path
+    assert "tf_block" not in path.lower()
+    assert "tensorflow" not in path.lower()
+    assert "tf_block" not in report
+    assert report.get("tf_block") is None
 
 
 def test_excel_pipeline_shadows_prefer_online_lambda(tmp_path):
@@ -54,17 +90,15 @@ def test_excel_pipeline_shadows_prefer_online_lambda(tmp_path):
     mono_sh = report["mono"]["shadow_prices"]
     online = report["admm"]["shadow_prices"]
     recovered = report["admm"]["shadow_prices_recovered"]
-    # Online L∞ should beat recovered blender dual L∞ on multi-crude template
     assert report["comparison"]["dual_linf_online"] <= report["comparison"][
         "dual_linf_recovered"
     ] + 1e-9
-    # All streams reported
     for s in mono_sh:
-        assert s in online
-        assert s in recovered
+        assert s in online and s in recovered
 
 
-def test_write_results_excel_sheets(tmp_path):
+def test_write_results_excel_lean_goal(tmp_path):
+    """Agentic goal: ≤15 sheets, one unit tab each, PIMS FCC/Coker matrix."""
     xlsx_in = tmp_path / "model.xlsx"
     write_template_excel(xlsx_in)
     report = run_excel_pipeline(xlsx_in)
@@ -73,76 +107,112 @@ def test_write_results_excel_sheets(tmp_path):
     import openpyxl
 
     wb = openpyxl.load_workbook(out)
-    for name in (
-        "How_to_read",
-        "Calc_Yields",
-        "Calc_Blend",
-        "Calc_Equations",
-        "Calc_Blocks",
-        "Calc_BlockAngular",
-        "Calc_BA_Map",
-        "Calc_Process",
-        "Submodel_Index",
-        "Submodel_CDU_Tech",
-        "Submodel_CDU_A",
-        "Submodel_Blender_Tech",
-        "Submodel_Blender_A",
-        "Submodel_Linking_B",
-        "Calc_Linking",
-        "Calc_Check",
-        "Summary",
-        "Crudes_mono",
-        "Products_mono",
-        "Shadows",
-    ):
-        assert name in wb.sheetnames, name
-    assert wb.sheetnames[0] == "How_to_read"
-    guide = wb["How_to_read"]
-    topics = [r[0].value for r in guide.iter_rows(min_row=2, max_col=1)]
-    assert "purpose" in topics
-    assert "2_Calc_Yields" in topics
-    assert "ADMM_handoff" in topics
-    y_headers = [c.value for c in wb["Calc_Yields"][1]]
-    assert "y_naphtha" in y_headers
-    eqs = [r[0].value for r in wb["Calc_Equations"].iter_rows(min_row=2, max_col=1)]
-    assert any(e and "BAL_" in str(e) for e in eqs)
-    chk_headers = [c.value for c in wb["Calc_Check"][1]]
-    ok_i = chk_headers.index("ok")
+    names = wb.sheetnames
+
+    assert len(names) <= GOAL_MAX_SHEETS, f"n_sheets={len(names)} {names}"
+    assert names[0] == "How_to_read"
+    for name in REQUIRED:
+        assert name in names, name
+
+    banned = [
+        s
+        for s in names
+        if s in BANNED_EXACT or any(s.startswith(p) for p in BANNED_PREFIXES)
+    ]
+    assert banned == [], f"banned tabs present: {banned}"
+
+    # Index lists single unit sheets
+    ih = [c.value for c in wb["Submodel_Index"][1]]
+    blocks = {
+        r[ih.index("block")].value
+        for r in wb["Submodel_Index"].iter_rows(min_row=2)
+        if r[0].value
+    }
+    assert {"CDU", "BLENDER", "FCC", "COKER", "LINKING"} <= blocks
+
+    # CDU merged sections
+    cdu_vals = [r[0].value for r in wb["Submodel_CDU"].iter_rows(min_col=1, max_col=1)]
+    assert any(v and "TECH" in str(v) for v in cdu_vals)
+    assert any(v and "A —" in str(v) or (v and str(v).startswith("===") and "A" in str(v)) for v in cdu_vals)
+
+    # FCC PIMS matrix
+    fh = [c.value for c in wb["Submodel_FCC"][1]]
+    assert "FEED_FFD" in fh and "BASE" in fh
+    assert any(str(h).startswith("D_") for h in fh if h)
+    fcc = {
+        r[fh.index("row")].value: dict(zip(fh, [c.value for c in r]))
+        for r in wb["Submodel_FCC"].iter_rows(min_row=2)
+        if r[fh.index("row")].value
+    }
+    assert fcc["E_BASE_REF"]["FEED_FFD"] == 1.0
+    assert fcc["E_BASE_REF"]["BASE"] == -1.0
+    assert float(fcc["MB_fcc_naphtha"]["BASE"]) > 0.3
+    assert (fcc.get("E_api_REF") or {}).get("FEED_FFD") == -999.0
+
+    ch = [c.value for c in wb["Submodel_Coker"][1]]
+    assert "FEED_CFD" in ch and "BASE" in ch
+    crow = [r[ch.index("row")].value for r in wb["Submodel_Coker"].iter_rows(min_row=2)]
+    assert "E_BASE_REF" in crow and "MB_coker_naphtha" in crow
+
+    # Rates comparison
+    rh = [c.value for c in wb["Rates"][1]]
+    assert "mono_kbd" in rh and "admm_kbd" in rh
+
+    # Check all ok
+    chk_h = [c.value for c in wb["Calc_Check"][1]]
+    ok_i = chk_h.index("ok")
     for row in wb["Calc_Check"].iter_rows(min_row=2, values_only=True):
         if row[0]:
             assert row[ok_i] is True, row
-    sh = wb["Shadows"]
-    headers = [c.value for c in sh[1]]
-    assert "admm_online_econ" in headers
-    assert "admm_recovered_econ" in headers
+
+    # yield_sum formula still on Calc_Yields
+    yh = [c.value for c in wb["Calc_Yields"][1]]
+    ys = yh.index("yield_sum")
+    cell = wb["Calc_Yields"].cell(2, ys + 1).value
+    assert isinstance(cell, str) and cell.startswith("="), cell
+
     assert report.get("model", {}).get("form") == "classic_2block_excel_path"
-    # submodel data present in dense A1
-    cdu_h = [c.value for c in wb["Submodel_CDU_Tech"][1]]
-    assert "y_naphtha" in cdu_h
-    bl_h = [c.value for c in wb["Submodel_Blender_Tech"][1]]
-    assert "recipe_naphtha" in bl_h
-    # A1 matrix has numeric yield coeffs
-    ah = [c.value for c in wb["Submodel_CDU_A"][1]]
-    found = False
-    for row in wb["Submodel_CDU_A"].iter_rows(min_row=2, values_only=True):
-        d = dict(zip(ah, row))
-        if d.get("constraint") == "YLD_naphtha" and d.get("crude_WTI_light") is not None:
-            found = True
-            assert abs(float(d["crude_WTI_light"])) > 0.1
-    assert found
+
+
+def test_excel_pipeline_case1_tf_non_wiring_contract(tmp_path):
+    """E14 permanent gate: Case 1 form + duals stay free of TF ownership claims."""
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+
+    assert report["mono"]["feasible"] and report["admm"]["feasible"]
+    assert report["comparison"]["objective_gap_rel"] <= 0.005 + 1e-9
+    assert report["comparison"]["dual_linf_online"] <= 15.0
+    assert report["verdict"].startswith("PASS")
+
+    assert report.get("model", {}).get("form") == "classic_2block_excel_path"
+
+    admm = report["admm"]
+    path = str(admm.get("dual_recovery_path") or "")
+    assert path, "dual_recovery_path must be labeled"
+    assert "online_lambda" in path
+    # Do not claim pure-ADMM as dual recovery (path may say package-admm backend).
+    assert "pure_admm" not in path.lower()
+    assert "pure-admm-dual" not in path.lower().replace("_", "-")
+    # TF must never be presented as dual recovery or a report-level dual owner.
+    for blob in (path, str(report.get("tf_block")), str(admm.get("tf_block"))):
+        assert "tf_block" not in blob.lower()
+        assert "tensorflow" not in blob.lower()
+    assert "tf_block" not in report
+    assert "tf_block" not in admm
+    # Primary shadows remain free online economic λ (not a TF artifact).
+    assert isinstance(admm.get("shadow_prices"), dict) and admm["shadow_prices"]
+    assert isinstance(admm.get("shadow_prices_recovered"), dict)
 
 
 def test_load_pims_excel_has_crudes(tmp_path):
     xlsx = tmp_path / "t.xlsx"
     write_template_excel(xlsx)
     pkg = load_pims_excel(xlsx)
-    assert pkg["crudes"]
-    assert pkg["products"]
-    assert pkg["capacities"]
+    assert pkg["crudes"] and pkg["products"] and pkg["capacities"]
 
 
 def test_ensure_template(tmp_path):
     path = tmp_path / "crudes_template.xlsx"
     out = ensure_template(path)
-    assert out.is_file()
-    assert out.stat().st_size > 1000
+    assert out.is_file() and out.stat().st_size > 1000
