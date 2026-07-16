@@ -235,6 +235,17 @@ def test_write_results_excel_lean_goal(tmp_path):
         "shadow" in tlow or "λ" in tlow or "lambda" in tlow or "wall" in tlow
     )
 
+    # Optional secondary: offline ADMM residual harness (static How_to; still not Case 1)
+    tf_admm = how.get("tf_offline_admm_residual", "")
+    assert tf_admm, "How_to_read must include tf_offline_admm_residual"
+    alow = tf_admm.lower()
+    assert "admm" in alow and ("residual" in alow or "consensus" in alow)
+    assert "fcc" in alow and "coker" in alow and "cdu" in alow
+    assert "not on" in alow or "classic_2block" in alow
+    assert "dual" in alow and ("none" in alow or "primary" in alow)
+    assert "synthetic" in alow or "λ" in alow or "lambda" in alow
+    assert "not" in alow and ("wire" in alow or "online" in alow or "shadow" in alow)
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -288,6 +299,29 @@ def test_format_tf_offline_timing_howto_pure():
     assert "primary" in one
     assert "dual" in one
     assert "not" in one
+
+
+def test_format_tf_offline_admm_residual_howto_pure():
+    """Static ADMM residual How_to: isolation-safe; no TF import."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_admm_residual_howto,
+    )
+
+    d = format_tf_offline_admm_residual_howto()
+    assert d["topic"] == "tf_offline_admm_residual"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    assert d["price_source"] == "synthetic_offline_demo"
+    assert d["lam_source"] == "synthetic_offline_demo"
+    one = d["planner_one_liner"].lower()
+    assert "admm" in one and ("residual" in one or "consensus" in one)
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one
+    assert "not" in one and "wire" in one
+    assert "synthetic" in one
 
 
 def test_excel_fcc_export_matches_affine_coeffs():
@@ -602,7 +636,7 @@ def test_planner_honesty_glance_package(tmp_path):
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
-    # How_to offline + dual keys preserved (units + priced + timing)
+    # How_to offline + dual keys preserved (units + priced + timing + admm residual)
     how = {
         str(r[0].value): str(r[1].value or "")
         for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
@@ -611,6 +645,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_units")
     assert how.get("tf_offline_priced")
     assert how.get("tf_offline_timing")
+    assert how.get("tf_offline_admm_residual")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )

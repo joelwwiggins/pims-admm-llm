@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -38,6 +38,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | Multi-unit registry | `offline_unit_registry` / `offline_units_status` / `multi_unit_parity_report` — readiness only |
 | Priced residual (goal 5) | `multi_unit_priced_residual_report` / `default_offline_prices` / `local_box_direction` — economics readiness; prices **not** duals |
 | Block-solve timing (goal 5) | `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report` / `cached_offline_unit_coeffs` — microsecond-class readiness; **not** Case 1 wall time; **not** duals |
+| ADMM residual (goal 5 pre-wire) | `multi_unit_admm_residual_report` / `admm_residual_for_unit` — consensus `r=y−z` + L1 augmented local under synthetic λ,z,ρ; **not** dual recovery; **not** Case 1 |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -147,6 +148,8 @@ assert ready["kind"] == "offline_block_solve_readiness"
 assert ready["parity_ok"] and ready["priced_ok"] and ready["timings_ok"]
 assert ready["ready_for_wire_discussion"] is True  # structural only — wire still deferred
 assert ready["dual_recovery_path"] is None
+# Additive checklist (does not redefine ready_for_wire_discussion):
+assert ready.get("admm_residual_ok") is True
 ```
 
 Honesty table (timing / readiness surface):
@@ -159,13 +162,64 @@ Honesty table (timing / readiness surface):
 | `on_excel_case1_path` | `False` |
 | Timings | **Offline readiness** — not Case 1 wall time; not ADMM duals / shadows |
 | `ready_for_wire_discussion` | Structural only (parity + priced + timing + honesty); **not** wire shipped |
+| `admm_residual_ok` | Additive pre-wire checklist only; **not** wire shipped |
+
+## Offline multi-unit ADMM-style consensus residual (goal 5 pre-wire bridge)
+
+Always-on numpy surface. Proves affine blocks can report **ADMM-shaped** consensus
+residual and an L1 augmented local objective under **synthetic** λ, z, ρ — still
+offline, still dual-ban, still **not** on Case 1, still **not** wire shipped, still
+**not** pure-ADMM dual recovery.
+
+Primary formula (plant ADMM L1 spirit from `blocks.py` language only):
+
+`augmented_local = λ · y_full − ρ ‖y_full − z‖₁`
+
+Default z = postprocess(affine @ reference). Residual space = postprocess (document
+raw vs full for Coker renorm honesty). No absolute residual magnitude SLAs.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    admm_residual_for_unit,
+    multi_unit_admm_residual_report,
+)
+
+report = multi_unit_admm_residual_report(rho=1.0, x_mode="offset")
+assert report["ok"]
+assert report["kind"] == "offline_admm_block_residual"
+assert report["dual_recovery_path"] is None
+assert report["on_excel_case1_path"] is False
+assert report["solver"] is False
+assert report["not_a_solve"] is True
+assert report["price_source"] == "synthetic_offline_demo"
+# per unit: y_full, z, consensus_residual, r_l1/r_l2/r_linf, augmented_local, formula
+
+row = admm_residual_for_unit("COKER", x_mode="ref")
+# at ref with default z: penalty ≈ 0 on full path; raw may ≠ full (renorm)
+assert row["r_l1"] <= 1e-9
+assert row["raw_vs_full_residual_l1_gap"] >= 0.0
+```
+
+Honesty table (ADMM residual surface):
+
+| Field | Value |
+|-------|-------|
+| `kind` | `offline_admm_block_residual` |
+| `solver` | `False` |
+| `dual_recovery_path` | `None` |
+| `on_excel_case1_path` | `False` |
+| `price_source` / `lam_source` / `z_source` / `rho_source` | `synthetic_offline_demo` — **not** Case 1 PRIMARY online λ / **not** SECONDARY recovered |
+| Primary formula | L1: `lambda_dot_y - rho * \|\|y_full - z\|\|_1` |
+| L2 fields | Diagnostic only (`augmented_local_l2_diagnostic`) |
+| Wire | **Not shipped** |
 
 Planner-facing How_to keys `tf_offline_units` / `tf_offline_priced` / `tf_offline_timing`
-(static text in `excel_pipeline`, **no** import of this module) state the same honesty:
-FCC+COKER+CDU offline exact-linear + priced residual + block-solve timing readiness
-available; **not** on Case 1 solve; duals remain PRIMARY online-λ / SECONDARY recovered.
-Index / Summary / Calc_Check also glance-lock that readiness package via pure static
-formatters (`format_planner_honesty_package`) — still offline-only, still not wire shipped.
+/ `tf_offline_admm_residual` (static text in `excel_pipeline`, **no** import of this
+module) state the same honesty: FCC+COKER+CDU offline exact-linear + priced residual +
+block-solve timing + ADMM residual readiness available; **not** on Case 1 solve; duals
+remain PRIMARY online-λ / SECONDARY recovered. Index / Summary / Calc_Check also
+glance-lock the readiness package via pure static formatters
+(`format_planner_honesty_package`) — still offline-only, still not wire shipped.
 
 ## Per-unit affine API
 
@@ -255,6 +309,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `multi_unit_parity_report()` aggregate `ok` (always-on numpy; TF arm green if installed)
 - [ ] `multi_unit_priced_residual_report()` aggregate `ok` (always-on economics residual; dual_recovery_path=None; prices not duals)
 - [ ] Offline block-solve timing / readiness report green (cached affine; dual-ban intact; not Case 1 wall time) — `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report`
+- [x] `multi_unit_admm_residual_report()` ok (synthetic λ,z,ρ; dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped)
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
@@ -263,6 +318,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] Case 1 demo VERDICT still PASS (gap ≤0.5%, dual L∞ online ≤15) with or without TF installed
 - [ ] Local box direction (if used) never treated as Case 1 shadows / online λ
 - [ ] Timings / local box gradients never treated as Case 1 shadows / online λ / pure-ADMM duals
+- [ ] Synthetic λ / z / ρ / ADMM residuals never treated as Case 1 online λ or recovered duals
 
 ## Critics checklist (before claiming “done”)
 
@@ -280,3 +336,4 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] Priced residual pre-wire gate present; local box gradients not claimed as duals
 - [ ] Timing / readiness report honesty: dual_recovery_path=None; on_excel_case1_path=False; no flaky absolute µs hard-fail; timings not duals / not Case 1 wall time
 - [ ] `cached_offline_unit_coeffs` default-ref only; custom refs never silently reuse default cache
+- [ ] `multi_unit_admm_residual_report` ok without TF; honesty locks; L1 formula; Coker raw≠full residual honesty; synthetic λ ≠ Case 1 online λ
