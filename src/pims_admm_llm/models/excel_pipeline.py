@@ -1586,24 +1586,78 @@ def format_tf_offline_admm_coordination_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_admm_plant_linking_howto() -> Dict[str, str]:
+    """Static offline multi-block plant-linking ADMM How_to (isolation-safe).
+
+    Planner-facing note that multi-block offline ADMM **plant-linking** harness
+    exists for FCC+COKER+CDU under synthetic linking-stream topology + shared λ/z
+    + per-unit incidence (compose block subproblem). Does **not** load
+    tf_linear_blocks or tensorflow. dual_recovery_path=None; plant-linking λ ≠
+    Case 1 online λ; synthetic topology ≠ full plant mass balance; not wire;
+    distinct from per-unit coordination (not_plant_linking_coordinator surface).
+    """
+    one_liner = (
+        "Offline multi-block plant-linking ADMM harness exists for FCC+COKER+CDU "
+        "under synthetic linking-stream topology + shared λ/z + per-unit incidence: "
+        "each round composes block subproblem maximizer → pre-z linking residual → "
+        "shared z consensus → shared λ dual ascent. "
+        "Synthetic topology ≠ full plant mass balance / ≠ live plant_blocks cascade. "
+        "Still not on this Case 1 solve (classic_2block_excel_path). "
+        "Plant-linking dual_recovery_path=None; plant-linking λ are not Case 1 "
+        "PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM dual "
+        "recovery; not wire shipped. Distinct from per-unit coordination "
+        "(not_plant_linking_coordinator surface still separate). "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender."
+    )
+    return {
+        "topic": "tf_offline_admm_plant_linking",
+        "units": "FCC+COKER+CDU",
+        "on_case1_solve": "false",
+        "form": "classic_2block_excel_path",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "optimand_space": "raw_affine",
+        "z_update_space": "linking_streams",
+        "plant_linking_scope": "synthetic_offline_demo",
+        "topology_source": "synthetic_offline_demo",
+        "linking_space": "synthetic_linking_streams",
+        "price_source": "synthetic_offline_demo",
+        "lam_source": "synthetic_offline_demo",
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "not_full_plant_mass_balance": "true",
+        "formula": (
+            "round: compose subproblem; r_link=y_link-z_pre; z←(1-β)z+β y_link; λ←λ+α·ρ·r_link"
+        ),
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Index OFFLINE_TF one-liner: kernels + priced residual readiness + block-solve timing
 # readiness + ADMM residual readiness + ADMM block subproblem readiness + multi-round
-# ADMM coordination readiness (synthetic λ,z,ρ; per-unit synthetic; raw affine under box).
+# ADMM coordination readiness (per-unit synthetic) + multi-block plant-linking readiness
+# (synthetic linking topology + shared λ/z + incidence; not full plant MB).
 # Hard negatives: not Case 1; TF dual_recovery_path=None; prices ≠ duals; timings ≠ Case 1
 # wall / ≠ online λ; synthetic residual/subproblem/coordination λ ≠ Case 1 duals / ≠ pure-ADMM
-# dual recovery / ≠ wire; per-unit synthetic ≠ plant linking; x_star ≠ online λ.
-# Static only — never call live readiness / residual / subproblem / coordination reports.
+# dual recovery; per-unit coordination ≠ plant linking; plant-linking λ ≠ duals / ≠ full plant MB
+# / ≠ wire; x_star ≠ online λ.
+# Static only — never call live readiness / residual / subproblem / coordination / plant-linking
+# reports.
 _OFFLINE_TF_INDEX_WHAT = (
     "FCC+COKER+CDU exact-linear kernels offline + priced residual readiness + "
     "block-solve timing readiness + ADMM residual readiness + "
     "ADMM block subproblem readiness + multi-round ADMM coordination readiness "
-    "(synthetic λ,z,ρ; per-unit synthetic; raw affine under box) — "
+    "(synthetic λ,z,ρ; per-unit synthetic; raw affine under box) + "
+    "multi-block plant-linking readiness "
+    "(synthetic linking topology + shared λ/z + incidence; not full plant MB) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "prices not duals; timings not Case 1 wall / not online λ; "
-    "synthetic residual/subproblem/coordination λ not duals / not pure-ADMM dual recovery / "
-    "not plant linking / not wire"
+    "synthetic residual/subproblem/coordination λ not duals / not pure-ADMM dual recovery; "
+    "per-unit coordination ≠ plant linking; "
+    "plant-linking λ not duals / not pure-ADMM dual recovery / not full plant MB / not wire"
 )
 _OFFLINE_TF_PRICED_NOTE = (
     "offline priced residual readiness (FCC+COKER+CDU) — synthetic prices not ADMM λ / not Case 1 shadows"
@@ -1625,10 +1679,17 @@ _OFFLINE_TF_ADMM_COORDINATION_NOTE = (
     "per-unit synthetic (subproblem → z → λ); coordination λ not Case 1 PRIMARY online λ / "
     "not SECONDARY recovered duals / not pure-ADMM dual recovery / not plant linking / not wire"
 )
+_OFFLINE_TF_ADMM_PLANT_LINKING_NOTE = (
+    "offline multi-block plant-linking ADMM readiness (FCC+COKER+CDU) — synthetic linking topology "
+    "+ shared λ/z + incidence; plant-linking λ not Case 1 PRIMARY online λ / not SECONDARY "
+    "recovered duals / not pure-ADMM dual recovery / not full plant mass balance / not wire; "
+    "distinct from per-unit coordination"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
-    "ADMM block subproblem + multi-round ADMM coordination — not on classic Case 1; "
-    "dual_recovery_path=None on TF surface; per-unit synthetic not plant linking; not wire shipped"
+    "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking — "
+    "not on classic Case 1; dual_recovery_path=None on TF surface; "
+    "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; not wire shipped"
 )
 
 
@@ -1639,11 +1700,12 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     helpers and report fields only — never imports tensorflow / tf_linear_blocks,
     and never calls live multi_unit_* / offline_block_solve_readiness_report /
     multi_unit_admm_residual_report / multi_unit_admm_block_subproblem_report /
-    multi_unit_admm_coordination_report. Presentation packaging only; does not
-    change VERDICT math. Dual PRIMARY online-λ / SECONDARY recovered packaging is
-    read-only preserve (#12/#14); offline TF readiness glance covers units + priced
-    + timing + ADMM residual + ADMM block subproblem + multi-round ADMM coordination
-    (static harness-existence flags only).
+    multi_unit_admm_coordination_report / multi_block_plant_linking_admm_report.
+    Presentation packaging only; does not change VERDICT math. Dual PRIMARY
+    online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
+    offline TF readiness glance covers units + priced + timing + ADMM residual +
+    ADMM block subproblem + multi-round ADMM coordination + multi-block
+    plant-linking (static harness-existence flags only).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
@@ -1652,6 +1714,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_admm = format_tf_offline_admm_residual_howto()
     tf_sub = format_tf_offline_admm_block_subproblem_howto()
     tf_coord = format_tf_offline_admm_coordination_howto()
+    tf_plant = format_tf_offline_admm_plant_linking_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -1684,11 +1747,13 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_admm_residual_ready": True,  # static harness-existence; not live residual
         "offline_tf_admm_block_subproblem_ready": True,  # static; not live maximizer
         "offline_tf_admm_coordination_ready": True,  # static; not live multi-round harness
+        "offline_tf_admm_plant_linking_ready": True,  # static; not live plant-linking harness
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
         "offline_tf_admm_residual": _OFFLINE_TF_ADMM_RESIDUAL_NOTE,
         "offline_tf_admm_block_subproblem": _OFFLINE_TF_ADMM_BLOCK_SUBPROBLEM_NOTE,
         "offline_tf_admm_coordination": _OFFLINE_TF_ADMM_COORDINATION_NOTE,
+        "offline_tf_admm_plant_linking": _OFFLINE_TF_ADMM_PLANT_LINKING_NOTE,
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
         "on_excel_case1_path": False,
         "tf_on_excel_case1_path": False,
@@ -1700,8 +1765,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"SECONDARY recovered L∞={dual['dual_linf_recovered']}; "
             f"offline_tf_units={_OFFLINE_TF_UNITS} + priced residual readiness + "
             f"block-solve timing readiness + ADMM residual readiness + "
-            f"ADMM block subproblem readiness + multi-round ADMM coordination readiness "
-            f"(synthetic λ,z,ρ; per-unit synthetic; not duals; not plant linking; not wire) "
+            f"ADMM block subproblem readiness + multi-round ADMM coordination readiness + "
+            f"multi-block plant-linking readiness "
+            f"(synthetic topology + shared λ/z; not duals; not full plant MB; not wire) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -1732,6 +1798,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ("offline_tf_admm_residual", _OFFLINE_TF_ADMM_RESIDUAL_NOTE),
         ("offline_tf_admm_block_subproblem", _OFFLINE_TF_ADMM_BLOCK_SUBPROBLEM_NOTE),
         ("offline_tf_admm_coordination", _OFFLINE_TF_ADMM_COORDINATION_NOTE),
+        ("offline_tf_admm_plant_linking", _OFFLINE_TF_ADMM_PLANT_LINKING_NOTE),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
     ]
     return {
@@ -1745,6 +1812,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_admm_residual": tf_admm,
         "tf_offline_admm_block_subproblem": tf_sub,
         "tf_offline_admm_coordination": tf_coord,
+        "tf_offline_admm_plant_linking": tf_plant,
     }
 
 
@@ -1754,7 +1822,8 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     Compatible with model_calc_check columns (check, predicted, actual, abs_err, ok).
     Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
     Static only: never runs priced residual, timing, ADMM residual, block
-    subproblem, or multi-round coordination harness (isolation + smoke latency).
+    subproblem, multi-round coordination, or plant-linking harness (isolation +
+    smoke latency).
     """
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -1862,6 +1931,23 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_admm_plant_linking_not_duals",
+            "predicted": (
+                "offline multi-block plant-linking ADMM readiness exists under synthetic "
+                "linking topology + shared λ/z + incidence; plant-linking λ not Case 1 PRIMARY "
+                "online λ / not SECONDARY recovered duals / not pure-ADMM dual recovery / "
+                "not full plant mass balance / not live cascade / not wire; "
+                "distinct from per-unit coordination"
+            ),
+            "actual": (
+                "static honesty — plant-linking λ/z/ρ ≠ duals; "
+                "synthetic topology ≠ full plant mass balance; dual_recovery_path=None on TF surface; "
+                "not pure-ADMM dual recovery; not wire; topology_source=synthetic_offline_demo"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -1882,6 +1968,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_admm = format_tf_offline_admm_residual_howto()
     tf_sub = format_tf_offline_admm_block_subproblem_howto()
     tf_coord = format_tf_offline_admm_coordination_howto()
+    tf_plant = format_tf_offline_admm_plant_linking_howto()
     return [
         (
             "goal",
@@ -1944,6 +2031,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_admm_coordination",
             tf_coord["planner_one_liner"],
+        ),
+        (
+            "tf_offline_admm_plant_linking",
+            tf_plant["planner_one_liner"],
         ),
         (
             "solve_boundary",
