@@ -89,6 +89,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_plant_linking_available": True,
         "admm_plant_named_linking_available": True,
         "wire_preflight_available": True,
+        "admm_case1_shaped_linking_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -119,7 +120,13 @@ def honesty_metadata() -> Dict[str, Any]:
             "Offline dual-honest wire preflight available "
             "(offline_wire_preflight_report): composes readiness gates + machine-readable "
             "wire_blockers; wire_shipped=False; preflight ≠ wire; dual_recovery_path=None; "
-            "ready_for_wire_discussion meaning unchanged (structural only)."
+            "ready_for_wire_discussion meaning unchanged (structural only). "
+            "Offline Case-1-shaped CDU↔Blender linking skeleton available "
+            "(offline_case1_shaped_cdu_blender_linking_report): CDU affine + honest blender "
+            "linear quality/pooling residual under synthetic λ,z,ρ on Case 1 intermediate "
+            "streams; dual-ban; wire_shipped=False; skeleton ≠ wire; skeleton λ ≠ Case 1 "
+            "PRIMARY/SECONDARY duals; blender_surface=linear_quality_pooling (not affine "
+            "UNITS); does not clear DEFAULT_WIRE_BLOCKERS."
         ),
     }
 
@@ -1436,6 +1443,7 @@ def offline_block_solve_readiness_report(
     include_admm_coordination: bool = True,
     include_admm_plant_linking: bool = True,
     include_admm_plant_named_linking: bool = True,
+    include_admm_case1_shaped_linking: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1443,7 +1451,8 @@ def offline_block_solve_readiness_report(
     parity/priced math. Does **not** mean wire is shipped or duals are owned.
 
     ``admm_residual_ok``, ``admm_block_subproblem_ok``, ``admm_coordination_ok``,
-    ``admm_plant_linking_ok``, and ``admm_plant_named_linking_ok`` are
+    ``admm_plant_linking_ok``, ``admm_plant_named_linking_ok``, and
+    ``admm_case1_shaped_linking_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1512,6 +1521,16 @@ def offline_block_solve_readiness_report(
         except Exception:  # pragma: no cover - defensive
             admm_plant_named_linking_ok = False
     base["admm_plant_named_linking_ok"] = admm_plant_named_linking_ok
+    admm_case1_shaped_linking_ok: Optional[bool] = None
+    if include_admm_case1_shaped_linking:
+        try:
+            c1_rep = offline_case1_shaped_cdu_blender_linking_report(
+                n_rounds=2, rho=1.0, delta=0.5
+            )
+            admm_case1_shaped_linking_ok = bool(c1_rep.get("ok"))
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_shaped_linking_ok = False
+    base["admm_case1_shaped_linking_ok"] = admm_case1_shaped_linking_ok
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1521,12 +1540,14 @@ def offline_block_solve_readiness_report(
         "timings/prices/gradients/ADMM residuals are NOT ADMM λ / Case 1 shadows; "
         "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
         "admm_residual_ok, admm_block_subproblem_ok, admm_coordination_ok, "
-        "admm_plant_linking_ok, and admm_plant_named_linking_ok are additive "
+        "admm_plant_linking_ok, admm_plant_named_linking_ok, and "
+        "admm_case1_shaped_linking_ok are additive "
         "pre-wire checklist items (synthetic λ,z,ρ residual / block subproblem / "
         "multi-round coordination / multi-block plant-linking synthetic + plant-named "
-        "topology modes; coordination is per-unit synthetic not plant linking; "
-        "plant-linking modes are offline demos, not full plant mass balance, not "
-        "Case 1 duals) and do not redefine ready_for_wire_discussion."
+        "topology modes / Case-1-shaped CDU↔Blender offline skeleton; coordination is "
+        "per-unit synthetic not plant linking; plant-linking modes are offline demos; "
+        "Case-1-shaped skeleton is offline-only (not wire, not Case 1 duals, not full "
+        "plant mass balance) and do not redefine ready_for_wire_discussion."
     )
     return base
 
@@ -3673,10 +3694,13 @@ WIRE_BLOCKER_NOTES: Dict[str, str] = {
     ),
     "case1_is_cdu_blender_package_admm": (
         "Case 1 is CDU+Blender package ADMM, not multi-unit FCC/COKER/CDU "
-        "plant-linking alone."
+        "plant-linking alone. Offline Case-1-shaped skeleton is a dual-banned "
+        "shape substrate only — skeleton ≠ package-ADMM wire."
     ),
     "no_blender_offline_affine_kernel": (
-        "Offline UNITS are FCC/COKER/CDU only; no blender offline affine kernel."
+        "Offline UNITS are FCC/COKER/CDU only; no blender offline affine kernel. "
+        "Case-1-shaped blender_surface=linear_quality_pooling is planning residual "
+        "only — linear pooling ≠ affine kernel; not a BLENDER UNITS entry."
     ),
     "wire_not_shipped": (
         "TF is not wired into Excel Case 1 or the ADMM coordinator; "
@@ -3748,6 +3772,7 @@ def offline_wire_preflight_report(
     include_admm_coordination: bool = True,
     include_admm_plant_linking: bool = True,
     include_admm_plant_named_linking: bool = True,
+    include_admm_case1_shaped_linking: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -3779,6 +3804,7 @@ def offline_wire_preflight_report(
         include_admm_coordination=include_admm_coordination,
         include_admm_plant_linking=include_admm_plant_linking,
         include_admm_plant_named_linking=include_admm_plant_named_linking,
+        include_admm_case1_shaped_linking=include_admm_case1_shaped_linking,
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -3795,6 +3821,7 @@ def offline_wire_preflight_report(
     admm_coordination_ok = readiness.get("admm_coordination_ok")
     admm_plant_linking_ok = readiness.get("admm_plant_linking_ok")
     admm_plant_named_linking_ok = readiness.get("admm_plant_named_linking_ok")
+    admm_case1_shaped_linking_ok = readiness.get("admm_case1_shaped_linking_ok")
 
     blockers_documented = (
         len(wire_blockers) > 0
@@ -3820,6 +3847,7 @@ def offline_wire_preflight_report(
         (admm_coordination_ok, include_admm_coordination),
         (admm_plant_linking_ok, include_admm_plant_linking),
         (admm_plant_named_linking_ok, include_admm_plant_named_linking),
+        (admm_case1_shaped_linking_ok, include_admm_case1_shaped_linking),
     ):
         if included and flag is False:
             compose_ok = False
@@ -3874,6 +3902,7 @@ def offline_wire_preflight_report(
         "admm_coordination_ok": admm_coordination_ok,
         "admm_plant_linking_ok": admm_plant_linking_ok,
         "admm_plant_named_linking_ok": admm_plant_named_linking_ok,
+        "admm_case1_shaped_linking_ok": admm_case1_shaped_linking_ok,
         # Blockers
         "wire_blockers": wire_blockers,
         "wire_blocker_notes": wire_blocker_notes,
@@ -3891,6 +3920,787 @@ def multi_unit_wire_preflight_report(
 ) -> Dict[str, Any]:
     """Alias for ``offline_wire_preflight_report`` (multi-unit naming twin)."""
     return offline_wire_preflight_report(**kwargs)
+
+
+
+# ---------------------------------------------------------------------------
+# Offline Case-1-shaped CDU↔Blender linking ADMM skeleton (goal 5 residual)
+# ---------------------------------------------------------------------------
+# Always-on numpy. Models Case 1 package *shape* (CDU producer ↔ Blender
+# consumer on classic intermediates) without wiring TF into Case 1 solve.
+# dual_recovery_path=None; wire_shipped=False; not form flip; not full plant MB.
+# blender_surface=linear_quality_pooling — NOT a base_delta affine UNITS entry.
+# Does NOT clear DEFAULT_WIRE_BLOCKERS (skeleton ≠ package-ADMM wire).
+
+CASE1_SHAPED_LINKING_KIND = "offline_case1_shaped_cdu_blender_linking"
+CASE1_SHAPED_LINKING_SCOPE = "case1_shaped_offline_demo"
+CASE1_SHAPED_LINKING_STREAMS = (
+    "naphtha",
+    "distillate",
+    "gasoil",
+    "residue",
+)
+CASE1_SHAPED_BLENDER_SURFACE = "linear_quality_pooling"
+CASE1_SHAPED_LINKING_FORMULA = (
+    "round: map lam/z->CDU products via Case1 incidence; "
+    "CDU x=argmax raw L1-aug under (lam_u,z_u,rho,delta); "
+    "y_link=A_cdu y_raw; blender use=R^T y_prod (linear pooling); "
+    "r_link=y_link-use (pre-z); z<-(1-beta)z+beta*0.5*(y+use); "
+    "lam<-lam+alpha*rho*r_link"
+)
+
+# CDU affine products → Case 1 intermediate streams (0/1 selection incidence).
+# Note: plant-linking maps cdu_resid → "resid"; Case 1 spelling is "residue".
+# cdu_offgas is intentionally unmapped (not a Case 1 package intermediate).
+_CDU_PRODUCT_TO_CASE1_STREAM: Dict[str, str] = {
+    "cdu_naphtha_light": "naphtha",
+    "cdu_naphtha_heavy": "naphtha",
+    "cdu_distillate": "distillate",
+    "cdu_gasoil": "gasoil",
+    "cdu_resid": "residue",
+}
+
+# Classic Case 1 style recipes: product → intermediate volume fractions.
+# Planning-grade synthetic offline demo — not live blend QP duals.
+CASE1_SHAPED_BLEND_RECIPES: Dict[str, Dict[str, float]] = {
+    "gasoline": {"naphtha": 0.85, "distillate": 0.15},
+    "diesel": {"distillate": 0.70, "gasoil": 0.30},
+    "fuel_oil": {"gasoil": 0.40, "residue": 0.60},
+}
+
+CASE1_SHAPED_PRODUCT_PRICES: Dict[str, float] = {
+    "gasoline": 90.0,
+    "diesel": 85.0,
+    "fuel_oil": 60.0,
+}
+
+# Soft product box around synthetic offline demo volumes (not Case 1 solution).
+CASE1_SHAPED_PRODUCT_REF: Dict[str, float] = {
+    "gasoline": 10.0,
+    "diesel": 12.0,
+    "fuel_oil": 8.0,
+}
+
+# Synthetic offline crude feed scale: CDU affine yields are mass fractions;
+# blender product volumes are planning-scale. Scale producer y_link by feed so
+# producer−consumer residual lives in comparable units (not plant MB claim).
+CASE1_SHAPED_CDU_FEED_SCALE = 30.0
+
+
+def _case1_shaped_linking_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-wire locks for Case-1-shaped skeleton."""
+    return {
+        "kind": CASE1_SHAPED_LINKING_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "not_case1_solve": True,
+        "case1_shaped_offline_only": True,
+        "case1_form_unchanged": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_plant_linking_multi_unit_fcc_coker_cdu": True,
+        "linking_lambda_is_not_case1_online_lambda": True,
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": True,
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_is_base_delta_affine_unit": False,
+        "excel_cdu_matrix_matches_affine": None,
+        "excel_blender_matrix_matches_affine": None,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "scope": CASE1_SHAPED_LINKING_SCOPE,
+        "linking_space": "case1_intermediate_streams",
+        "z_update_space": "case1_intermediate_streams",
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "formula": CASE1_SHAPED_LINKING_FORMULA,
+        "note": (
+            "Offline Case-1-shaped CDU↔Blender linking ADMM skeleton: CDU affine "
+            "producer projected onto Case 1 intermediates (naphtha/distillate/gasoil/"
+            "residue) + honest blender linear quality/pooling residual under synthetic "
+            "λ,z,ρ. dual_recovery_path=None; solver=False; on_excel_case1_path=False; "
+            "wire_shipped=False; case1_form_unchanged (classic_2block_excel_path outside "
+            "this surface). Skeleton λ/z/ρ are NOT Case 1 PRIMARY online λ, NOT "
+            "SECONDARY recovered blender duals, NOT pure-ADMM dual recovery. "
+            "blender_surface=linear_quality_pooling — not base_delta_affine_unit; "
+            "UNITS stay FCC/COKER/CDU (no silent BLENDER). Not full plant mass balance; "
+            "not live plant_blocks cascade; not multi-unit FCC plant-linking replacement. "
+            "Does not invent excel_cdu_matrix_matches_affine / excel_blender_matrix_matches_"
+            "affine. Does not clear DEFAULT_WIRE_BLOCKERS (skeleton ≠ package-ADMM wire; "
+            "linear pooling ≠ affine kernel). No residual-must-vanish hard-fail; no PuLP "
+            "on offline hot path; always-on numpy; TF not required."
+        ),
+    }
+
+
+def case1_shaped_cdu_to_intermediate_map() -> Dict[str, str]:
+    """Honest CDU product → Case 1 intermediate incidence labels (not excel match)."""
+    return dict(_CDU_PRODUCT_TO_CASE1_STREAM)
+
+
+def project_cdu_y_to_case1_intermediates(
+    y_cdu: Mapping[str, float],
+    *,
+    streams: Optional[Sequence[str]] = None,
+) -> Dict[str, float]:
+    """Lift CDU product yields onto Case 1 intermediate streams via 0/1 incidence.
+
+    light+heavy naphtha sum into naphtha; cdu_resid maps to residue (not resid).
+    Unmapped products (e.g. cdu_offgas) do not contribute.
+    """
+    streams_list = list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    out = {s: 0.0 for s in streams_list}
+    for product, stream in _CDU_PRODUCT_TO_CASE1_STREAM.items():
+        if stream not in out:
+            continue
+        out[stream] += float(y_cdu.get(product, 0.0))
+    return out
+
+
+def _case1_recipe_use_matrix(
+    *,
+    products: Sequence[str],
+    streams: Sequence[str],
+    recipes: Mapping[str, Mapping[str, float]],
+) -> np.ndarray:
+    """R shape (n_products, n_streams): intermediate fraction per product."""
+    R = np.zeros((len(products), len(streams)), dtype=np.float64)
+    s_index = {s: i for i, s in enumerate(streams)}
+    for i, p in enumerate(products):
+        row = recipes.get(p, {})
+        for s, frac in row.items():
+            if s in s_index:
+                R[i, s_index[s]] = float(frac)
+    return R
+
+
+def blender_recipe_use_from_products(
+    y_products: Mapping[str, float],
+    *,
+    streams: Optional[Sequence[str]] = None,
+    recipes: Optional[Mapping[str, Mapping[str, float]]] = None,
+) -> Dict[str, float]:
+    """Linear pooling: use = R^T y_products (planning residual; not QP duals)."""
+    streams_list = list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    rec = recipes if recipes is not None else CASE1_SHAPED_BLEND_RECIPES
+    products = list(rec.keys())
+    R = _case1_recipe_use_matrix(products=products, streams=streams_list, recipes=rec)
+    y_vec = np.array([float(y_products.get(p, 0.0)) for p in products], dtype=np.float64)
+    use_vec = R.T @ y_vec
+    return {s: float(use_vec[i]) for i, s in enumerate(streams_list)}
+
+
+def _default_case1_lam_link(streams: Sequence[str]) -> Dict[str, float]:
+    """Seed linking λ from CDU default product prices mapped into Case 1 streams."""
+    prices = default_offline_prices("CDU")
+    sums: Dict[str, float] = {s: 0.0 for s in streams}
+    counts: Dict[str, int] = {s: 0 for s in streams}
+    for product, stream in _CDU_PRODUCT_TO_CASE1_STREAM.items():
+        if stream not in sums:
+            continue
+        sums[stream] += float(prices.get(product, 0.0))
+        counts[stream] += 1
+    return {
+        s: float(sums[s] / counts[s]) if counts[s] else 0.0 for s in streams
+    }
+
+
+def _default_case1_z_link(streams: Sequence[str]) -> Dict[str, float]:
+    """Seed z from CDU full postprocess yields at reference projected to Case 1."""
+    coeffs = cached_offline_unit_coeffs("CDU")
+    z_full = _default_z_full_for_unit("CDU", coeffs)
+    frac = project_cdu_y_to_case1_intermediates(z_full, streams=streams)
+    feed = float(CASE1_SHAPED_CDU_FEED_SCALE)
+    return {s: float(frac[s]) * feed for s in streams}
+
+
+def _project_case1_link_to_cdu(
+    lam_link: Mapping[str, float],
+    z_link: Mapping[str, float],
+    *,
+    streams: Sequence[str],
+) -> Dict[str, Any]:
+    """Map Case 1 intermediate λ/z into CDU product prices/z via incidence^T."""
+    coeffs = cached_offline_unit_coeffs("CDU")
+    products = list(coeffs.products)
+    A = _incidence_matrix_for_unit(
+        "CDU",
+        streams,
+        products,
+        product_to_stream=_CDU_PRODUCT_TO_CASE1_STREAM,
+    )
+    lam_vec = np.array([float(lam_link.get(s, 0.0)) for s in streams], dtype=np.float64)
+    z_vec = np.array([float(z_link.get(s, 0.0)) for s in streams], dtype=np.float64)
+    prices_vec = A.T @ lam_vec
+    z_unit_vec = A.T @ z_vec
+    return {
+        "products": products,
+        "prices": {
+            # pack_price_vector requires non-negative product prices; linking λ may
+            # be signed after dual ascent — soft-rectify for CDU subproblem only.
+            p: float(max(0.0, prices_vec[i])) for i, p in enumerate(products)
+        },
+        "z": {p: float(z_unit_vec[i]) for i, p in enumerate(products)},
+        "A_shape": [int(A.shape[0]), int(A.shape[1])],
+    }
+
+
+def _blender_linear_pooling_step(
+    lam_link: Mapping[str, float],
+    z_link: Mapping[str, float],
+    *,
+    rho: float,
+    streams: Sequence[str],
+    recipes: Mapping[str, Mapping[str, float]],
+    product_prices: Mapping[str, float],
+    product_ref: Mapping[str, float],
+    product_box: float = 5.0,
+    max_passes: int = 24,
+) -> Dict[str, Any]:
+    """Honest blender linear pooling residual under synthetic λ,z,ρ (no PuLP).
+
+    Maximizes planning-grade local objective on product volumes y_p in a box
+    around synthetic ref volumes::
+
+        sum_p price_p y_p - sum_i λ_i use_i - ρ ||use - z||_1
+        use = R^T y
+
+    Coordinate ascent on y (always-on numpy). Surface class:
+    linear_quality_pooling — not base_delta_affine_unit.
+    """
+    products = list(recipes.keys())
+    R = _case1_recipe_use_matrix(products=products, streams=streams, recipes=recipes)
+    n_p = len(products)
+    y = np.array([float(product_ref.get(p, 0.0)) for p in products], dtype=np.float64)
+    lo = np.maximum(0.0, y - float(product_box))
+    hi = y + float(product_box)
+    y = np.clip(y, lo, hi)
+
+    lam_vec = np.array([float(lam_link.get(s, 0.0)) for s in streams], dtype=np.float64)
+    z_vec = np.array([float(z_link.get(s, 0.0)) for s in streams], dtype=np.float64)
+    price_vec = np.array(
+        [float(product_prices.get(p, 0.0)) for p in products], dtype=np.float64
+    )
+    rho_f = float(rho)
+
+    def _objective(y_vec: np.ndarray) -> float:
+        use = R.T @ y_vec
+        return float(
+            price_vec @ y_vec
+            - lam_vec @ use
+            - rho_f * np.sum(np.abs(use - z_vec))
+        )
+
+    def _coord_step(y_vec: np.ndarray, j: int) -> float:
+        """1D exact max on coordinate j under box (piecewise linear)."""
+        # sample candidate breakpoints from residual zero-crossings + bounds
+        y_try = y_vec.copy()
+        best_val = -np.inf
+        best_yj = float(y_vec[j])
+        candidates = {float(lo[j]), float(hi[j]), float(y_vec[j])}
+        # residual r_i = (R^T y)_i - z_i; zero when y_j moves
+        # use_i(y) = use0_i + R[j,i]*(y_j - y0_j)
+        use0 = R.T @ y_vec
+        for i, s in enumerate(streams):
+            rji = float(R[j, i])
+            if abs(rji) < 1e-15:
+                continue
+            # set use_i = z_i ⇒ y_j = y0_j + (z_i - use0_i)/R[j,i]
+            yj_star = float(y_vec[j] + (z_vec[i] - use0[i]) / rji)
+            if lo[j] - 1e-12 <= yj_star <= hi[j] + 1e-12:
+                candidates.add(float(np.clip(yj_star, lo[j], hi[j])))
+        # also midpoints for robustness
+        candidates.add(float(0.5 * (lo[j] + hi[j])))
+        for yj in candidates:
+            y_try[j] = yj
+            val = _objective(y_try)
+            if val > best_val + 1e-15 or (
+                abs(val - best_val) <= 1e-15 and abs(yj - y_vec[j]) < abs(best_yj - y_vec[j])
+            ):
+                best_val = val
+                best_yj = float(yj)
+        return best_yj
+
+    obj0 = _objective(y)
+    for _ in range(int(max_passes)):
+        y_prev = y.copy()
+        for j in range(n_p):
+            y[j] = _coord_step(y, j)
+        if float(np.max(np.abs(y - y_prev))) <= 1e-12:
+            break
+    obj_star = _objective(y)
+    use_vec = R.T @ y
+    use = {s: float(use_vec[i]) for i, s in enumerate(streams)}
+    y_prod = {p: float(y[i]) for i, p in enumerate(products)}
+    r_use = {s: float(use[s] - float(z_link.get(s, 0.0))) for s in streams}
+    r_l1 = float(sum(abs(v) for v in r_use.values()))
+    finite_ok = bool(
+        np.all(np.isfinite(y))
+        and np.all(np.isfinite(use_vec))
+        and np.isfinite(obj_star)
+        and np.isfinite(r_l1)
+    )
+    return {
+        "ok": finite_ok,
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_is_base_delta_affine_unit": False,
+        "products": products,
+        "y_products": y_prod,
+        "use": use,
+        "r_use_vs_z": r_use,
+        "r_l1_use": r_l1,
+        "augmented_local": float(obj_star),
+        "augmented_local_ref": float(obj0),
+        "not_worse_than_ref": bool(obj_star + 1e-9 >= obj0),
+        "recipes": {p: dict(recipes[p]) for p in products},
+        "product_prices": {p: float(product_prices.get(p, 0.0)) for p in products},
+        "solver": False,
+        "dual_recovery_path": None,
+    }
+
+
+def case1_shaped_cdu_blender_linking_round(
+    *,
+    lam_link: Optional[Mapping[str, float]] = None,
+    z_link: Optional[Mapping[str, float]] = None,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float], np.ndarray] = 1.0,
+    dual_step: float = 1.0,
+    z_blend: float = 1.0,
+    max_passes: int = 32,
+    product_box: float = 5.0,
+) -> Dict[str, Any]:
+    """One offline Case-1-shaped CDU↔Blender linking ADMM round (always-on numpy).
+
+    Structure:
+      1. CDU subproblem under mapped Case1 intermediate λ/z
+      2. Lift CDU y_raw → Case1 intermediates
+      3. Blender linear pooling step under same λ/z,ρ
+      4. r_link = y_cdu − use_blender (pre-z)
+      5. z consensus midpoint; λ dual ascent on pre-z residual
+
+    Not Case 1 solve, not wire, not dual recovery, not full plant MB.
+    """
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if not np.isfinite(float(dual_step)):
+        raise ValueError(f"dual_step must be finite, got {dual_step}")
+    beta = float(z_blend)
+    if not np.isfinite(beta) or beta < 0.0 or beta > 1.0:
+        raise ValueError(f"z_blend must be in [0, 1], got {z_blend}")
+
+    streams = list(CASE1_SHAPED_LINKING_STREAMS)
+    lam_pre = dict(lam_link) if lam_link is not None else _default_case1_lam_link(streams)
+    z_pre = dict(z_link) if z_link is not None else _default_case1_z_link(streams)
+    for s in streams:
+        if s not in lam_pre:
+            raise ValueError(f"Missing lam_link stream {s!r}")
+        if s not in z_pre:
+            raise ValueError(f"Missing z_link stream {s!r}")
+        if not np.isfinite(float(lam_pre[s])) or not np.isfinite(float(z_pre[s])):
+            raise ValueError(f"lam_link/z_link must be finite for stream {s!r}")
+
+    # --- CDU producer ---
+    proj = _project_case1_link_to_cdu(lam_pre, z_pre, streams=streams)
+    sub = admm_block_subproblem_for_unit(
+        "CDU",
+        prices=proj["prices"],
+        z=proj["z"],
+        rho=float(rho),
+        delta=delta,
+        max_passes=int(max_passes),
+    )
+    y_raw = dict(sub["y_raw_star"])
+    y_link_frac = project_cdu_y_to_case1_intermediates(y_raw, streams=streams)
+    feed = float(CASE1_SHAPED_CDU_FEED_SCALE)
+    y_link = {s: float(y_link_frac[s]) * feed for s in streams}
+    cdu_ok = bool(sub.get("ok"))
+
+    # --- Blender consumer (linear pooling) ---
+    blend = _blender_linear_pooling_step(
+        lam_pre,
+        z_pre,
+        rho=float(rho),
+        streams=streams,
+        recipes=CASE1_SHAPED_BLEND_RECIPES,
+        product_prices=CASE1_SHAPED_PRODUCT_PRICES,
+        product_ref=CASE1_SHAPED_PRODUCT_REF,
+        product_box=float(product_box),
+        max_passes=int(max_passes),
+    )
+    use = dict(blend["use"])
+    blender_ok = bool(blend.get("ok"))
+
+    # Pre-z producer−consumer residual
+    r_vec = np.array(
+        [float(y_link[s]) - float(use[s]) for s in streams], dtype=np.float64
+    )
+    r_link = {s: float(r_vec[i]) for i, s in enumerate(streams)}
+    r_l1 = float(np.sum(np.abs(r_vec)))
+    r_linf = float(np.max(np.abs(r_vec))) if r_vec.size else 0.0
+    r_l2 = float(np.sqrt(np.sum(r_vec * r_vec))) if r_vec.size else 0.0
+
+    y_vec = np.array([float(y_link[s]) for s in streams], dtype=np.float64)
+    use_vec = np.array([float(use[s]) for s in streams], dtype=np.float64)
+    z_pre_vec = np.array([float(z_pre[s]) for s in streams], dtype=np.float64)
+    # Midpoint consensus between producer supply and consumer use
+    mid = 0.5 * (y_vec + use_vec)
+    z_post_vec = (1.0 - beta) * z_pre_vec + beta * mid
+    z_post = {s: float(z_post_vec[i]) for i, s in enumerate(streams)}
+
+    alpha = float(dual_step)
+    lam_pre_vec = np.array([float(lam_pre[s]) for s in streams], dtype=np.float64)
+    lam_post_vec = lam_pre_vec + alpha * float(rho) * r_vec
+    lam_post = {s: float(lam_post_vec[i]) for i, s in enumerate(streams)}
+
+    finite_ok = bool(
+        cdu_ok
+        and blender_ok
+        and np.all(np.isfinite(r_vec))
+        and np.all(np.isfinite(z_post_vec))
+        and np.all(np.isfinite(lam_post_vec))
+        and np.isfinite(r_l1)
+        and np.isfinite(r_linf)
+    )
+    honesty = _case1_shaped_linking_honesty_fields()
+    return {
+        **{
+            k: honesty[k]
+            for k in (
+                "kind",
+                "solver",
+                "dual_recovery_path",
+                "on_excel_case1_path",
+                "not_case1_solve",
+                "case1_shaped_offline_only",
+                "case1_form_unchanged",
+                "wire_shipped",
+                "not_wire_shipped",
+                "not_pure_admm_dual_recovery",
+                "not_full_plant_mass_balance",
+                "not_full_plant_blocks_feed_lp",
+                "not_live_plant_blocks",
+                "not_plant_linking_multi_unit_fcc_coker_cdu",
+                "linking_lambda_is_not_case1_online_lambda",
+                "skeleton_lambda_is_not_case1_primary_or_secondary_duals",
+                "blender_surface",
+                "blender_is_base_delta_affine_unit",
+                "scope",
+                "linking_space",
+                "z_update_space",
+                "price_source",
+                "lam_source",
+                "z_source",
+                "rho_source",
+                "formula",
+            )
+        },
+        "ok": finite_ok,
+        "streams": streams,
+        "packages": ["CDU", "BLENDER"],
+        "rho": float(rho),
+        "dual_step": alpha,
+        "z_blend": beta,
+        "lam_pre": dict(lam_pre),
+        "lam_post": lam_post,
+        "z_pre": dict(z_pre),
+        "z_post": z_post,
+        "y_link_cdu": dict(y_link),
+        "use_blender": dict(use),
+        "r_link_pre": r_link,
+        "r_l1_link": r_l1,
+        "r_linf_link": r_linf,
+        "r_l2_link": r_l2,
+        "cdu": {
+            "ok": cdu_ok,
+            "subproblem_ok": cdu_ok,
+            "subproblem_kind": sub.get("kind"),
+            "not_worse_than_ref": bool(sub.get("not_worse_than_ref")),
+            "augmented_local_raw": float(sub["augmented_local_raw"]),
+            "y_raw_star": y_raw,
+            "x_star": list(sub["x_star"]),
+            "y_link": dict(y_link),
+            "prices_unit": dict(proj["prices"]),
+            "z_unit": dict(proj["z"]),
+            "cdu_to_case1_map": case1_shaped_cdu_to_intermediate_map(),
+        },
+        "blender": {
+            "ok": blender_ok,
+            "blender_surface": blend["blender_surface"],
+            "blender_is_base_delta_affine_unit": False,
+            "y_products": dict(blend["y_products"]),
+            "use": dict(use),
+            "augmented_local": float(blend["augmented_local"]),
+            "not_worse_than_ref": bool(blend["not_worse_than_ref"]),
+            "r_l1_use": float(blend["r_l1_use"]),
+            "recipes": blend["recipes"],
+        },
+        "sum_augmented_local": float(sub["augmented_local_raw"]) + float(blend["augmented_local"]),
+        "all_package_ok": bool(cdu_ok and blender_ok),
+    }
+
+
+def offline_case1_shaped_cdu_blender_linking_report(
+    *,
+    n_rounds: int = 3,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float]] = 1.0,
+    dual_step: float = 1.0,
+    z_blend: float = 1.0,
+    lam0: Optional[Mapping[str, float]] = None,
+    z0: Optional[Mapping[str, float]] = None,
+    max_passes: int = 32,
+    product_box: float = 5.0,
+) -> Dict[str, Any]:
+    """Always-on multi-round Case-1-shaped CDU↔Blender offline linking report.
+
+    Aggregate ``ok`` = honesty locks + finite trajectory + package structure.
+    **No** residual-must-vanish SLA. **No** TF required. **No** PuLP hot path.
+    Does **not** clear DEFAULT_WIRE_BLOCKERS. Does **not** change Case 1 form.
+    """
+    if int(n_rounds) < 1:
+        raise ValueError(f"n_rounds must be >= 1, got {n_rounds}")
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if not np.isfinite(float(dual_step)):
+        raise ValueError(f"dual_step must be finite, got {dual_step}")
+    beta = float(z_blend)
+    if not np.isfinite(beta) or beta < 0.0 or beta > 1.0:
+        raise ValueError(f"z_blend must be in [0, 1], got {z_blend}")
+
+    n_r = int(n_rounds)
+    streams = list(CASE1_SHAPED_LINKING_STREAMS)
+    honesty = _case1_shaped_linking_honesty_fields()
+
+    state_lam = dict(lam0) if lam0 is not None else _default_case1_lam_link(streams)
+    state_z = dict(z0) if z0 is not None else _default_case1_z_link(streams)
+
+    trajectory: List[Dict[str, Any]] = []
+    packages_out: Dict[str, Any] = {
+        "CDU": {
+            "package": "CDU",
+            "ok": True,
+            "rounds": [],
+            "final_y_link": None,
+            "last_x_star": None,
+            "last_y_raw_star": None,
+        },
+        "BLENDER": {
+            "package": "BLENDER",
+            "ok": True,
+            "rounds": [],
+            "final_use": None,
+            "last_y_products": None,
+            "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        },
+    }
+    all_ok = True
+
+    for t in range(1, n_r + 1):
+        row = case1_shaped_cdu_blender_linking_round(
+            lam_link=state_lam,
+            z_link=state_z,
+            rho=float(rho),
+            delta=delta,
+            dual_step=float(dual_step),
+            z_blend=beta,
+            max_passes=int(max_passes),
+            product_box=float(product_box),
+        )
+        state_lam = dict(row["lam_post"])
+        state_z = dict(row["z_post"])
+
+        cdu_row = row["cdu"]
+        blend_row = row["blender"]
+        cdu_compact = {
+            "round": t,
+            "ok": bool(cdu_row["ok"]),
+            "subproblem_ok": bool(cdu_row["subproblem_ok"]),
+            "not_worse_than_ref": bool(cdu_row["not_worse_than_ref"]),
+            "augmented_local_raw": float(cdu_row["augmented_local_raw"]),
+            "y_link": dict(cdu_row["y_link"]),
+        }
+        blend_compact = {
+            "round": t,
+            "ok": bool(blend_row["ok"]),
+            "not_worse_than_ref": bool(blend_row["not_worse_than_ref"]),
+            "augmented_local": float(blend_row["augmented_local"]),
+            "use": dict(blend_row["use"]),
+            "y_products": dict(blend_row["y_products"]),
+        }
+        packages_out["CDU"]["rounds"].append(cdu_compact)
+        packages_out["CDU"]["final_y_link"] = dict(cdu_row["y_link"])
+        packages_out["CDU"]["last_x_star"] = list(cdu_row["x_star"])
+        packages_out["CDU"]["last_y_raw_star"] = dict(cdu_row["y_raw_star"])
+        packages_out["BLENDER"]["rounds"].append(blend_compact)
+        packages_out["BLENDER"]["final_use"] = dict(blend_row["use"])
+        packages_out["BLENDER"]["last_y_products"] = dict(blend_row["y_products"])
+
+        round_ok = bool(row.get("ok"))
+        if not cdu_row["ok"]:
+            packages_out["CDU"]["ok"] = False
+            round_ok = False
+            all_ok = False
+        if not blend_row["ok"]:
+            packages_out["BLENDER"]["ok"] = False
+            round_ok = False
+            all_ok = False
+
+        traj_row = {
+            "round": t,
+            "ok": bool(
+                round_ok
+                and np.isfinite(float(row["r_l1_link"]))
+                and np.isfinite(float(row["r_linf_link"]))
+                and np.isfinite(float(row["sum_augmented_local"]))
+            ),
+            "r_l1_link": float(row["r_l1_link"]),
+            "r_linf_link": float(row["r_linf_link"]),
+            "r_l2_link": float(row["r_l2_link"]),
+            "sum_augmented_local": float(row["sum_augmented_local"]),
+            "r_link_pre": dict(row["r_link_pre"]),
+            "packages_ok": {
+                "CDU": bool(cdu_compact["ok"]),
+                "BLENDER": bool(blend_compact["ok"]),
+            },
+        }
+        if not traj_row["ok"]:
+            all_ok = False
+        trajectory.append(traj_row)
+
+    residual_trend = "n/a"
+    if len(trajectory) >= 2:
+        vals = [float(tr["r_l1_link"]) for tr in trajectory]
+        if all(np.isfinite(v) for v in vals):
+            diffs = [vals[i + 1] - vals[i] for i in range(len(vals) - 1)]
+            if all(d <= 1e-12 for d in diffs):
+                residual_trend = "nonincreasing"
+            elif all(d >= -1e-12 for d in diffs):
+                residual_trend = "nondecreasing"
+            else:
+                residual_trend = "mixed"
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and "BLENDER" not in UNITS
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == CASE1_SHAPED_LINKING_KIND
+        and honesty["wire_shipped"] is False
+        and honesty["not_wire_shipped"] is True
+        and honesty["not_full_plant_mass_balance"] is True
+        and honesty["not_case1_solve"] is True
+        and honesty["case1_shaped_offline_only"] is True
+        and honesty["case1_form_unchanged"] is True
+        and honesty["linking_lambda_is_not_case1_online_lambda"] is True
+        and honesty["blender_surface"] == CASE1_SHAPED_BLENDER_SURFACE
+        and honesty["blender_is_base_delta_affine_unit"] is False
+        and honesty["excel_cdu_matrix_matches_affine"] is None
+        and honesty["excel_blender_matrix_matches_affine"] is None
+        and honesty["case1_is_cdu_blender_package_admm_blocker_still_true"] is True
+        and honesty["no_blender_offline_affine_kernel_blocker_still_true"] is True
+        and set(packages_out.keys()) == {"CDU", "BLENDER"}
+        and len(trajectory) == n_r
+        and list(streams) == list(CASE1_SHAPED_LINKING_STREAMS)
+        and "case1_is_cdu_blender_package_admm" in DEFAULT_WIRE_BLOCKERS
+        and "no_blender_offline_affine_kernel" in DEFAULT_WIRE_BLOCKERS
+    )
+    if not honesty_ok:
+        all_ok = False
+    for pkg in packages_out.values():
+        if not pkg.get("ok"):
+            all_ok = False
+
+    finite_traj = all(
+        np.isfinite(tr["r_l1_link"])
+        and np.isfinite(tr["r_linf_link"])
+        and np.isfinite(tr["sum_augmented_local"])
+        for tr in trajectory
+    )
+    if not finite_traj:
+        all_ok = False
+
+    ok_criteria = (
+        "honesty_ok ∧ finite trajectory ∧ package structure "
+        "(CDU affine + blender linear pooling); "
+        "NOT residual-must-vanish; NOT wire shipped; NOT blockers empty"
+    )
+
+    return {
+        "ok": bool(all_ok and honesty_ok and finite_traj),
+        "packages": packages_out,
+        "package_order": ["CDU", "BLENDER"],
+        "streams": streams,
+        "trajectory": trajectory,
+        "n_rounds": n_r,
+        "rho": float(rho),
+        "dual_step": float(dual_step),
+        "z_blend": beta,
+        "delta": delta if not isinstance(delta, Mapping) else dict(delta),
+        "final_lam": dict(state_lam),
+        "final_z": dict(state_z),
+        "cdu_to_case1_map": case1_shaped_cdu_to_intermediate_map(),
+        "blend_recipes": {p: dict(r) for p, r in CASE1_SHAPED_BLEND_RECIPES.items()},
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": CASE1_SHAPED_LINKING_KIND,
+        "not_case1_solve": True,
+        "case1_shaped_offline_only": True,
+        "case1_form_unchanged": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_plant_linking_multi_unit_fcc_coker_cdu": True,
+        "linking_lambda_is_not_case1_online_lambda": True,
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": True,
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_is_base_delta_affine_unit": False,
+        "excel_cdu_matrix_matches_affine": None,
+        "excel_blender_matrix_matches_affine": None,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "scope": CASE1_SHAPED_LINKING_SCOPE,
+        "linking_space": honesty["linking_space"],
+        "z_update_space": honesty["z_update_space"],
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "formula": CASE1_SHAPED_LINKING_FORMULA,
+        "residual_trend": residual_trend,
+        "honesty_ok": honesty_ok,
+        "ok_criteria": ok_criteria,
+        "tf_available": tf_available(),
+        "units_affine_unchanged": list(UNITS),
+        "cdu_feed_scale": float(CASE1_SHAPED_CDU_FEED_SCALE),
+        "cdu_feed_scale_note": (
+            "Synthetic offline feed multiplies CDU mass-fraction yields into "
+            "planning-scale intermediate volumes; not live plant mass balance."
+        ),
+        "note": honesty["note"],
+    }
+
+
+def multi_block_case1_shaped_linking_admm_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_shaped_cdu_blender_linking_report``."""
+    return offline_case1_shaped_cdu_blender_linking_report(**kwargs)
+
 
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
@@ -4067,6 +4877,18 @@ __all__ = [
     "offline_wire_blocker_catalog",
     "offline_wire_preflight_report",
     "multi_unit_wire_preflight_report",
+    "CASE1_SHAPED_LINKING_KIND",
+    "CASE1_SHAPED_LINKING_SCOPE",
+    "CASE1_SHAPED_LINKING_STREAMS",
+    "CASE1_SHAPED_BLENDER_SURFACE",
+    "CASE1_SHAPED_LINKING_FORMULA",
+    "CASE1_SHAPED_BLEND_RECIPES",
+    "case1_shaped_cdu_to_intermediate_map",
+    "project_cdu_y_to_case1_intermediates",
+    "blender_recipe_use_from_products",
+    "case1_shaped_cdu_blender_linking_round",
+    "offline_case1_shaped_cdu_blender_linking_report",
+    "multi_block_case1_shaped_linking_admm_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
