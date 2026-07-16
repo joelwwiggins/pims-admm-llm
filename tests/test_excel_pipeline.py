@@ -173,6 +173,27 @@ def test_write_results_excel_lean_goal(tmp_path):
 
     assert report.get("model", {}).get("form") == "classic_2block_excel_path"
 
+    # E1/E11: How_to three-path honesty (export ≠ offline TF ≠ Case1 duals)
+    how = {
+        str(r[0].value): str(r[1].value or "")
+        for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    three = how.get("fcc_three_path", "")
+    assert "base_delta export" in three or "BASE/D_*" in three
+    assert "offline TF" in three or "tf_linear" in three
+    assert "classic_2block" in three
+    dual_note = how.get("duals_online_lambda", "")
+    assert "online" in dual_note.lower()
+
+
+def test_excel_fcc_export_matches_affine_coeffs():
+    """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""
+    from pims_admm_llm.models.tf_linear_blocks import excel_fcc_matrix_matches_affine
+
+    report = excel_fcc_matrix_matches_affine(atol=1e-12)
+    assert report["ok"], report.get("mismatches")
+
 
 def test_excel_pipeline_case1_tf_non_wiring_contract(tmp_path):
     """E14 permanent gate: Case 1 form + duals stay free of TF ownership claims."""
