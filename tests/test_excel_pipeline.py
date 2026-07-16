@@ -73,6 +73,14 @@ def test_excel_pipeline_end_to_end(tmp_path):
     assert report["comparison"]["dual_linf_online"] <= 15.0
     assert report["verdict"].startswith("PASS")
     assert report["meta"]["admm_config"]["rho"] == 8.0
+    # E14: feasibility stays classic 2-block; TF must not own duals or form.
+    assert report.get("model", {}).get("form") == "classic_2block_excel_path"
+    path = str(report.get("admm", {}).get("dual_recovery_path") or "")
+    assert "online_lambda" in path
+    assert "tf_block" not in path.lower()
+    assert "tensorflow" not in path.lower()
+    assert "tf_block" not in report
+    assert report.get("tf_block") is None
 
 
 def test_excel_pipeline_shadows_prefer_online_lambda(tmp_path):
@@ -164,6 +172,37 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert isinstance(cell, str) and cell.startswith("="), cell
 
     assert report.get("model", {}).get("form") == "classic_2block_excel_path"
+
+
+def test_excel_pipeline_case1_tf_non_wiring_contract(tmp_path):
+    """E14 permanent gate: Case 1 form + duals stay free of TF ownership claims."""
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+
+    assert report["mono"]["feasible"] and report["admm"]["feasible"]
+    assert report["comparison"]["objective_gap_rel"] <= 0.005 + 1e-9
+    assert report["comparison"]["dual_linf_online"] <= 15.0
+    assert report["verdict"].startswith("PASS")
+
+    assert report.get("model", {}).get("form") == "classic_2block_excel_path"
+
+    admm = report["admm"]
+    path = str(admm.get("dual_recovery_path") or "")
+    assert path, "dual_recovery_path must be labeled"
+    assert "online_lambda" in path
+    # Do not claim pure-ADMM as dual recovery (path may say package-admm backend).
+    assert "pure_admm" not in path.lower()
+    assert "pure-admm-dual" not in path.lower().replace("_", "-")
+    # TF must never be presented as dual recovery or a report-level dual owner.
+    for blob in (path, str(report.get("tf_block")), str(admm.get("tf_block"))):
+        assert "tf_block" not in blob.lower()
+        assert "tensorflow" not in blob.lower()
+    assert "tf_block" not in report
+    assert "tf_block" not in admm
+    # Primary shadows remain free online economic λ (not a TF artifact).
+    assert isinstance(admm.get("shadow_prices"), dict) and admm["shadow_prices"]
+    assert isinstance(admm.get("shadow_prices_recovered"), dict)
 
 
 def test_load_pims_excel_has_crudes(tmp_path):
