@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     ph = (meta.get("planner_honesty") or {})
     offline_units = ph.get("offline_tf_units") or "FCC,COKER,CDU"
     # Static readiness flags from meta only — never import tf_linear_blocks /
-    # live residual, block subproblem, or multi-round coordination reports.
+    # live residual, block subproblem, multi-round coordination, or plant-linking reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -99,13 +99,16 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("admm_block_subproblem")
     if ph.get("offline_tf_admm_coordination_ready"):
         readiness_bits.append("admm_coordination")
+    if ph.get("offline_tf_admm_plant_linking_ready"):
+        readiness_bits.append("admm_plant_linking")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
         f"(NOT on classic Case 1; dual_recovery_path=None on TF surface; "
-        f"synthetic residual/subproblem/coordination λ ≠ duals; "
-        f"per-unit synthetic ≠ plant linking; not wire shipped)"
+        f"synthetic residual/subproblem/coordination/plant-linking λ ≠ duals; "
+        f"per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
+        f"not wire shipped)"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")

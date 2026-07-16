@@ -401,6 +401,15 @@ Honesty table (ADMM plant-linking surface):
 | Wire / full plant MB | **Not shipped** |
 | Backend | Always-on numpy compose of subproblem — **not** PuLP/CBC |
 
+Excel How_to / Index / Summary / meta / Calc_Check / demo also glance-lock multi-block
+plant-linking readiness **statically** (`tf_offline_admm_plant_linking` How_to topic;
+`meta.planner_honesty.offline_tf_admm_plant_linking_ready`;
+`offline_tf_admm_plant_linking_not_duals` Calc_Check row; demo readiness bit
+`admm_plant_linking`). Existence packaging only — **not** a live
+`multi_block_plant_linking_admm_report` call from the Excel write path; **not** Case 1;
+**not** full plant mass balance; **not** wire; plant-linking λ ≠ Case 1 duals. Per-unit
+coordination surface remains distinct (`not_plant_linking_coordinator=True`).
+
 ## Per-unit affine API
 
 ```python
