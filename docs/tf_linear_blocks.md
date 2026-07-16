@@ -41,7 +41,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | ADMM residual (goal 5 pre-wire) | `multi_unit_admm_residual_report` / `admm_residual_for_unit` — consensus `r=y−z` + L1 augmented local under synthetic λ,z,ρ; **not** dual recovery; **not** Case 1 |
 | ADMM block subproblem (goal 5 pre-wire) | `multi_unit_admm_block_subproblem_report` / `admm_block_subproblem_for_unit` — maximize L1-augmented local on **raw affine** under driver box + synthetic λ,z,ρ; **not** dual recovery; **not** Case 1; **not** wire |
 | ADMM multi-round coordination (goal 5 pre-wire) | `multi_unit_admm_coordination_report` / `admm_coordination_round_for_unit` — subproblem → raw z consensus → λ ascent under synthetic λ,z,ρ; per-unit synthetic loops; **not** plant linking; **not** dual recovery; **not** Case 1; **not** wire |
-| ADMM plant-linking multi-block (goal 5 pre-wire) | `multi_block_plant_linking_admm_report` / `plant_linking_admm_round` / `offline_plant_linking_topology` — shared λ/z on synthetic linking streams + per-unit incidence; compose subproblem; **not** full plant mass balance; **not** dual recovery; **not** Case 1; **not** wire |
+| ADMM plant-linking multi-block (goal 5 pre-wire) | `multi_block_plant_linking_admm_report` / `plant_linking_admm_round` / `offline_plant_linking_topology` — shared λ/z on synthetic (default) **or plant-named** linking streams + per-unit incidence; compose subproblem; **not** full plant mass balance; **not** dual recovery; **not** Case 1; **not** wire |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -340,9 +340,9 @@ Honesty table (ADMM coordination surface):
 ## Offline multi-block plant-linking ADMM (goal 5 pre-wire)
 
 Always-on numpy surface. Runs ADMM-style rounds over FCC+COKER+CDU with **shared**
-λ/z on a **synthetic plant linking-stream space**, mapped to each unit via
-explicit incidence (unit products are name-disjoint — no product-name intersection
-theater). Composes existing `admm_block_subproblem_for_unit`:
+λ/z on a plant linking-stream space, mapped to each unit via explicit incidence
+(unit products are name-disjoint — no product-name intersection theater). Composes
+existing `admm_block_subproblem_for_unit`:
 
 1. **Map** — `prices_unit = A^T λ_link`, `z_unit = A^T z_link` (0/1 selection incidence)
 2. **x / y step** — existing subproblem maximizer under (λ_u, z_u, ρ, δ)
@@ -351,20 +351,34 @@ theater). Composes existing `admm_block_subproblem_for_unit`:
 4. **z consensus** — linking-space update `z ← (1−β)z + β y_link_total`
 5. **λ dual ascent** — `λ ← λ + α·ρ·r_link`
 
-Topology source = `synthetic_offline_demo` — **not** live plant_blocks / cascade mass
-balance / Case 1 CDU↔Blender links. Shared plant-linking λ **≠** Case 1 PRIMARY online λ
-/ SECONDARY recovered. Existing `multi_unit_admm_coordination_report` remains a
+### Topology modes
+
+| Mode | `topology_source` | Streams | Incidence | `linking_space` |
+|------|-------------------|---------|-----------|-----------------|
+| `synthetic` (**default**) | `synthetic_offline_demo` | family: `light_ends`, `naphtha`, … | product → family stream | `synthetic_linking_streams` |
+| `plant_named` | `plant_named_offline_demo` | plant product names: `fcc_naphtha`, `cdu_gasoil`, … | **identity** product → product | `plant_named_linking_streams` |
+
+Plant-named offline demo **≠** full plant mass balance / live plant_blocks cascade /
+Case 1 CDU↔Blender links. Shared plant-linking λ **≠** Case 1 PRIMARY online λ /
+SECONDARY recovered. Existing `multi_unit_admm_coordination_report` remains a
 separate surface with `not_plant_linking_coordinator=True`. No absolute
-residual-must-converge hard-fail. Optional readiness flag `admm_plant_linking_ok` is
-additive only (does **not** redefine `ready_for_wire_discussion`).
+residual-must-converge hard-fail. Additive readiness flags:
+
+- `admm_plant_linking_ok` — synthetic default mode
+- `admm_plant_named_linking_ok` — plant-named mode
+
+Neither redefines `ready_for_wire_discussion` (still parity∧priced∧timings∧honesty).
 
 ```python
 from pims_admm_llm.models.tf_linear_blocks import (
     offline_plant_linking_topology,
+    offline_plant_named_linking_topology,
     plant_linking_admm_round,
     multi_block_plant_linking_admm_report,
+    multi_block_plant_named_linking_admm_report,
 )
 
+# Default remains synthetic (bit-stable for existing plant-linking tests)
 topo = offline_plant_linking_topology()
 assert topo["topology_source"] == "synthetic_offline_demo"
 assert topo["not_full_plant_mass_balance"] is True
@@ -382,24 +396,41 @@ assert report["plant_linking_lambda_is_not_case1_online_lambda"] is True
 assert report["not_wire_shipped"] is True
 assert len(report["trajectory"]) == 3
 # trajectory residuals are finite; no residual-must-vanish SLA
+
+# Plant-named mode (identity incidence; plant-style stream names)
+topo_n = offline_plant_named_linking_topology()
+assert topo_n["topology_source"] == "plant_named_offline_demo"
+assert "fcc_naphtha" in topo_n["streams"]
+assert "light_ends" not in topo_n["streams"]
+
+named = multi_block_plant_named_linking_admm_report(
+    n_rounds=3, rho=1.0, delta=0.5, dual_step=1.0
+)
+assert named["ok"]
+assert named["topology_source"] == "plant_named_offline_demo"
+assert named["linking_space"] == "plant_named_linking_streams"
+assert named["dual_recovery_path"] is None
+assert named["not_full_plant_mass_balance"] is True
+assert named["not_wire_shipped"] is True
+# plant-named offline demo ≠ full plant MB / live cascade / Case 1 duals
 ```
 
-Honesty table (ADMM plant-linking surface):
+Honesty table (ADMM plant-linking surface — both modes):
 
-| Field | Value |
-|-------|-------|
-| `kind` | `offline_admm_plant_linking` |
-| `solver` | `False` |
-| `dual_recovery_path` | `None` |
-| `on_excel_case1_path` | `False` |
-| `optimand_space` | `raw_affine` (unit level; reuses subproblem) |
-| `linking_space` / `z_update_space` | `synthetic_linking_streams` |
-| `topology_source` / `plant_linking_scope` | `synthetic_offline_demo` |
-| `not_full_plant_mass_balance` | `True` |
-| `plant_linking_lambda_is_not_case1_online_lambda` | `True` |
-| Dual ascent residual | **pre-z** linking residual (`r_link = sum y_link − z_pre`) |
-| Wire / full plant MB | **Not shipped** |
-| Backend | Always-on numpy compose of subproblem — **not** PuLP/CBC |
+| Field | Synthetic default | Plant-named mode |
+|-------|-------------------|------------------|
+| `kind` | `offline_admm_plant_linking` | same |
+| `solver` | `False` | same |
+| `dual_recovery_path` | `None` | same |
+| `on_excel_case1_path` | `False` | same |
+| `optimand_space` | `raw_affine` (unit level; reuses subproblem) | same |
+| `linking_space` / `z_update_space` | `synthetic_linking_streams` | `plant_named_linking_streams` |
+| `topology_source` / `plant_linking_scope` | `synthetic_offline_demo` | `plant_named_offline_demo` |
+| `not_full_plant_mass_balance` | `True` | same |
+| `plant_linking_lambda_is_not_case1_online_lambda` | `True` | same |
+| Dual ascent residual | **pre-z** linking residual (`r_link = sum y_link − z_pre`) | same |
+| Wire / full plant MB / live cascade | **Not shipped** | **Not shipped** |
+| Backend | Always-on numpy compose of subproblem — **not** PuLP/CBC | same |
 
 Excel How_to / Index / Summary / meta / Calc_Check / demo also glance-lock multi-block
 plant-linking readiness **statically** (`tf_offline_admm_plant_linking` How_to topic;
@@ -502,6 +533,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [x] `multi_unit_admm_block_subproblem_report()` ok (raw affine L1 maximizer under box; dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped; not PuLP)
 - [x] `multi_unit_admm_coordination_report()` ok (multi-round subproblem → raw z → λ under synthetic λ,z,ρ; dual-ban; per-unit synthetic scope; not plant linking; not Case 1; not pure-ADMM dual recovery; not wire shipped; no residual-must-vanish hard-fail)
 - [x] `multi_block_plant_linking_admm_report()` ok (synthetic linking-stream topology + shared λ/z + per-unit incidence; compose subproblem; dual-ban; not full plant mass balance; plant-linking λ ≠ Case 1 online λ; not Case 1; not pure-ADMM dual recovery; not wire shipped; no residual-must-vanish hard-fail)
+- [x] Plant-named linking topology mode ok (`mode="plant_named"` / `multi_block_plant_named_linking_admm_report`; identity incidence; `topology_source=plant_named_offline_demo`; dual-ban; not full plant MB; not live cascade; not Case 1; not wire; synthetic default still green)
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
@@ -532,4 +564,4 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `multi_unit_admm_residual_report` ok without TF; honesty locks; L1 formula; Coker raw≠full residual honesty; synthetic λ ≠ Case 1 online λ
 - [ ] `multi_unit_admm_block_subproblem_report` ok without TF; raw optimand; maximizer ≥ ref; delta=0 ⇒ x_star≈x0; dual-ban; not wire; Coker raw≠full diagnostic
 - [ ] `multi_unit_admm_coordination_report` ok without TF; honesty locks; trajectory finite; z_pre dual ascent; per-unit synthetic scope; no residual-must-vanish SLA; not wire
-- [ ] `multi_block_plant_linking_admm_report` ok without TF; synthetic topology; shared linking λ/z; pre-z linking residual dual ascent; compose subproblem; not full plant MB; plant-linking λ ≠ Case 1 duals; dual_recovery_path=None; no residual-must-vanish SLA; existing coordination still `not_plant_linking_coordinator=True`
+- [ ] `multi_block_plant_linking_admm_report` ok without TF; synthetic topology (default) + plant-named mode; shared linking λ/z; pre-z linking residual dual ascent; compose subproblem; not full plant MB; plant-linking λ ≠ Case 1 duals; dual_recovery_path=None; no residual-must-vanish SLA; existing coordination still `not_plant_linking_coordinator=True`; additive `admm_plant_named_linking_ok` does not redefine `ready_for_wire_discussion`
