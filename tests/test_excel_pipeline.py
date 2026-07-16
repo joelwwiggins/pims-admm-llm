@@ -283,6 +283,20 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "full plant" in plow or "mass balance" in plow
     assert "incidence" in plow or "linking" in plow
 
+    # Offline multi-block plant-named linking ADMM How_to (static; plant_named; still not Case 1)
+    tf_named = how.get("tf_offline_admm_plant_named_linking", "")
+    assert tf_named, "How_to_read must include tf_offline_admm_plant_named_linking"
+    nlow = tf_named.lower()
+    assert "admm" in nlow and ("plant-named" in nlow or "plant named" in nlow)
+    assert "fcc" in nlow and "coker" in nlow and "cdu" in nlow
+    assert "not on" in nlow or "classic_2block" in nlow
+    assert "dual" in nlow and ("none" in nlow or "primary" in nlow)
+    assert "not" in nlow and "wire" in nlow
+    assert "plant_named" in nlow or "plant-named" in nlow or "plant named" in nlow
+    assert "full plant" in nlow or "mass balance" in nlow
+    assert "identity" in nlow or "incidence" in nlow
+    assert "synthetic" in nlow  # distinct-from-synthetic language
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -439,6 +453,38 @@ def test_format_tf_offline_admm_plant_linking_howto_pure():
     assert "not" in one and "wire" in one
     assert "synthetic" in one
     assert "full plant" in one or "mass balance" in one
+    assert "coordination" in one  # distinct-from-coordination language
+
+
+def test_format_tf_offline_admm_plant_named_linking_howto_pure():
+    """Static multi-block plant-named linking ADMM How_to: isolation-safe; no TF import."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_admm_plant_named_linking_howto,
+    )
+
+    d = format_tf_offline_admm_plant_named_linking_howto()
+    assert d["topic"] == "tf_offline_admm_plant_named_linking"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["optimand_space"] == "raw_affine"
+    assert d["plant_linking_scope"] == "plant_named_offline_demo"
+    assert d["topology_source"] == "plant_named_offline_demo"
+    assert d["linking_space"] == "plant_named_linking_streams"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["z_update_space"] == "plant_named_linking_streams"
+    one = d["planner_one_liner"].lower()
+    assert "admm" in one and ("plant-named" in one or "plant named" in one)
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one
+    assert "not" in one and "wire" in one
+    assert "full plant" in one or "mass balance" in one
+    assert "identity" in one or "incidence" in one
+    assert "synthetic" in one  # distinct-from-synthetic language
     assert "coordination" in one  # distinct-from-coordination language
 
 
@@ -602,12 +648,14 @@ def test_format_dual_honesty_summary_pure():
 def test_planner_honesty_glance_package(tmp_path):
     """E1: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty.
 
-    After #24 multi-block plant-linking harness: glance package also locks multi-block
-    plant-linking readiness (synthetic linking topology + shared λ/z + incidence;
-    not full plant MB; plant-linking λ ≠ duals) alongside multi-round coordination +
-    residual + block subproblem + priced + timing (static; isolation-safe). Dual
+    After #26 multi-block plant-named linking harness: glance package also locks
+    multi-block plant-named linking readiness (plant product streams + identity
+    incidence; plant_named_offline_demo; not full plant MB; plant-named λ ≠ duals)
+    alongside synthetic plant-linking + multi-round coordination + residual +
+    block subproblem + priced + timing (static; isolation-safe). Dual
     PRIMARY/SECONDARY and classic form remain non-regression contracts. Coordination
     surface remains distinct (not_plant_linking_coordinator language preserved).
+    Synthetic plant-linking packaging remains green.
     """
     from pims_admm_llm.models.excel_pipeline import (
         format_planner_honesty_package,
@@ -646,6 +694,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "linking topology" in what_l or "shared λ" in what_l or "incidence" in what_l
     assert "not full plant" in what_l or "full plant mb" in what_l
     assert "per-unit coordination" in what_l or "coordination ≠ plant linking" in what_l
+    # Positive plant-named readiness packaging (discriminators — not synthetic-only phrases)
+    assert "plant-named linking readiness" in what_l or "plant named linking readiness" in what_l
+    assert "plant_named_offline_demo" in what_l or "plant product streams" in what_l
+    assert "identity incidence" in what_l or "plant product" in what_l
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
     assert pkg["meta"]["dual_gate"] == "online_lambda"
     assert pkg["meta"]["verdict_dual_gate"] == "online_only"
@@ -659,6 +711,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_admm_block_subproblem_ready"] is True
     assert pkg["meta"]["offline_tf_admm_coordination_ready"] is True
     assert pkg["meta"]["offline_tf_admm_plant_linking_ready"] is True
+    assert pkg["meta"]["offline_tf_admm_plant_named_linking_ready"] is True
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
     admm_note = str(pkg["meta"]["offline_tf_admm_residual"]).lower()
@@ -687,18 +740,29 @@ def test_planner_honesty_glance_package(tmp_path):
     )
     assert "full plant" in plant_note or "mass balance" in plant_note
     assert "coordination" in plant_note  # distinct-from-coordination
+    named_note = str(pkg["meta"]["offline_tf_admm_plant_named_linking"]).lower()
+    assert "plant-named" in named_note or "plant named" in named_note
+    assert "plant_named_offline_demo" in named_note or "plant product" in named_note
+    assert "not" in named_note and (
+        "dual" in named_note or "wire" in named_note or "online" in named_note
+    )
+    assert "full plant" in named_note or "mass balance" in named_note
+    assert "synthetic" in named_note  # distinct-from-synthetic
+    assert "coordination" in named_note  # distinct-from-coordination
     readiness_note = str(pkg["meta"]["offline_tf_readiness_note"]).lower()
     assert "not" in readiness_note
     assert "admm residual" in readiness_note
     assert "block subproblem" in readiness_note
     assert "coordination" in readiness_note
     assert "plant-linking" in readiness_note or "plant linking" in readiness_note
+    assert "plant-named" in readiness_note or "plant named" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
     assert "block subproblem" in one_l
     assert "coordination" in one_l
     assert "plant-linking" in one_l or "plant linking" in one_l
+    assert "plant-named" in one_l or "plant named" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -707,6 +771,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["tf_offline_admm_coordination"]["topic"] == "tf_offline_admm_coordination"
     assert pkg.get("tf_offline_admm_plant_linking") is not None
     assert pkg["tf_offline_admm_plant_linking"]["topic"] == "tf_offline_admm_plant_linking"
+    assert pkg.get("tf_offline_admm_plant_named_linking") is not None
+    assert pkg["tf_offline_admm_plant_named_linking"]["topic"] == "tf_offline_admm_plant_named_linking"
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -715,6 +781,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_admm_block_subproblem",
         "offline_tf_admm_coordination",
         "offline_tf_admm_plant_linking",
+        "offline_tf_admm_plant_named_linking",
         "offline_tf_readiness_note",
         "offline_tf_units",
         "dual_gate",
@@ -733,6 +800,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_admm_block_subproblem_not_duals",
         "offline_tf_admm_coordination_not_duals",
         "offline_tf_admm_plant_linking_not_duals",
+        "offline_tf_admm_plant_named_linking_not_duals",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -754,6 +822,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph["offline_tf_admm_block_subproblem_ready"] is True
     assert ph["offline_tf_admm_coordination_ready"] is True
     assert ph["offline_tf_admm_plant_linking_ready"] is True
+    assert ph["offline_tf_admm_plant_named_linking_ready"] is True
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
     assert "not duals" in str(ph["offline_tf_priced"]).lower() or "not admm" in str(
@@ -785,6 +854,13 @@ def test_planner_honesty_glance_package(tmp_path):
         "dual" in ph_plant or "wire" in ph_plant or "online" in ph_plant
     )
     assert "full plant" in ph_plant or "mass balance" in ph_plant
+    ph_named = str(ph["offline_tf_admm_plant_named_linking"]).lower()
+    assert "plant-named" in ph_named or "plant named" in ph_named
+    assert "plant_named_offline_demo" in ph_named or "plant product" in ph_named
+    assert "not" in ph_named and (
+        "dual" in ph_named or "wire" in ph_named or "online" in ph_named
+    )
+    assert "full plant" in ph_named or "mass balance" in ph_named
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -810,6 +886,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "plant-linking readiness" in ot or "plant linking readiness" in ot
     assert "multi-block plant-linking" in ot or "multi-block plant linking" in ot
     assert "not full plant" in ot or "full plant mb" in ot
+    assert "plant-named linking readiness" in ot or "plant named linking readiness" in ot
+    assert "plant_named_offline_demo" in ot or "plant product streams" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -838,12 +916,14 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "block subproblem" in note.lower()
     assert "coordination" in note.lower()
     assert "plant-linking" in note.lower() or "plant linking" in note.lower()
+    assert "plant-named" in note.lower() or "plant named" in note.lower()
     priced_s = str(summary.get("offline_tf_priced") or "").lower()
     timing_s = str(summary.get("offline_tf_timing") or "").lower()
     admm_s = str(summary.get("offline_tf_admm_residual") or "").lower()
     sub_s = str(summary.get("offline_tf_admm_block_subproblem") or "").lower()
     coord_s = str(summary.get("offline_tf_admm_coordination") or "").lower()
     plant_s = str(summary.get("offline_tf_admm_plant_linking") or "").lower()
+    named_s = str(summary.get("offline_tf_admm_plant_named_linking") or "").lower()
     assert "priced" in priced_s
     assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
     assert "timing" in timing_s
@@ -867,6 +947,12 @@ def test_planner_honesty_glance_package(tmp_path):
         "dual" in plant_s or "wire" in plant_s or "online" in plant_s
     )
     assert "full plant" in plant_s or "mass balance" in plant_s
+    assert "plant-named" in named_s or "plant named" in named_s
+    assert "plant_named_offline_demo" in named_s or "plant product" in named_s
+    assert "not" in named_s and (
+        "dual" in named_s or "wire" in named_s or "online" in named_s
+    )
+    assert "full plant" in named_s or "mass balance" in named_s
 
     # --- Calc_Check honesty audit rows (all ok) ---
     chk_h = [c.value for c in wb["Calc_Check"][1]]
@@ -886,11 +972,12 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("offline_tf_admm_block_subproblem_not_duals") is True
     assert checks.get("offline_tf_admm_coordination_not_duals") is True
     assert checks.get("offline_tf_admm_plant_linking_not_duals") is True
+    assert checks.get("offline_tf_admm_plant_named_linking_not_duals") is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
     # How_to offline + dual keys preserved (units + priced + timing + residual +
-    # subproblem + multi-round coordination + multi-block plant-linking)
+    # subproblem + multi-round coordination + multi-block plant-linking + plant-named)
     how = {
         str(r[0].value): str(r[1].value or "")
         for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
@@ -903,6 +990,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_admm_block_subproblem")
     assert how.get("tf_offline_admm_coordination")
     assert how.get("tf_offline_admm_plant_linking")
+    assert how.get("tf_offline_admm_plant_named_linking")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -933,6 +1021,7 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_admm_block_subproblem_not_duals",
         "offline_tf_admm_coordination_not_duals",
         "offline_tf_admm_plant_linking_not_duals",
+        "offline_tf_admm_plant_named_linking_not_duals",
     } <= names
     assert all(r["ok"] for r in rows_good)
 
@@ -947,10 +1036,11 @@ def test_planner_honesty_check_rows_pure():
     assert rows["offline_tf_admm_block_subproblem_not_duals"] is True
     assert rows["offline_tf_admm_coordination_not_duals"] is True
     assert rows["offline_tf_admm_plant_linking_not_duals"] is True
+    assert rows["offline_tf_admm_plant_named_linking_not_duals"] is True
 
 
 def test_format_planner_honesty_package_priced_timing_pure():
-    """Pure formatter exposes priced + timing + residual + subproblem + coordination + plant-linking readiness without TF or full solve."""
+    """Pure formatter exposes priced + timing + residual + subproblem + coordination + plant-linking + plant-named readiness without TF or full solve."""
     from pims_admm_llm.models.excel_pipeline import format_planner_honesty_package
 
     fake = {
@@ -972,6 +1062,8 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "block subproblem" in what
     assert "coordination" in what
     assert "plant-linking readiness" in what or "plant linking readiness" in what
+    assert "plant-named linking readiness" in what or "plant named linking readiness" in what
+    assert "plant_named_offline_demo" in what or "plant product streams" in what
     assert "not" in what and "case 1" in what
     assert "not full plant" in what or "full plant mb" in what
     meta = pkg["meta"]
@@ -981,6 +1073,7 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert meta["offline_tf_admm_block_subproblem_ready"] is True
     assert meta["offline_tf_admm_coordination_ready"] is True
     assert meta["offline_tf_admm_plant_linking_ready"] is True
+    assert meta["offline_tf_admm_plant_named_linking_ready"] is True
     assert meta["tf_dual_recovery_path"] is None
     assert meta["form"] == "classic_2block_excel_path"
     assert "priced" in meta["planner_one_liner"].lower()
@@ -989,6 +1082,9 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "block subproblem" in meta["planner_one_liner"].lower()
     assert "coordination" in meta["planner_one_liner"].lower()
     assert "plant-linking" in meta["planner_one_liner"].lower() or "plant linking" in meta[
+        "planner_one_liner"
+    ].lower()
+    assert "plant-named" in meta["planner_one_liner"].lower() or "plant named" in meta[
         "planner_one_liner"
     ].lower()
     admm_note = str(meta["offline_tf_admm_residual"]).lower()
@@ -1006,12 +1102,18 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "synthetic" in plant_note
     assert "not" in plant_note
     assert "full plant" in plant_note or "mass balance" in plant_note
+    named_note = str(meta["offline_tf_admm_plant_named_linking"]).lower()
+    assert "plant-named" in named_note or "plant named" in named_note
+    assert "plant_named_offline_demo" in named_note or "plant product" in named_note
+    assert "not" in named_note
+    assert "full plant" in named_note or "mass balance" in named_note
     # anti-claim: must not claim wire shipped or full plant mass balance shipped
     readiness = str(meta["offline_tf_readiness_note"]).lower()
     assert "admm residual" in readiness
     assert "block subproblem" in readiness
     assert "coordination" in readiness
     assert "plant-linking" in readiness or "plant linking" in readiness
+    assert "plant-named" in readiness or "plant named" in readiness
     assert "not wire shipped" in readiness or "not on classic case 1" in readiness
     assert "wire shipped" not in readiness.replace("not wire shipped", "")
     assert "full plant mass balance shipped" not in readiness
@@ -1022,6 +1124,11 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert pkg["tf_offline_admm_plant_linking"]["topic"] == "tf_offline_admm_plant_linking"
     assert pkg["tf_offline_admm_plant_linking"]["dual_recovery_path"] == "None"
     assert pkg["tf_offline_admm_plant_linking"]["not_full_plant_mass_balance"] == "true"
+    assert pkg["tf_offline_admm_plant_named_linking"]["topic"] == "tf_offline_admm_plant_named_linking"
+    assert pkg["tf_offline_admm_plant_named_linking"]["dual_recovery_path"] == "None"
+    assert pkg["tf_offline_admm_plant_named_linking"]["topology_source"] == "plant_named_offline_demo"
+    assert pkg["tf_offline_admm_plant_named_linking"]["linking_space"] == "plant_named_linking_streams"
+    assert pkg["tf_offline_admm_plant_named_linking"]["not_full_plant_mass_balance"] == "true"
 
 
 def test_load_pims_excel_has_crudes(tmp_path):

@@ -436,10 +436,16 @@ Excel How_to / Index / Summary / meta / Calc_Check / demo also glance-lock multi
 plant-linking readiness **statically** (`tf_offline_admm_plant_linking` How_to topic;
 `meta.planner_honesty.offline_tf_admm_plant_linking_ready`;
 `offline_tf_admm_plant_linking_not_duals` Calc_Check row; demo readiness bit
-`admm_plant_linking`). Existence packaging only — **not** a live
-`multi_block_plant_linking_admm_report` call from the Excel write path; **not** Case 1;
-**not** full plant mass balance; **not** wire; plant-linking λ ≠ Case 1 duals. Per-unit
-coordination surface remains distinct (`not_plant_linking_coordinator=True`).
+`admm_plant_linking`) **and** plant-named linking readiness
+(`tf_offline_admm_plant_named_linking` How_to topic;
+`offline_tf_admm_plant_named_linking_ready`;
+`offline_tf_admm_plant_named_linking_not_duals`; demo bit `admm_plant_named_linking`;
+`topology_source=plant_named_offline_demo`). Existence packaging only — **not** a live
+`multi_block_plant_linking_admm_report` / `multi_block_plant_named_linking_admm_report`
+call from the Excel write path; **not** Case 1; **not** full plant mass balance; **not**
+wire; plant-linking / plant-named λ ≠ Case 1 duals. Per-unit coordination surface remains
+distinct (`not_plant_linking_coordinator=True`). Synthetic plant-linking packaging remains
+present alongside plant-named.
 
 ## Per-unit affine API
 
@@ -534,6 +540,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [x] `multi_unit_admm_coordination_report()` ok (multi-round subproblem → raw z → λ under synthetic λ,z,ρ; dual-ban; per-unit synthetic scope; not plant linking; not Case 1; not pure-ADMM dual recovery; not wire shipped; no residual-must-vanish hard-fail)
 - [x] `multi_block_plant_linking_admm_report()` ok (synthetic linking-stream topology + shared λ/z + per-unit incidence; compose subproblem; dual-ban; not full plant mass balance; plant-linking λ ≠ Case 1 online λ; not Case 1; not pure-ADMM dual recovery; not wire shipped; no residual-must-vanish hard-fail)
 - [x] Plant-named linking topology mode ok (`mode="plant_named"` / `multi_block_plant_named_linking_admm_report`; identity incidence; `topology_source=plant_named_offline_demo`; dual-ban; not full plant MB; not live cascade; not Case 1; not wire; synthetic default still green)
+- [x] Excel static packaging mentions plant-named mode (`tf_offline_admm_plant_named_linking` How_to + Index/Summary/meta/Calc_Check/demo; dual_recovery_path=None; not full plant MB; not wire; synthetic plant-linking packaging still present; no live excel→tf plant-named call)
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
