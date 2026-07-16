@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + **offline multi-round ADMM coordination harness (subproblem → z → λ under synthetic λ,z,ρ)** + **offline multi-block plant-linking ADMM harness (synthetic linking topology + shared λ/z + incidence)** + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + **offline multi-round ADMM coordination harness (subproblem → z → λ under synthetic λ,z,ρ)** + **offline multi-block plant-linking ADMM harness (synthetic linking topology + shared λ/z + incidence)** + **offline dual-honest wire-preflight report (compose gates + machine-readable wire_blockers; wire_shipped=False)** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -42,6 +42,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | ADMM block subproblem (goal 5 pre-wire) | `multi_unit_admm_block_subproblem_report` / `admm_block_subproblem_for_unit` — maximize L1-augmented local on **raw affine** under driver box + synthetic λ,z,ρ; **not** dual recovery; **not** Case 1; **not** wire |
 | ADMM multi-round coordination (goal 5 pre-wire) | `multi_unit_admm_coordination_report` / `admm_coordination_round_for_unit` — subproblem → raw z consensus → λ ascent under synthetic λ,z,ρ; per-unit synthetic loops; **not** plant linking; **not** dual recovery; **not** Case 1; **not** wire |
 | ADMM plant-linking multi-block (goal 5 pre-wire) | `multi_block_plant_linking_admm_report` / `plant_linking_admm_round` / `offline_plant_linking_topology` — shared λ/z on synthetic (default) **or plant-named** linking streams + per-unit incidence; compose subproblem; **not** full plant mass balance; **not** dual recovery; **not** Case 1; **not** wire |
+| Wire preflight (goal 5 honesty residual) | `offline_wire_preflight_report` / `offline_wire_blocker_catalog` — compose readiness + additive ADMM gates + machine-readable `wire_blockers`; `wire_shipped=False`; **not** dual recovery; **not** Case 1; **not** wire shipped; does **not** redefine `ready_for_wire_discussion` |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -528,6 +529,51 @@ proof and an explicit form label change.
 diverge). VERDICT dual gate is online L∞ only. TF surface never owns Case 1 duals
 (`dual_recovery_path=None`). See `docs/shadow_prices.md` § Case 1 Excel dual honesty.
 
+
+## Offline dual-honest wire preflight (goal 5 residual)
+
+Always-on numpy surface. Answers: **what is already green on the offline ladder**,
+and **what still blocks a dual-honest wire** — without shipping wire.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    offline_wire_preflight_report,
+    offline_wire_blocker_catalog,
+    multi_unit_wire_preflight_report,  # alias
+)
+
+cat = offline_wire_blocker_catalog()
+assert cat["wire_shipped"] is False
+assert "isolation_rewrite_required" in cat["wire_blockers"]
+assert "form_label_change_required" in cat["wire_blockers"]
+assert "dual_linf_under_wire_unproven" in cat["wire_blockers"]
+
+rep = offline_wire_preflight_report()
+assert rep["kind"] == "offline_wire_preflight"
+assert rep["dual_recovery_path"] is None
+assert rep["wire_shipped"] is False
+assert rep["blockers_documented"] is True
+assert rep["preflight_ok"] is True
+# Structural ready meaning UNCHANGED (parity∧priced∧timings∧honesty only)
+assert rep["ready_for_wire_discussion"] is True  # green ladder; not "wire tomorrow"
+assert "wire_not_shipped" in rep["wire_blockers"]
+# preflight / plant-linking λ ≠ Case 1 PRIMARY online λ / SECONDARY recovered
+assert rep["preflight_lambda_is_not_case1_online_lambda"] is True
+assert rep["not_full_plant_mass_balance"] is True
+assert rep["not_pure_admm_dual_recovery"] is True
+```
+
+| Field | Meaning |
+|-------|---------|
+| `ready_for_wire_discussion` | **Unchanged** structural readiness (parity∧priced∧timings∧honesty) — **not** redefined by blockers or preflight |
+| `preflight_ok` / `blockers_documented` | Compose healthy + honesty locks + non-empty true-at-HEAD blockers |
+| `wire_shipped` | Always `False` on this surface |
+| `wire_blockers` | Stable honesty ids (isolation rewrite, form label, dual L∞ under wire unproven, Case 1 CDU+Blender shape, no blender kernel, wire_not_shipped, affine≠plant_blocks feed LP) |
+| `ok` | Preflight surface healthy — **never** means wire is shipped |
+
+**Hard locks:** no Case 1 form flip; no isolation rewrite; no live excel→tf preflight call;
+no ρ retune; no dual recovery claim; no full plant MB claim; no PuLP on preflight path.
+
 ## Before wiring TF into ADMM / Case 1 (pre-wire checklist)
 
 This is a **gate list only** — do **not** implement the wire from this doc alone.
@@ -541,6 +587,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [x] `multi_block_plant_linking_admm_report()` ok (synthetic linking-stream topology + shared λ/z + per-unit incidence; compose subproblem; dual-ban; not full plant mass balance; plant-linking λ ≠ Case 1 online λ; not Case 1; not pure-ADMM dual recovery; not wire shipped; no residual-must-vanish hard-fail)
 - [x] Plant-named linking topology mode ok (`mode="plant_named"` / `multi_block_plant_named_linking_admm_report`; identity incidence; `topology_source=plant_named_offline_demo`; dual-ban; not full plant MB; not live cascade; not Case 1; not wire; synthetic default still green)
 - [x] Excel static packaging mentions plant-named mode (`tf_offline_admm_plant_named_linking` How_to + Index/Summary/meta/Calc_Check/demo; dual_recovery_path=None; not full plant MB; not wire; synthetic plant-linking packaging still present; no live excel→tf plant-named call)
+- [x] `offline_wire_preflight_report()` documents machine-readable `wire_blockers` (isolation rewrite, form label change, dual L∞ under wire unproven, Case 1 CDU+Blender shape, no blender affine kernel, wire_not_shipped, …); `wire_shipped=False`; dual-ban; does **not** redefine `ready_for_wire_discussion`; preflight ≠ wire shipped
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
@@ -572,3 +619,4 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `multi_unit_admm_block_subproblem_report` ok without TF; raw optimand; maximizer ≥ ref; delta=0 ⇒ x_star≈x0; dual-ban; not wire; Coker raw≠full diagnostic
 - [ ] `multi_unit_admm_coordination_report` ok without TF; honesty locks; trajectory finite; z_pre dual ascent; per-unit synthetic scope; no residual-must-vanish SLA; not wire
 - [ ] `multi_block_plant_linking_admm_report` ok without TF; synthetic topology (default) + plant-named mode; shared linking λ/z; pre-z linking residual dual ascent; compose subproblem; not full plant MB; plant-linking λ ≠ Case 1 duals; dual_recovery_path=None; no residual-must-vanish SLA; existing coordination still `not_plant_linking_coordinator=True`; additive `admm_plant_named_linking_ok` does not redefine `ready_for_wire_discussion`
+- [ ] `offline_wire_preflight_report` ok without TF; wire_blockers non-empty with critical honesty ids; wire_shipped=False; dual_recovery_path=None; ready_for_wire_discussion meaning unchanged; preflight_ok/blockers_documented separate from ready; not full plant MB; not wire shipped
