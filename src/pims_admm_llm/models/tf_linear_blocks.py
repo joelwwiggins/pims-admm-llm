@@ -337,6 +337,40 @@ def excel_fcc_matrix_matches_affine(
     coeffs = affine_coeffs_from_base_delta(model)
     tables = base_delta_unit_submodel_tables()
     matrix = tables.get("fcc_pims_matrix") or []
+    return _excel_pims_matrix_matches_affine(
+        model, coeffs, matrix, atol=atol
+    )
+
+
+def excel_coker_matrix_matches_affine(
+    atol: float = 1e-12,
+) -> Dict[str, Any]:
+    """Compare Submodel_Coker export (coker_pims_matrix MB_*) to affine package.
+
+    Always-on (no TF). E7/E8: product mass-balance rows only (MB_* BASE + D_*),
+    not teaching rows (E_*, FREE). Excel None for missing D_* maps to 0.0.
+    Returns report dict; ``ok`` is True when all cells match.
+    """
+    from .base_delta import build_coker_base_delta
+    from .excel_pipeline import base_delta_unit_submodel_tables
+
+    model = build_coker_base_delta()
+    coeffs = affine_coeffs_from_base_delta(model)
+    tables = base_delta_unit_submodel_tables()
+    matrix = tables.get("coker_pims_matrix") or []
+    return _excel_pims_matrix_matches_affine(
+        model, coeffs, matrix, atol=atol
+    )
+
+
+def _excel_pims_matrix_matches_affine(
+    model: Any,
+    coeffs: AffineCoeffs,
+    matrix: Sequence[Mapping[str, Any]],
+    *,
+    atol: float = 1e-12,
+) -> Dict[str, Any]:
+    """Shared MB_* BASE/D_* ↔ affine y0/D checker (FCC / Coker)."""
     mismatches: List[Dict[str, Any]] = []
     checked = 0
     by_row = {str(r.get("row")): r for r in matrix if r.get("row")}
@@ -410,4 +444,5 @@ __all__ = [
     "TFLinearBlock",
     "tf_linear_fcc",
     "excel_fcc_matrix_matches_affine",
+    "excel_coker_matrix_matches_affine",
 ]
