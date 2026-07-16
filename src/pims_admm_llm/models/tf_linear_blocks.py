@@ -32,10 +32,10 @@ SOURCE = "base_delta"  # single source of truth for coefficients
 SOLVER = False
 DUAL_RECOVERY_PATH: Optional[str] = None
 ON_EXCEL_CASE1_PATH = False
-# Multi-unit offline surface: FCC + Coker shells share this module; postprocess
-# stays numpy/Python outside any TF graph (never dual recovery).
+# Multi-unit offline surface: FCC + Coker + CDU shells share this module;
+# postprocess stays numpy/Python outside any TF graph (never dual recovery).
 POSTPROCESS = "numpy_outside_tf"
-UNITS = ("FCC", "COKER")
+UNITS = ("FCC", "COKER", "CDU")
 
 _TF_IMPORT_ERROR: Optional[BaseException] = None
 _TF_CHECKED = False
@@ -83,11 +83,12 @@ def honesty_metadata() -> Dict[str, Any]:
         "tf_available": tf_available(),
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
-            "Optional exact-linear surface only (FCC + COKER offline kernels). "
+            "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
             "Not Excel Case 1 solver; not ADMM dual recovery; not a learned model. "
-            "Full evaluate() = affine + numpy postprocess (coke clamp/renorm) "
-            "outside TF. Coker renorm always engages → raw affine ≠ evaluate even "
-            "at reference."
+            "Full evaluate() = affine + numpy postprocess (clamp/renorm) outside TF. "
+            "Coker renorm always engages → raw ≠ evaluate even at reference. "
+            "CDU has nested cut_points_f.* drivers in x0; Submodel_CDU is classic "
+            "TECH+A export (not a PIMS MB_* matrix twin like FCC/Coker)."
         ),
     }
 
@@ -120,7 +121,12 @@ class AffineCoeffs:
 
 
 def _ref_flat_from_model(model: Any) -> Dict[str, float]:
-    """Flatten reference_feed + numeric reference_conditions (FCC evaluate rules)."""
+    """Flatten reference_feed + reference_conditions for affine x0.
+
+    Mirrors ``pack_driver_vector`` / CDU evaluate nested rules: top-level
+    numerics plus dotted keys for nested mappings (e.g. ``cut_points_f.naphtha_ep``).
+    Flat-only units (FCC/Coker) are unchanged.
+    """
     ref_flat: Dict[str, float] = {}
     for k, v in (getattr(model, "reference_feed", None) or {}).items():
         if isinstance(v, (int, float)):
@@ -128,6 +134,10 @@ def _ref_flat_from_model(model: Any) -> Dict[str, float]:
     for k, v in (getattr(model, "reference_conditions", None) or {}).items():
         if isinstance(v, (int, float)):
             ref_flat[str(k)] = float(v)
+        elif isinstance(v, Mapping):
+            for kk, vv in v.items():
+                if isinstance(vv, (int, float)):
+                    ref_flat[f"{k}.{kk}"] = float(vv)
     return ref_flat
 
 
@@ -255,12 +265,27 @@ def apply_coker_postprocess(
     return postprocess_coker_yields(y_dict)
 
 
+def apply_cdu_postprocess(
+    y_raw: Union[Mapping[str, float], np.ndarray],
+    products: Optional[Sequence[str]] = None,
+) -> Dict[str, float]:
+    """Numpy/Python CDU postprocess (liquid renorm + offgas clamp). Not TF."""
+    from .base_delta import postprocess_cdu_yields
+
+    if isinstance(y_raw, Mapping):
+        return postprocess_cdu_yields(y_raw, products=products)
+    if products is None:
+        raise ValueError("products required when y_raw is a vector")
+    y_dict = {p: float(y_raw[i]) for i, p in enumerate(products)}
+    return postprocess_cdu_yields(y_dict, products=list(products))
+
+
 class TFLinearBlock:
     """Exact-linear block: y_raw = y0 + D @ (x - x0) with float64 TF constants.
 
     Postprocess is intentionally **not** in the graph. Call
-    ``apply_fcc_postprocess`` / ``apply_coker_postprocess`` separately for full
-    evaluate parity.
+    ``apply_fcc_postprocess`` / ``apply_coker_postprocess`` /
+    ``apply_cdu_postprocess`` separately for full evaluate parity.
     """
 
     def __init__(self, coeffs: AffineCoeffs):
@@ -357,6 +382,27 @@ def tf_linear_coker(
     from .base_delta import build_coker_base_delta
 
     model = build_coker_base_delta(
+        reference_feed=reference_feed,
+        reference_conditions=reference_conditions,
+    )
+    coeffs = affine_coeffs_from_base_delta(model)
+    return TFLinearBlock(coeffs)
+
+
+def tf_linear_cdu(
+    reference_feed: Optional[Mapping[str, float]] = None,
+    reference_conditions: Optional[Mapping[str, Any]] = None,
+) -> TFLinearBlock:
+    """Factory: CDU exact-linear block from ``build_cdu_base_delta()`` coeffs only.
+
+    Lazy TF import via ``TFLinearBlock``; raises ``ImportError`` when TF is missing.
+    Affine only (6×8, nested cut_points in x0) — call ``apply_cdu_postprocess``
+    for full evaluate parity. Not a PIMS MB_* Excel matrix twin; Submodel_CDU
+    remains classic TECH+A export.
+    """
+    from .base_delta import build_cdu_base_delta
+
+    model = build_cdu_base_delta(
         reference_feed=reference_feed,
         reference_conditions=reference_conditions,
     )
@@ -484,9 +530,11 @@ __all__ = [
     "y_raw_dict",
     "apply_fcc_postprocess",
     "apply_coker_postprocess",
+    "apply_cdu_postprocess",
     "TFLinearBlock",
     "tf_linear_fcc",
     "tf_linear_coker",
+    "tf_linear_cdu",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]

@@ -161,3 +161,23 @@ def test_coker_kernel_symbols_exist_without_tf_and_stay_offline():
     assert "tf_linear_coker" not in imported
     assert "tensorflow" not in imported
     # How_to may mention the name as text (allowed); import graph must not.
+
+def test_cdu_kernel_symbols_exist_without_tf_and_stay_offline():
+    """E15: CDU factory/postprocess surface is importable offline; not wired to Case 1."""
+    from pims_admm_llm.models import tf_linear_blocks as tlb
+
+    assert callable(tlb.tf_linear_cdu)
+    assert callable(tlb.apply_cdu_postprocess)
+    assert "CDU" in tlb.UNITS and "FCC" in tlb.UNITS and "COKER" in tlb.UNITS
+    meta = tlb.honesty_metadata()
+    assert meta["solver"] is False
+    assert meta["dual_recovery_path"] is None
+    assert meta["on_excel_case1_path"] is False
+    assert not hasattr(tlb, "excel_cdu_matrix_matches_affine")
+    src = EXCEL_PIPELINE_SRC.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(EXCEL_PIPELINE_SRC))
+    imported = _import_names_from_ast(tree)
+    assert "tf_linear_blocks" not in imported
+    assert "tf_linear_cdu" not in imported
+    assert "tensorflow" not in imported
+    # How_to may name factories as text; import graph must not pull them.

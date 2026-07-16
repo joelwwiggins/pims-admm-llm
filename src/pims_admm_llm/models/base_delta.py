@@ -375,18 +375,46 @@ def build_cdu_base_delta(
     return model
 
 
+def postprocess_cdu_yields(
+    y: Mapping[str, float],
+    *,
+    products: Optional[Sequence[str]] = None,
+) -> Dict[str, float]:
+    """CDU non-linear shell: liquid renorm to sum≈1 + offgas clamp (outside TF).
+
+    Matches historic ``_CDUModel._postprocess_yields`` math. Conditions are unused
+    for the yield shell (kept on evaluate() for API parity).
+
+    Policy (frozen):
+      liquids = all products except ``cdu_offgas``
+      if sum(max(0, y_liquid)) > 1e-12 → scale liquids so sum == 1
+      cdu_offgas = clamp(off, 0.005, 0.03)
+
+    Honesty: at exact reference, base liquids already sum to 1.0 so renorm is
+    often identity; cut/API offsets can make raw affine ≠ full evaluate().
+    """
+    out = {str(k): float(v) for k, v in y.items()}
+    prod_list = list(products) if products is not None else list(out.keys())
+    off = float(out.get("cdu_offgas", 0.01))
+    liquids = [p for p in prod_list if p != "cdu_offgas"]
+    # Keep any liquid keys present in out even if products omitted some
+    if products is None:
+        liquids = [p for p in out if p != "cdu_offgas"]
+    s = sum(max(0.0, float(out.get(p, 0.0))) for p in liquids)
+    if s > 1e-12:
+        for p in liquids:
+            out[p] = max(0.0, float(out.get(p, 0.0))) / s
+    out["cdu_offgas"] = _clamp(off, 0.005, 0.03)
+    return out
+
+
 class _CDUModel(BaseDeltaModel):
     def _postprocess_yields(
         self, y: Dict[str, float], cond: Mapping[str, Any]
     ) -> Dict[str, float]:
-        off = y.get("cdu_offgas", 0.01)
-        liquids = [p for p in self.products if p != "cdu_offgas"]
-        s = sum(max(0.0, y[p]) for p in liquids)
-        if s > 1e-12:
-            for p in liquids:
-                y[p] = max(0.0, y[p]) / s
-        y["cdu_offgas"] = _clamp(off, 0.005, 0.03)
-        return y
+        # cond unused by CDU shell (kept for BaseDeltaModel signature)
+        _ = cond
+        return postprocess_cdu_yields(y, products=self.products)
 
     def evaluate(
         self,

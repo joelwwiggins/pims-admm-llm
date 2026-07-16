@@ -193,6 +193,14 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "classic_2block" in coker
     assert "renorm" in coker.lower() or "postprocess" in coker.lower()
     assert "evaluate" in coker.lower() or "reference" in coker.lower()
+    # E1/E2: CDU three-path — TECH+A classic ≠ offline TF ≠ duals (not PIMS MB_*)
+    cdu = how.get("cdu_three_path", "")
+    assert cdu, "How_to_read must include cdu_three_path"
+    assert "TECH" in cdu and "A" in cdu
+    assert "tf_linear_cdu" in cdu or "offline TF" in cdu or "offline" in cdu.lower()
+    assert "not" in cdu.lower() and ("MB_*" in cdu or "BASE/DELTA" in cdu or "PIMS" in cdu or "How-To 07" in cdu)
+    assert "online" in cdu.lower() or "dual" in cdu.lower()
+    assert "postprocess" in cdu.lower() or "renorm" in cdu.lower() or "affine" in cdu.lower()
 
 
 def test_excel_fcc_export_matches_affine_coeffs():
