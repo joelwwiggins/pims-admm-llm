@@ -309,6 +309,19 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "isolation_rewrite_required" in prelow or "isolation" in prelow
     assert "wire_not_shipped" in prelow or "not wire shipped" in prelow
 
+    # Offline Case-1-shaped CDU↔Blender skeleton How_to (static packaging of #30)
+    tf_c1 = how.get("tf_offline_case1_shaped_linking", "")
+    assert tf_c1, "How_to_read must include tf_offline_case1_shaped_linking"
+    c1low = tf_c1.lower()
+    assert "case-1-shaped" in c1low or "case1_shaped" in c1low or "case 1-shaped" in c1low
+    assert "skeleton" in c1low or "linking" in c1low
+    assert "linear_quality_pooling" in c1low
+    assert "naphtha" in c1low and "distillate" in c1low and "gasoil" in c1low and "residue" in c1low
+    assert "wire_shipped" in c1low or "wire shipped" in c1low or "not wire" in c1low
+    assert "dual" in c1low and ("none" in c1low or "primary" in c1low)
+    assert "classic_2block" in c1low or "not on" in c1low
+    assert "affine" in c1low or "base_delta" in c1low
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -546,6 +559,51 @@ def test_format_tf_offline_wire_preflight_howto_pure():
     assert "not wire tomorrow" in one or "≠ wire" in one or "not wire shipped" in one
 
 
+def test_format_tf_offline_case1_shaped_linking_howto_pure():
+    """Static Case-1-shaped linking How_to: dual-ban, blender honesty, streams; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_SHAPED_BLENDER_SURFACE,
+        _CASE1_SHAPED_LINKING_STREAMS,
+        format_tf_offline_case1_shaped_linking_howto,
+    )
+
+    d = format_tf_offline_case1_shaped_linking_howto()
+    assert d["topic"] == "tf_offline_case1_shaped_linking"
+    assert "CDU" in d["units"] and "Blender" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["not_case1_solve"] == "true"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["case1_form_unchanged"] == "true"
+    assert d["dual_recovery_path"] == "None"
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    assert d["case1_shaped_offline_only"] == "true"
+    assert d["blender_surface"] == _CASE1_SHAPED_BLENDER_SURFACE
+    assert d["blender_surface"] == "linear_quality_pooling"
+    assert d["blender_surface_is_not_base_delta_affine_unit"] == "true"
+    streams = d["linking_streams"]
+    for s in _CASE1_SHAPED_LINKING_STREAMS:
+        assert s in streams
+    assert d["linking_lambda_is_not_case1_online_lambda"] == "true"
+    assert d["skeleton_is_not_package_admm_wire"] == "true"
+    assert d["does_not_clear_wire_blockers"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "case-1-shaped" in one or "case1" in one
+    assert "skeleton" in one or "linking" in one
+    assert "linear_quality_pooling" in one
+    assert "naphtha" in one and "residue" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one and "none" in one
+    assert "not" in one and "wire" in one
+    assert "affine" in one or "base_delta" in one
+
+
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""
     from pims_admm_llm.models.tf_linear_blocks import excel_fcc_matrix_matches_affine
@@ -706,14 +764,14 @@ def test_format_dual_honesty_summary_pure():
 def test_planner_honesty_glance_package(tmp_path):
     """E1: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty.
 
-    After #28 wire-preflight API: glance package also locks offline wire-preflight
-    readiness (blockers; wire_shipped=False; dual_recovery_path=None; preflight λ ≠
-    Case 1 duals) alongside multi-block plant-named linking + synthetic plant-linking
-    + multi-round coordination + residual + block subproblem + priced + timing
-    (static; isolation-safe). Dual PRIMARY/SECONDARY and classic form remain
-    non-regression contracts. Coordination surface remains distinct
-    (not_plant_linking_coordinator language preserved). Synthetic + plant-named
-    packaging remain green. No live offline_wire_preflight_report call.
+    After #30 Case-1-shaped skeleton API: glance package also locks offline
+    Case-1-shaped CDU↔Blender skeleton readiness (linear_quality_pooling;
+    naphtha/distillate/gasoil/residue; wire_shipped=False; dual_recovery_path=None;
+    skeleton λ ≠ Case 1 duals; skeleton ≠ wire) alongside wire-preflight + multi-block
+    plant-named linking + synthetic plant-linking + multi-round coordination + residual
+    + block subproblem + priced + timing (static; isolation-safe). Dual PRIMARY/SECONDARY
+    and classic form remain non-regression contracts. No live skeleton /
+    offline_wire_preflight_report call.
     """
     from pims_admm_llm.models.excel_pipeline import (
         format_planner_honesty_package,
@@ -760,6 +818,11 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "wire-preflight readiness" in what_l or "wire preflight readiness" in what_l
     assert "wire_shipped=false" in what_l or "wire_shipped=false" in what_l.replace(" ", "")
     assert "blockers" in what_l
+    # Case-1-shaped skeleton readiness (short Index clause)
+    assert "case-1-shaped" in what_l or "case1_shaped" in what_l or "case 1-shaped" in what_l
+    assert "skeleton readiness" in what_l or "skeleton" in what_l
+    assert "linear_quality_pooling" in what_l
+    assert "naphtha" in what_l and "residue" in what_l
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
     assert pkg["meta"]["dual_gate"] == "online_lambda"
     assert pkg["meta"]["verdict_dual_gate"] == "online_only"
@@ -775,6 +838,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_admm_plant_linking_ready"] is True
     assert pkg["meta"]["offline_tf_admm_plant_named_linking_ready"] is True
     assert pkg["meta"]["offline_tf_wire_preflight_ready"] is True
+    assert pkg["meta"]["offline_tf_case1_shaped_linking_ready"] is True
     assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
@@ -820,10 +884,18 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "isolation_rewrite_required" in preflight_note
     assert "wire_not_shipped" in preflight_note
     assert "structural" in preflight_note or "ready_for_wire_discussion" in preflight_note
+    c1_note = str(pkg["meta"]["offline_tf_case1_shaped_linking"]).lower()
+    assert "case-1-shaped" in c1_note or "case1" in c1_note or "skeleton" in c1_note
+    assert "linear_quality_pooling" in c1_note
+    assert "naphtha" in c1_note and "residue" in c1_note
+    assert "wire_shipped" in c1_note or "not wire" in c1_note
+    assert "dual" in c1_note
     blockers_meta = str(pkg["meta"]["offline_tf_wire_blockers"])
     assert "isolation_rewrite_required" in blockers_meta
     assert "form_label_change_required" in blockers_meta
     assert "wire_not_shipped" in blockers_meta
+    assert "case1_is_cdu_blender_package_admm" in blockers_meta
+    assert "no_blender_offline_affine_kernel" in blockers_meta
     readiness_note = str(pkg["meta"]["offline_tf_readiness_note"]).lower()
     assert "not" in readiness_note
     assert "admm residual" in readiness_note
@@ -832,6 +904,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "plant-linking" in readiness_note or "plant linking" in readiness_note
     assert "plant-named" in readiness_note or "plant named" in readiness_note
     assert "wire-preflight" in readiness_note or "wire preflight" in readiness_note
+    assert "case-1-shaped" in readiness_note or "case1" in readiness_note or "skeleton" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
@@ -840,6 +913,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "plant-linking" in one_l or "plant linking" in one_l
     assert "plant-named" in one_l or "plant named" in one_l
     assert "wire-preflight" in one_l or "wire preflight" in one_l
+    assert "case-1-shaped" in one_l or "skeleton" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -854,6 +928,11 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["tf_offline_wire_preflight"]["topic"] == "tf_offline_wire_preflight"
     assert pkg["tf_offline_wire_preflight"]["wire_shipped"] == "false"
     assert pkg["tf_offline_wire_preflight"]["dual_recovery_path"] == "None"
+    assert pkg.get("tf_offline_case1_shaped_linking") is not None
+    assert pkg["tf_offline_case1_shaped_linking"]["topic"] == "tf_offline_case1_shaped_linking"
+    assert pkg["tf_offline_case1_shaped_linking"]["wire_shipped"] == "false"
+    assert pkg["tf_offline_case1_shaped_linking"]["dual_recovery_path"] == "None"
+    assert pkg["tf_offline_case1_shaped_linking"]["blender_surface"] == "linear_quality_pooling"
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -864,6 +943,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_admm_plant_linking",
         "offline_tf_admm_plant_named_linking",
         "offline_tf_wire_preflight",
+        "offline_tf_case1_shaped_linking",
         "offline_tf_wire_blockers",
         "offline_tf_wire_shipped",
         "offline_tf_readiness_note",
@@ -887,6 +967,8 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_admm_plant_named_linking_not_duals",
         "offline_tf_wire_preflight_not_duals",
         "offline_tf_wire_not_shipped",
+        "offline_tf_case1_shaped_linking_not_duals",
+        "offline_tf_case1_shaped_not_wire",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -910,6 +992,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph["offline_tf_admm_plant_linking_ready"] is True
     assert ph["offline_tf_admm_plant_named_linking_ready"] is True
     assert ph["offline_tf_wire_preflight_ready"] is True
+    assert ph["offline_tf_case1_shaped_linking_ready"] is True
     assert ph["offline_tf_wire_shipped"] is False
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
@@ -953,6 +1036,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "preflight" in ph_pre
     assert "blocker" in ph_pre
     assert "wire_shipped" in ph_pre or "not wire shipped" in ph_pre
+    ph_c1 = str(ph["offline_tf_case1_shaped_linking"]).lower()
+    assert "case-1-shaped" in ph_c1 or "skeleton" in ph_c1 or "case1" in ph_c1
+    assert "linear_quality_pooling" in ph_c1
+    assert "naphtha" in ph_c1 and "residue" in ph_c1
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -982,6 +1069,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "plant_named_offline_demo" in ot or "plant product streams" in ot
     assert "wire-preflight readiness" in ot or "wire preflight readiness" in ot
     assert "wire_shipped=false" in ot or "wire_shipped=false" in ot.replace(" ", "")
+    assert "case-1-shaped" in ot or "case1_shaped" in ot or "case 1-shaped" in ot
+    assert "skeleton" in ot
+    assert "linear_quality_pooling" in ot
+    assert "naphtha" in ot and "residue" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -1012,6 +1103,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "plant-linking" in note.lower() or "plant linking" in note.lower()
     assert "plant-named" in note.lower() or "plant named" in note.lower()
     assert "wire-preflight" in note.lower() or "wire preflight" in note.lower()
+    assert "case-1-shaped" in note.lower() or "skeleton" in note.lower()
     priced_s = str(summary.get("offline_tf_priced") or "").lower()
     timing_s = str(summary.get("offline_tf_timing") or "").lower()
     admm_s = str(summary.get("offline_tf_admm_residual") or "").lower()
@@ -1020,6 +1112,7 @@ def test_planner_honesty_glance_package(tmp_path):
     plant_s = str(summary.get("offline_tf_admm_plant_linking") or "").lower()
     named_s = str(summary.get("offline_tf_admm_plant_named_linking") or "").lower()
     pre_s = str(summary.get("offline_tf_wire_preflight") or "").lower()
+    c1_s = str(summary.get("offline_tf_case1_shaped_linking") or "").lower()
     blockers_s = str(summary.get("offline_tf_wire_blockers") or "")
     assert "priced" in priced_s
     assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
@@ -1053,8 +1146,14 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "preflight" in pre_s
     assert "blocker" in pre_s
     assert "wire_shipped" in pre_s or "not wire shipped" in pre_s
+    assert "case-1-shaped" in c1_s or "skeleton" in c1_s or "case1" in c1_s
+    assert "linear_quality_pooling" in c1_s
+    assert "naphtha" in c1_s and "residue" in c1_s
+    assert "wire_shipped" in c1_s or "not wire" in c1_s
     assert "isolation_rewrite_required" in blockers_s
     assert "wire_not_shipped" in blockers_s
+    assert "case1_is_cdu_blender_package_admm" in blockers_s
+    assert "no_blender_offline_affine_kernel" in blockers_s
     assert summary.get("offline_tf_wire_shipped") is False
 
     # --- Calc_Check honesty audit rows (all ok) ---
@@ -1078,12 +1177,14 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("offline_tf_admm_plant_named_linking_not_duals") is True
     assert checks.get("offline_tf_wire_preflight_not_duals") is True
     assert checks.get("offline_tf_wire_not_shipped") is True
+    assert checks.get("offline_tf_case1_shaped_linking_not_duals") is True
+    assert checks.get("offline_tf_case1_shaped_not_wire") is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
     # How_to offline + dual keys preserved (units + priced + timing + residual +
     # subproblem + multi-round coordination + multi-block plant-linking + plant-named
-    # + wire-preflight)
+    # + wire-preflight + Case-1-shaped skeleton)
     how = {
         str(r[0].value): str(r[1].value or "")
         for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
@@ -1098,6 +1199,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_admm_plant_linking")
     assert how.get("tf_offline_admm_plant_named_linking")
     assert how.get("tf_offline_wire_preflight")
+    assert how.get("tf_offline_case1_shaped_linking")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -1131,6 +1233,8 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_admm_plant_named_linking_not_duals",
         "offline_tf_wire_preflight_not_duals",
         "offline_tf_wire_not_shipped",
+        "offline_tf_case1_shaped_linking_not_duals",
+        "offline_tf_case1_shaped_not_wire",
     } <= names
     assert all(r["ok"] for r in rows_good)
 

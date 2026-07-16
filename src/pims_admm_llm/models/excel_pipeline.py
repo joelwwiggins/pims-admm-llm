@@ -1731,8 +1731,60 @@ def format_tf_offline_wire_preflight_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_case1_shaped_linking_howto() -> Dict[str, str]:
+    """Static offline Case-1-shaped CDU↔Blender linking How_to (isolation-safe #30 packaging).
+
+    Planner-facing note that offline Case-1-shaped CDU↔Blender linking skeleton readiness
+    exists: dual-banned (dual_recovery_path=None); wire_shipped=False; blender surface is
+    linear_quality_pooling (not base_delta affine UNITS); linking streams are Case 1
+    intermediates (naphtha/distillate/gasoil/residue); skeleton λ ≠ Case 1 PRIMARY online
+    / SECONDARY recovered duals; skeleton ≠ package-ADMM wire; does not clear wire
+    blockers; form remains classic_2block_excel_path. Does **not** load tf_linear_blocks
+    or tensorflow; does **not** call offline_case1_shaped_cdu_blender_linking_report.
+    """
+    streams = ",".join(_CASE1_SHAPED_LINKING_STREAMS)
+    one_liner = (
+        "Offline Case-1-shaped CDU↔Blender linking skeleton readiness exists (static packaging "
+        "of #30 harness): dual_recovery_path=None; wire_shipped=False; not on this Case 1 solve "
+        f"(classic_2block_excel_path form unchanged); blender_surface={_CASE1_SHAPED_BLENDER_SURFACE} "
+        f"(not base_delta_affine_unit / not offline affine UNITS entry); linking_streams={streams}; "
+        "skeleton λ are not Case 1 PRIMARY online λ / not SECONDARY recovered duals / not "
+        "pure-ADMM dual recovery; skeleton ≠ package-ADMM wire; does not clear wire_blockers; "
+        "not full plant mass balance; not live plant_blocks cascade. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender."
+    )
+    return {
+        "topic": "tf_offline_case1_shaped_linking",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form": "classic_2block_excel_path",
+        "case1_form_unchanged": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "case1_shaped_offline_only": "true",
+        "blender_surface": _CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_surface_is_not_base_delta_affine_unit": "true",
+        "linking_streams": streams,
+        "linking_lambda_is_not_case1_online_lambda": "true",
+        "skeleton_is_not_package_admm_wire": "true",
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
+# Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
+# do not import tf_linear_blocks / CASE1_SHAPED_* (isolation). Align when skeleton API
+# stream names / blender_surface change.
+_CASE1_SHAPED_LINKING_STREAMS = ("naphtha", "distillate", "gasoil", "residue")
+_CASE1_SHAPED_BLENDER_SURFACE = "linear_quality_pooling"
 # Excel-local mirror of DEFAULT_WIRE_BLOCKERS honesty ids (#28). Static strings only —
 # do not import tf_linear_blocks (isolation). Align when preflight catalog changes.
 _OFFLINE_WIRE_BLOCKER_IDS = (
@@ -1749,15 +1801,17 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
 # ADMM coordination readiness (per-unit synthetic) + multi-block plant-linking readiness
 # (synthetic linking topology + shared λ/z + incidence; not full plant MB) + multi-block
 # plant-named linking readiness (plant product streams + identity incidence; not full plant MB)
-# + wire-preflight readiness (blockers; wire_shipped=False). Keep Index clause short —
-# full blocker ids live in How_to / Summary / meta, not Index WHAT.
+# + wire-preflight readiness (blockers; wire_shipped=False) + Case-1-shaped CDU↔Blender
+# skeleton readiness (linear_quality_pooling; naphtha/distillate/gasoil/residue;
+# wire_shipped=False). Keep Index clause short — full honesty lives in How_to /
+# Summary / meta, not Index WHAT.
 # Hard negatives: not Case 1; TF dual_recovery_path=None; prices ≠ duals; timings ≠ Case 1
 # wall / ≠ online λ; synthetic residual/subproblem/coordination λ ≠ Case 1 duals / ≠ pure-ADMM
 # dual recovery; per-unit coordination ≠ plant linking; plant-linking λ ≠ duals / ≠ full plant MB
 # / ≠ wire; plant-named λ ≠ duals / ≠ full plant MB / ≠ live cascade / ≠ wire; x_star ≠ online λ;
-# preflight ≠ wire shipped; preflight λ ≠ Case 1 duals.
+# preflight ≠ wire shipped; preflight λ ≠ Case 1 duals; skeleton λ ≠ Case 1 duals; skeleton ≠ wire.
 # Static only — never call live readiness / residual / subproblem / coordination / plant-linking
-# / plant-named / wire-preflight reports.
+# / plant-named / wire-preflight / case1-shaped skeleton reports.
 _OFFLINE_TF_INDEX_WHAT = (
     "FCC+COKER+CDU exact-linear kernels offline + priced residual readiness + "
     "block-solve timing readiness + ADMM residual readiness + "
@@ -1767,14 +1821,17 @@ _OFFLINE_TF_INDEX_WHAT = (
     "(synthetic linking topology + shared λ/z + incidence; not full plant MB) + "
     "multi-block plant-named linking readiness "
     "(plant product streams + identity incidence; plant_named_offline_demo; not full plant MB) + "
-    "wire-preflight readiness (blockers; wire_shipped=False) — "
+    "wire-preflight readiness (blockers; wire_shipped=False) + "
+    "Case-1-shaped CDU↔Blender skeleton readiness "
+    "(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "prices not duals; timings not Case 1 wall / not online λ; "
     "synthetic residual/subproblem/coordination λ not duals / not pure-ADMM dual recovery; "
     "per-unit coordination ≠ plant linking; "
     "plant-linking λ not duals / not pure-ADMM dual recovery / not full plant MB / not wire; "
     "plant-named λ not duals / not pure-ADMM dual recovery / not full plant MB / not live cascade / not wire; "
-    "preflight ≠ wire shipped; preflight λ not duals"
+    "preflight ≠ wire shipped; preflight λ not duals; "
+    "skeleton λ not duals / not pure-ADMM dual recovery / not wire"
 )
 _OFFLINE_TF_PRICED_NOTE = (
     "offline priced residual readiness (FCC+COKER+CDU) — synthetic prices not ADMM λ / not Case 1 shadows"
@@ -1817,14 +1874,24 @@ _OFFLINE_TF_WIRE_PREFLIGHT_NOTE = (
     "not pure-ADMM dual recovery / not full plant mass balance / not wire shipped; "
     "blockers are honesty, not CI-red theater"
 )
+_OFFLINE_TF_CASE1_SHAPED_LINKING_NOTE = (
+    "offline Case-1-shaped CDU↔Blender skeleton readiness — "
+    f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+    f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; wire_shipped=False; "
+    "dual_recovery_path=None; skeleton λ not Case 1 PRIMARY online λ / not SECONDARY recovered "
+    "duals / not pure-ADMM dual recovery; skeleton ≠ package-ADMM wire; form remains "
+    "classic_2block_excel_path; does not clear wire_blockers; not full plant mass balance"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
-    "multi-block plant-named linking + wire-preflight (blockers; wire_shipped=False) — "
+    "multi-block plant-named linking + wire-preflight (blockers; wire_shipped=False) + "
+    "Case-1-shaped CDU↔Blender skeleton (linear_quality_pooling; "
+    "naphtha/distillate/gasoil/residue; wire_shipped=False) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
-    "plant-named offline demo ≠ full plant MB / ≠ live cascade; not wire shipped; "
-    "ready_for_wire_discussion structural only ≠ wire tomorrow"
+    "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
+    "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
 
 
@@ -1836,13 +1903,15 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     and never calls live multi_unit_* / offline_block_solve_readiness_report /
     multi_unit_admm_residual_report / multi_unit_admm_block_subproblem_report /
     multi_unit_admm_coordination_report / multi_block_plant_linking_admm_report /
-    multi_block_plant_named_linking_admm_report / offline_wire_preflight_report.
+    multi_block_plant_named_linking_admm_report / offline_wire_preflight_report /
+    offline_case1_shaped_cdu_blender_linking_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
     ADMM block subproblem + multi-round ADMM coordination + multi-block
     plant-linking (synthetic) + multi-block plant-named linking + wire-preflight
-    (static harness-existence flags only; wire_shipped=False; blockers honesty).
+    + Case-1-shaped CDU↔Blender skeleton (static harness-existence flags only;
+    wire_shipped=False; blockers honesty; blender linear_quality_pooling).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
@@ -1854,6 +1923,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_plant = format_tf_offline_admm_plant_linking_howto()
     tf_plant_named = format_tf_offline_admm_plant_named_linking_howto()
     tf_preflight = format_tf_offline_wire_preflight_howto()
+    tf_case1_shaped = format_tf_offline_case1_shaped_linking_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -1889,6 +1959,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_admm_plant_linking_ready": True,  # static; not live plant-linking harness
         "offline_tf_admm_plant_named_linking_ready": True,  # static; not live plant-named harness
         "offline_tf_wire_preflight_ready": True,  # static; not live offline_wire_preflight_report
+        "offline_tf_case1_shaped_linking_ready": True,  # static; not live skeleton report
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -1898,6 +1969,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_admm_plant_linking": _OFFLINE_TF_ADMM_PLANT_LINKING_NOTE,
         "offline_tf_admm_plant_named_linking": _OFFLINE_TF_ADMM_PLANT_NAMED_LINKING_NOTE,
         "offline_tf_wire_preflight": _OFFLINE_TF_WIRE_PREFLIGHT_NOTE,
+        "offline_tf_case1_shaped_linking": _OFFLINE_TF_CASE1_SHAPED_LINKING_NOTE,
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
         "on_excel_case1_path": False,
@@ -1916,7 +1988,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"multi-block plant-named linking readiness "
             f"(plant product streams + identity incidence; plant_named_offline_demo; "
             f"not duals; not full plant MB; not live cascade; not wire) + "
-            f"wire-preflight readiness (blockers; wire_shipped=False; structural ready ≠ wire) "
+            f"wire-preflight readiness (blockers; wire_shipped=False; structural ready ≠ wire) + "
+            f"Case-1-shaped CDU↔Blender skeleton readiness "
+            f"(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False; "
+            f"skeleton ≠ wire) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -1950,6 +2025,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ("offline_tf_admm_plant_linking", _OFFLINE_TF_ADMM_PLANT_LINKING_NOTE),
         ("offline_tf_admm_plant_named_linking", _OFFLINE_TF_ADMM_PLANT_NAMED_LINKING_NOTE),
         ("offline_tf_wire_preflight", _OFFLINE_TF_WIRE_PREFLIGHT_NOTE),
+        ("offline_tf_case1_shaped_linking", _OFFLINE_TF_CASE1_SHAPED_LINKING_NOTE),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -1968,6 +2044,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_admm_plant_linking": tf_plant,
         "tf_offline_admm_plant_named_linking": tf_plant_named,
         "tf_offline_wire_preflight": tf_preflight,
+        "tf_offline_case1_shaped_linking": tf_case1_shaped,
     }
 
 
@@ -1977,8 +2054,8 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     Compatible with model_calc_check columns (check, predicted, actual, abs_err, ok).
     Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
     Static only: never runs priced residual, timing, ADMM residual, block
-    subproblem, multi-round coordination, plant-linking, plant-named, or
-    wire-preflight harness (isolation + smoke latency).
+    subproblem, multi-round coordination, plant-linking, plant-named,
+    wire-preflight, or Case-1-shaped skeleton harness (isolation + smoke latency).
     """
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -2151,6 +2228,38 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_shaped_linking_not_duals",
+            "predicted": (
+                "offline Case-1-shaped CDU↔Blender skeleton readiness packaging exists "
+                f"(static); blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+                f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+                "skeleton λ not Case 1 PRIMARY online λ / not SECONDARY recovered duals / "
+                "not pure-ADMM dual recovery; dual_recovery_path=None on skeleton surface"
+            ),
+            "actual": (
+                "static honesty — Case-1-shaped skeleton dual_recovery_path=None; "
+                "skeleton λ ≠ Case 1 duals; linear_quality_pooling ≠ base_delta affine UNITS; "
+                "not pure-ADMM dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_shaped_not_wire",
+            "predicted": (
+                "wire_shipped=False; skeleton ≠ package-ADMM wire; form remains "
+                "classic_2block_excel_path; does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                "case1_is_cdu_blender_package_admm + no_blender_offline_affine_kernel remain"
+            ),
+            "actual": (
+                "static honesty — Case-1-shaped skeleton packaging only; wire not shipped; "
+                "blockers still true; form classic_2block_excel_path unchanged"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -2174,6 +2283,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_plant = format_tf_offline_admm_plant_linking_howto()
     tf_plant_named = format_tf_offline_admm_plant_named_linking_howto()
     tf_preflight = format_tf_offline_wire_preflight_howto()
+    tf_case1_shaped = format_tf_offline_case1_shaped_linking_howto()
     return [
         (
             "goal",
@@ -2248,6 +2358,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_wire_preflight",
             tf_preflight["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_shaped_linking",
+            tf_case1_shaped["planner_one_liner"],
         ),
         (
             "solve_boundary",
