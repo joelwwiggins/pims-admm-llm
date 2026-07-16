@@ -86,6 +86,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_residual_available": True,
         "admm_block_subproblem_available": True,
         "admm_coordination_available": True,
+        "admm_plant_linking_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -107,7 +108,11 @@ def honesty_metadata() -> Dict[str, Any]:
             "Offline multi-round ADMM coordination harness available "
             "(multi_unit_admm_coordination_report): subproblem → z consensus → λ ascent "
             "under synthetic λ,z,ρ (per-unit product spaces; not plant linking) — "
-            "dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped."
+            "dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped. "
+            "Offline multi-block plant-linking ADMM harness available "
+            "(multi_block_plant_linking_admm_report): synthetic linking-stream topology + "
+            "shared λ/z + per-unit incidence; composes block subproblem; not full plant "
+            "mass balance; plant-linking λ ≠ Case 1 online λ; not wire shipped."
         ),
     }
 
@@ -1422,17 +1427,18 @@ def offline_block_solve_readiness_report(
     include_admm_residual: bool = True,
     include_admm_block_subproblem: bool = True,
     include_admm_coordination: bool = True,
+    include_admm_plant_linking: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
     One call answers \"ready for wire discussion?\" without re-implementing
     parity/priced math. Does **not** mean wire is shipped or duals are owned.
 
-    ``admm_residual_ok``, ``admm_block_subproblem_ok``, and
-    ``admm_coordination_ok`` are **additive** pre-wire checklist info (does
+    ``admm_residual_ok``, ``admm_block_subproblem_ok``, ``admm_coordination_ok``,
+    and ``admm_plant_linking_ok`` are **additive** pre-wire checklist info (does
     **not** change ``ready_for_wire_discussion`` semantics: still
-    parity∧priced∧timings∧honesty). Never claims wire shipped or plant linking
-    when residual/subproblem/coordination ok.
+    parity∧priced∧timings∧honesty). Never claims wire shipped or full plant mass
+    balance when residual/subproblem/coordination/plant-linking ok.
     """
     base = multi_unit_block_solve_timing_report(
         n_repeats=n_repeats,
@@ -1476,6 +1482,16 @@ def offline_block_solve_readiness_report(
         except Exception:  # pragma: no cover - defensive
             admm_coordination_ok = False
     base["admm_coordination_ok"] = admm_coordination_ok
+    admm_plant_linking_ok: Optional[bool] = None
+    if include_admm_plant_linking:
+        try:
+            pl_rep = multi_block_plant_linking_admm_report(
+                n_rounds=2, rho=1.0, delta=0.5
+            )
+            admm_plant_linking_ok = bool(pl_rep.get("ok"))
+        except Exception:  # pragma: no cover - defensive
+            admm_plant_linking_ok = False
+    base["admm_plant_linking_ok"] = admm_plant_linking_ok
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1484,10 +1500,12 @@ def offline_block_solve_readiness_report(
         "dual_recovery_path remains None; on_excel_case1_path=False; "
         "timings/prices/gradients/ADMM residuals are NOT ADMM λ / Case 1 shadows; "
         "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
-        "admm_residual_ok, admm_block_subproblem_ok, and admm_coordination_ok are "
-        "additive pre-wire checklist items (synthetic λ,z,ρ residual / block "
-        "subproblem / multi-round coordination harnesses; per-unit synthetic not "
-        "plant linking) and do not redefine ready_for_wire_discussion."
+        "admm_residual_ok, admm_block_subproblem_ok, admm_coordination_ok, and "
+        "admm_plant_linking_ok are additive pre-wire checklist items (synthetic "
+        "λ,z,ρ residual / block subproblem / multi-round coordination / multi-block "
+        "plant-linking harnesses; coordination is per-unit synthetic not plant "
+        "linking; plant-linking uses synthetic linking topology, not full plant "
+        "mass balance, not Case 1 duals) and do not redefine ready_for_wire_discussion."
     )
     return base
 
@@ -2737,6 +2755,613 @@ def multi_unit_admm_coordination_report(
     }
 
 
+# ---------------------------------------------------------------------------
+# Offline multi-block plant-linking ADMM (goal 5 -- synthetic linking topology)
+# ---------------------------------------------------------------------------
+
+ADMM_PLANT_LINKING_KIND = "offline_admm_plant_linking"
+ADMM_PLANT_LINKING_FORMULA = (
+    "round: map lam_link/z_link->unit via incidence; "
+    "x=argmax raw L1-aug under (lam_u,z_u,rho,delta); "
+    "y_link_u=A_u y_raw; r_link=sum_u y_link_u - z_link_pre; "
+    "z_link<-(1-beta)z+beta y_link_total; lam_link<-lam+alpha*rho*r_link"
+)
+ADMM_PLANT_LINKING_SCOPE = "synthetic_offline_demo"
+ADMM_PLANT_LINKING_STREAMS = (
+    "light_ends",
+    "naphtha",
+    "distillate",
+    "gasoil",
+    "resid",
+    "coke",
+)
+
+# product -> linking stream (0/1 selection incidence; synthetic offline demo only).
+# Products are name-disjoint across units -- linking requires explicit incidence.
+_PLANT_LINKING_PRODUCT_TO_STREAM: Dict[str, Dict[str, str]] = {
+    "FCC": {
+        "fcc_dry_gas": "light_ends",
+        "fcc_lpg": "light_ends",
+        "fcc_naphtha": "naphtha",
+        "fcc_lco": "distillate",
+        "fcc_slurry": "gasoil",
+        "fcc_coke": "coke",
+    },
+    "COKER": {
+        "coker_dry_gas": "light_ends",
+        "coker_lpg": "light_ends",
+        "coker_naphtha": "naphtha",
+        "coker_gasoil": "gasoil",
+        "coker_coke": "coke",
+    },
+    "CDU": {
+        "cdu_offgas": "light_ends",
+        "cdu_naphtha_light": "naphtha",
+        "cdu_naphtha_heavy": "naphtha",
+        "cdu_distillate": "distillate",
+        "cdu_gasoil": "gasoil",
+        "cdu_resid": "resid",
+    },
+}
+
+
+def _admm_plant_linking_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / synthetic-topology locks for plant-linking."""
+    return {
+        "kind": ADMM_PLANT_LINKING_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "optimand_space": "raw_affine",
+        "linking_space": "synthetic_linking_streams",
+        "z_update_space": "synthetic_linking_streams",
+        "plant_linking_scope": ADMM_PLANT_LINKING_SCOPE,
+        "topology_source": ADMM_PLANT_LINKING_SCOPE,
+        "not_full_plant_mass_balance": True,
+        "not_case1_solve": True,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "plant_linking_lambda_is_not_case1_online_lambda": True,
+        "not_live_plant_blocks": True,
+        "formula": ADMM_PLANT_LINKING_FORMULA,
+        "note": (
+            "Offline multi-block plant-linking ADMM harness: shared lam/z on a "
+            "synthetic plant linking-stream space with explicit per-unit incidence "
+            "from FCC/COKER/CDU products. Composes existing admm_block_subproblem_for_unit "
+            "(map lam_link/z_link -> unit product prices/z via incidence^T / selection; "
+            "lift y_raw -> linking via A_u). Dual ascent uses pre-z-update linking residual. "
+            "topology_source=synthetic_offline_demo -- NOT live plant_blocks / cascade mass "
+            "balance / Case 1 CDU-Blender links. Shared plant-linking lam/z are NOT Case 1 "
+            "PRIMARY online lambda, NOT SECONDARY recovered blender duals, NOT pure-ADMM dual "
+            "recovery, NOT wire shipped. dual_recovery_path=None; solver=False; "
+            "on_excel_case1_path=False. Existing multi_unit_admm_coordination_report remains "
+            "per-unit synthetic (not_plant_linking_coordinator=True). No PuLP/CBC; always-on "
+            "numpy; no absolute residual-must-converge hard-fail."
+        ),
+    }
+
+
+def offline_plant_linking_topology() -> Dict[str, Any]:
+    """Fixed synthetic offline plant linking topology (streams + incidence).
+
+    Always-on numpy data surface. Products are name-disjoint across units, so
+    plant linking uses **explicit** incidence (not product-name intersection).
+
+    Honesty: synthetic_offline_demo -- not live plant cascade mass balance, not
+    Case 1 links, not wire.
+    """
+    streams = list(ADMM_PLANT_LINKING_STREAMS)
+    incidence: Dict[str, Dict[str, Dict[str, float]]] = {}
+    coverage: Dict[str, List[str]] = {}
+    for unit in UNITS:
+        coeffs = cached_offline_unit_coeffs(unit)
+        known = set(coeffs.products)
+        raw_map = _PLANT_LINKING_PRODUCT_TO_STREAM.get(unit, {})
+        unit_inc: Dict[str, Dict[str, float]] = {}
+        for product, stream in raw_map.items():
+            if product not in known:
+                raise ValueError(
+                    f"Plant-linking incidence product {product!r} not in "
+                    f"known products for {unit}: {list(coeffs.products)}"
+                )
+            if stream not in streams:
+                raise ValueError(
+                    f"Unknown linking stream {stream!r} for product {product!r}"
+                )
+            unit_inc[product] = {stream: 1.0}
+        unknown = sorted(set(raw_map) - known)
+        if unknown:
+            raise ValueError(f"Unknown incidence products for {unit}: {unknown}")
+        incidence[unit] = unit_inc
+        coverage[unit] = [p for p in coeffs.products if p in unit_inc]
+
+    honesty = _admm_plant_linking_honesty_fields()
+    return {
+        "streams": streams,
+        "unit_order": list(UNITS),
+        "incidence": incidence,
+        "product_coverage": coverage,
+        "topology_source": ADMM_PLANT_LINKING_SCOPE,
+        "plant_linking_scope": ADMM_PLANT_LINKING_SCOPE,
+        "not_full_plant_mass_balance": True,
+        "not_live_plant_blocks": True,
+        "not_case1_links": True,
+        "kind": "offline_plant_linking_topology",
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "note": honesty["note"],
+    }
+
+
+def _incidence_matrix_for_unit(
+    unit: str, streams: Sequence[str], products: Sequence[str]
+) -> np.ndarray:
+    """A shape (n_streams, n_products): 0/1 selection incidence."""
+    raw = _PLANT_LINKING_PRODUCT_TO_STREAM.get(unit, {})
+    stream_index = {s: i for i, s in enumerate(streams)}
+    A = np.zeros((len(streams), len(products)), dtype=np.float64)
+    for j, p in enumerate(products):
+        stream = raw.get(p)
+        if stream is None:
+            continue
+        A[stream_index[stream], j] = 1.0
+    return A
+
+
+def project_linking_to_unit(
+    unit: str,
+    lam_link: Mapping[str, float],
+    z_link: Mapping[str, float],
+    *,
+    streams: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Map shared linking lam/z into unit product prices/z via incidence^T.
+
+    Formula (0/1 selection incidence A, shape n_link x n_prod)::
+
+        prices_unit = A^T lam_link
+        z_unit      = A^T z_link
+
+    Documented dual-ish of lift for selection incidence.
+    """
+    key = _normalize_unit_name(unit)
+    topo_streams = list(streams) if streams is not None else list(ADMM_PLANT_LINKING_STREAMS)
+    coeffs = cached_offline_unit_coeffs(key)
+    products = list(coeffs.products)
+    A = _incidence_matrix_for_unit(key, topo_streams, products)
+    lam_vec = np.array(
+        [float(lam_link.get(s, 0.0)) for s in topo_streams], dtype=np.float64
+    )
+    z_vec = np.array(
+        [float(z_link.get(s, 0.0)) for s in topo_streams], dtype=np.float64
+    )
+    prices_vec = A.T @ lam_vec
+    z_unit_vec = A.T @ z_vec
+    prices = {p: float(prices_vec[i]) for i, p in enumerate(products)}
+    z_unit = {p: float(z_unit_vec[i]) for i, p in enumerate(products)}
+    return {
+        "unit": key,
+        "products": products,
+        "streams": list(topo_streams),
+        "prices": prices,
+        "z": z_unit,
+        "A_shape": [int(A.shape[0]), int(A.shape[1])],
+        "formula": "prices=A^T lam_link; z_unit=A^T z_link (0/1 selection incidence)",
+    }
+
+
+def lift_unit_y_to_linking(
+    unit: str,
+    y_raw: Mapping[str, float],
+    *,
+    streams: Optional[Sequence[str]] = None,
+) -> Dict[str, float]:
+    """Lift unit product y_raw to linking space: y_link = A y_raw."""
+    key = _normalize_unit_name(unit)
+    topo_streams = list(streams) if streams is not None else list(ADMM_PLANT_LINKING_STREAMS)
+    coeffs = cached_offline_unit_coeffs(key)
+    products = list(coeffs.products)
+    A = _incidence_matrix_for_unit(key, topo_streams, products)
+    y_vec = np.array([float(y_raw.get(p, 0.0)) for p in products], dtype=np.float64)
+    y_link_vec = A @ y_vec
+    return {s: float(y_link_vec[i]) for i, s in enumerate(topo_streams)}
+
+
+def _default_lam_link(streams: Sequence[str]) -> Dict[str, float]:
+    """Seed linking lam as mean of default product prices mapping into each stream."""
+    sums: Dict[str, float] = {s: 0.0 for s in streams}
+    counts: Dict[str, int] = {s: 0 for s in streams}
+    for unit in UNITS:
+        prices = default_offline_prices(unit)
+        raw = _PLANT_LINKING_PRODUCT_TO_STREAM.get(unit, {})
+        for product, stream in raw.items():
+            if stream not in sums:
+                continue
+            sums[stream] += float(prices.get(product, 0.0))
+            counts[stream] += 1
+    out: Dict[str, float] = {}
+    for s in streams:
+        out[s] = float(sums[s] / counts[s]) if counts[s] else 0.0
+    return out
+
+
+def _default_z_link(streams: Sequence[str]) -> Dict[str, float]:
+    """Seed z_link as sum over units of lifted full postprocess yields at reference."""
+    totals = {s: 0.0 for s in streams}
+    for unit in UNITS:
+        coeffs = cached_offline_unit_coeffs(unit)
+        z_full = _default_z_full_for_unit(unit, coeffs)
+        y_link = lift_unit_y_to_linking(unit, z_full, streams=streams)
+        for s in streams:
+            totals[s] += float(y_link[s])
+    return totals
+
+
+def plant_linking_admm_round(
+    *,
+    lam_link: Optional[Mapping[str, float]] = None,
+    z_link: Optional[Mapping[str, float]] = None,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float], np.ndarray] = 1.0,
+    dual_step: float = 1.0,
+    z_blend: float = 1.0,
+    max_passes: int = 32,
+) -> Dict[str, Any]:
+    """One offline multi-block plant-linking ADMM round (always-on numpy).
+
+    Structure (deterministic)::
+
+        1. For each unit (registry order): map lam_link/z_link -> unit prices/z;
+           call existing ``admm_block_subproblem_for_unit`` under rho, delta
+        2. Lift y_raw -> linking; aggregate r_link = sum y_link_u - z_link_pre
+           (pre-z-update; never post free z<-y zero theater)
+        3. Shared z consensus in linking space: z <- (1-beta)z + beta y_link_total
+        4. Shared lam dual ascent: lam <- lam + alpha*rho*r_link
+
+    Not Case 1, not wire, not full plant mass balance, not dual recovery.
+    """
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if not np.isfinite(float(dual_step)):
+        raise ValueError(f"dual_step must be finite, got {dual_step}")
+    beta = float(z_blend)
+    if not np.isfinite(beta) or beta < 0.0 or beta > 1.0:
+        raise ValueError(f"z_blend must be in [0, 1], got {z_blend}")
+
+    streams = list(ADMM_PLANT_LINKING_STREAMS)
+    lam_pre = dict(lam_link) if lam_link is not None else _default_lam_link(streams)
+    z_pre = dict(z_link) if z_link is not None else _default_z_link(streams)
+    for s in streams:
+        if s not in lam_pre:
+            raise ValueError(f"Missing lam_link stream {s!r}")
+        if s not in z_pre:
+            raise ValueError(f"Missing z_link stream {s!r}")
+        if not np.isfinite(float(lam_pre[s])) or not np.isfinite(float(z_pre[s])):
+            raise ValueError(f"lam_link/z_link must be finite for stream {s!r}")
+
+    units_out: Dict[str, Any] = {}
+    y_link_total = {s: 0.0 for s in streams}
+    sum_aug = 0.0
+    all_sub_ok = True
+
+    for unit in UNITS:
+        proj = project_linking_to_unit(unit, lam_pre, z_pre, streams=streams)
+        sub = admm_block_subproblem_for_unit(
+            unit,
+            prices=proj["prices"],
+            z=proj["z"],
+            rho=float(rho),
+            delta=delta,
+            max_passes=int(max_passes),
+        )
+        y_raw = dict(sub["y_raw_star"])
+        y_link_u = lift_unit_y_to_linking(unit, y_raw, streams=streams)
+        for s in streams:
+            y_link_total[s] += float(y_link_u[s])
+        sum_aug += float(sub["augmented_local_raw"])
+        unit_ok = bool(sub.get("ok"))
+        if not unit_ok:
+            all_sub_ok = False
+        units_out[unit] = {
+            "unit": unit,
+            "ok": unit_ok,
+            "subproblem_ok": unit_ok,
+            "subproblem_kind": sub.get("kind"),
+            "not_worse_than_ref": bool(sub.get("not_worse_than_ref")),
+            "augmented_local_raw": float(sub["augmented_local_raw"]),
+            "y_raw_star": y_raw,
+            "x_star": list(sub["x_star"]),
+            "y_link": y_link_u,
+            "prices_unit": dict(proj["prices"]),
+            "z_unit": dict(proj["z"]),
+            "renorm_note": sub.get("renorm_note"),
+            "raw_vs_full_r_l1_gap_star": sub.get("raw_vs_full_r_l1_gap_star"),
+        }
+
+    # Pre-update residual in linking space (drives dual ascent).
+    r_vec = np.array(
+        [float(y_link_total[s]) - float(z_pre[s]) for s in streams], dtype=np.float64
+    )
+    r_link = {s: float(r_vec[i]) for i, s in enumerate(streams)}
+    r_l1 = float(np.sum(np.abs(r_vec)))
+    r_linf = float(np.max(np.abs(r_vec))) if r_vec.size else 0.0
+    r_l2 = float(np.sqrt(np.sum(r_vec * r_vec))) if r_vec.size else 0.0
+
+    y_total_vec = np.array([float(y_link_total[s]) for s in streams], dtype=np.float64)
+    z_pre_vec = np.array([float(z_pre[s]) for s in streams], dtype=np.float64)
+    z_post_vec = (1.0 - beta) * z_pre_vec + beta * y_total_vec
+    z_post = {s: float(z_post_vec[i]) for i, s in enumerate(streams)}
+
+    alpha = float(dual_step)
+    lam_pre_vec = np.array([float(lam_pre[s]) for s in streams], dtype=np.float64)
+    lam_post_vec = lam_pre_vec + alpha * float(rho) * r_vec
+    lam_post = {s: float(lam_post_vec[i]) for i, s in enumerate(streams)}
+
+    finite_ok = bool(
+        all_sub_ok
+        and np.all(np.isfinite(r_vec))
+        and np.all(np.isfinite(z_post_vec))
+        and np.all(np.isfinite(lam_post_vec))
+        and np.isfinite(r_l1)
+        and np.isfinite(r_linf)
+        and np.isfinite(sum_aug)
+    )
+    honesty = _admm_plant_linking_honesty_fields()
+    return {
+        **{
+            k: honesty[k]
+            for k in (
+                "kind",
+                "solver",
+                "dual_recovery_path",
+                "on_excel_case1_path",
+                "price_source",
+                "lam_source",
+                "z_source",
+                "rho_source",
+                "optimand_space",
+                "linking_space",
+                "z_update_space",
+                "plant_linking_scope",
+                "topology_source",
+                "not_full_plant_mass_balance",
+                "not_case1_solve",
+                "not_wire_shipped",
+                "not_pure_admm_dual_recovery",
+                "plant_linking_lambda_is_not_case1_online_lambda",
+                "not_live_plant_blocks",
+                "formula",
+            )
+        },
+        "ok": finite_ok,
+        "streams": streams,
+        "unit_order": list(UNITS),
+        "units": units_out,
+        "rho": float(rho),
+        "dual_step": alpha,
+        "z_blend": beta,
+        "z_mode": "link_copy" if abs(beta - 1.0) <= 1e-15 else "link_blend",
+        "lam_pre": dict(lam_pre),
+        "lam_post": lam_post,
+        "z_pre": dict(z_pre),
+        "z_post": z_post,
+        "y_link_total": dict(y_link_total),
+        "r_link_pre": r_link,
+        "r_l1_link": r_l1,
+        "r_linf_link": r_linf,
+        "r_l2_link": r_l2,
+        "sum_augmented_local_raw": float(sum_aug),
+        "all_subproblem_ok": all_sub_ok,
+    }
+
+
+def multi_block_plant_linking_admm_report(
+    *,
+    n_rounds: int = 3,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float]] = 1.0,
+    dual_step: float = 1.0,
+    z_blend: float = 1.0,
+    lam0: Optional[Mapping[str, float]] = None,
+    z0: Optional[Mapping[str, float]] = None,
+    max_passes: int = 32,
+) -> Dict[str, Any]:
+    """Always-on multi-round multi-block plant-linking ADMM report.
+
+    Shared lam/z live in synthetic linking-stream space. Dual ascent residual is
+    pre-z-update in linking space. Aggregate ``ok`` = finite trajectory + honesty
+    locks + structure + per-unit subproblem ok. **No** residual-must-vanish SLA.
+
+    Not Case 1, not wire, not full plant mass balance, not dual recovery.
+    Existing ``multi_unit_admm_coordination_report`` remains a separate surface
+    with ``not_plant_linking_coordinator=True``.
+    """
+    if int(n_rounds) < 1:
+        raise ValueError(f"n_rounds must be >= 1, got {n_rounds}")
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if not np.isfinite(float(dual_step)):
+        raise ValueError(f"dual_step must be finite, got {dual_step}")
+    beta = float(z_blend)
+    if not np.isfinite(beta) or beta < 0.0 or beta > 1.0:
+        raise ValueError(f"z_blend must be in [0, 1], got {z_blend}")
+
+    n_r = int(n_rounds)
+    streams = list(ADMM_PLANT_LINKING_STREAMS)
+    honesty = _admm_plant_linking_honesty_fields()
+    topo = offline_plant_linking_topology()
+
+    state_lam = dict(lam0) if lam0 is not None else _default_lam_link(streams)
+    state_z = dict(z0) if z0 is not None else _default_z_link(streams)
+
+    trajectory: List[Dict[str, Any]] = []
+    units_out: Dict[str, Any] = {
+        u: {
+            "unit": u,
+            "ok": True,
+            "rounds": [],
+            "final_y_link": None,
+            "last_x_star": None,
+            "last_y_raw_star": None,
+        }
+        for u in UNITS
+    }
+    all_ok = True
+
+    for t in range(1, n_r + 1):
+        row = plant_linking_admm_round(
+            lam_link=state_lam,
+            z_link=state_z,
+            rho=float(rho),
+            delta=delta,
+            dual_step=float(dual_step),
+            z_blend=beta,
+            max_passes=int(max_passes),
+        )
+        state_lam = dict(row["lam_post"])
+        state_z = dict(row["z_post"])
+        compact_units: Dict[str, Any] = {}
+        round_ok = bool(row.get("ok"))
+        for unit in UNITS:
+            urow = row["units"][unit]
+            compact = {
+                "round": t,
+                "ok": bool(urow["ok"]),
+                "subproblem_ok": bool(urow["subproblem_ok"]),
+                "not_worse_than_ref": bool(urow["not_worse_than_ref"]),
+                "augmented_local_raw": float(urow["augmented_local_raw"]),
+                "y_link": dict(urow["y_link"]),
+            }
+            units_out[unit]["rounds"].append(compact)
+            units_out[unit]["final_y_link"] = dict(urow["y_link"])
+            units_out[unit]["last_x_star"] = list(urow["x_star"])
+            units_out[unit]["last_y_raw_star"] = dict(urow["y_raw_star"])
+            if urow.get("renorm_note"):
+                units_out[unit]["renorm_note"] = urow["renorm_note"]
+            if not urow["ok"]:
+                units_out[unit]["ok"] = False
+                round_ok = False
+                all_ok = False
+            compact_units[unit] = compact
+
+        traj_row = {
+            "round": t,
+            "ok": bool(
+                round_ok
+                and np.isfinite(float(row["r_l1_link"]))
+                and np.isfinite(float(row["r_linf_link"]))
+                and np.isfinite(float(row["sum_augmented_local_raw"]))
+            ),
+            "r_l1_link": float(row["r_l1_link"]),
+            "r_linf_link": float(row["r_linf_link"]),
+            "r_l2_link": float(row["r_l2_link"]),
+            "sum_augmented_local_raw": float(row["sum_augmented_local_raw"]),
+            "r_link_pre": dict(row["r_link_pre"]),
+            "units_ok": {u: bool(compact_units[u]["ok"]) for u in UNITS},
+        }
+        if not traj_row["ok"]:
+            all_ok = False
+        trajectory.append(traj_row)
+
+    residual_trend = "n/a"
+    if len(trajectory) >= 2:
+        vals = [float(tr["r_l1_link"]) for tr in trajectory]
+        if all(np.isfinite(v) for v in vals):
+            diffs = [vals[i + 1] - vals[i] for i in range(len(vals) - 1)]
+            if all(d <= 1e-12 for d in diffs):
+                residual_trend = "nonincreasing"
+            elif all(d >= -1e-12 for d in diffs):
+                residual_trend = "nondecreasing"
+            else:
+                residual_trend = "mixed"
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == ADMM_PLANT_LINKING_KIND
+        and honesty.get("optimand_space") == "raw_affine"
+        and honesty.get("not_full_plant_mass_balance") is True
+        and honesty.get("not_case1_solve") is True
+        and honesty.get("not_wire_shipped") is True
+        and honesty.get("not_pure_admm_dual_recovery") is True
+        and honesty.get("plant_linking_lambda_is_not_case1_online_lambda") is True
+        and honesty.get("topology_source") == ADMM_PLANT_LINKING_SCOPE
+        and set(units_out.keys()) == set(UNITS)
+        and len(trajectory) == n_r
+        and list(topo["streams"]) == streams
+    )
+    if not honesty_ok:
+        all_ok = False
+    for unit in UNITS:
+        if not units_out[unit].get("ok"):
+            all_ok = False
+
+    finite_traj = all(
+        np.isfinite(tr["r_l1_link"])
+        and np.isfinite(tr["r_linf_link"])
+        and np.isfinite(tr["sum_augmented_local_raw"])
+        for tr in trajectory
+    )
+    if not finite_traj:
+        all_ok = False
+
+    return {
+        "ok": bool(all_ok and honesty_ok and finite_traj),
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "streams": streams,
+        "topology": {
+            "streams": topo["streams"],
+            "topology_source": topo["topology_source"],
+            "not_full_plant_mass_balance": True,
+            "product_coverage": topo["product_coverage"],
+        },
+        "trajectory": trajectory,
+        "n_rounds": n_r,
+        "rho": float(rho),
+        "dual_step": float(dual_step),
+        "z_blend": beta,
+        "delta": delta if not isinstance(delta, Mapping) else dict(delta),
+        "final_lam": dict(state_lam),
+        "final_z": dict(state_z),
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": ADMM_PLANT_LINKING_KIND,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "optimand_space": "raw_affine",
+        "linking_space": "synthetic_linking_streams",
+        "z_update_space": "synthetic_linking_streams",
+        "plant_linking_scope": ADMM_PLANT_LINKING_SCOPE,
+        "topology_source": ADMM_PLANT_LINKING_SCOPE,
+        "not_full_plant_mass_balance": True,
+        "not_case1_solve": True,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "plant_linking_lambda_is_not_case1_online_lambda": True,
+        "not_live_plant_blocks": True,
+        "formula": ADMM_PLANT_LINKING_FORMULA,
+        "residual_trend": residual_trend,
+        "honesty_ok": honesty_ok,
+        "tf_available": tf_available(),
+        "note": honesty["note"],
+    }
+
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -2891,6 +3516,15 @@ __all__ = [
     "ADMM_COORDINATION_SCOPE",
     "admm_coordination_round_for_unit",
     "multi_unit_admm_coordination_report",
+    "ADMM_PLANT_LINKING_KIND",
+    "ADMM_PLANT_LINKING_FORMULA",
+    "ADMM_PLANT_LINKING_SCOPE",
+    "ADMM_PLANT_LINKING_STREAMS",
+    "offline_plant_linking_topology",
+    "project_linking_to_unit",
+    "lift_unit_y_to_linking",
+    "plant_linking_admm_round",
+    "multi_block_plant_linking_admm_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
