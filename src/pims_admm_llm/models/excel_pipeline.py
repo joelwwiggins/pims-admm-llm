@@ -1324,6 +1324,12 @@ def run_excel_pipeline(
             "dual_linf_online": dual_linf_online,
             "dual_linf_recovered": dual_linf_recovered,
             "both_feasible": bool(mono_part["feasible"] and admm_part["feasible"]),
+            # Dual honesty roles (presentation only — VERDICT still uses online L∞).
+            "dual_gate": "online_lambda",
+            "verdict_dual_gate": "online_only",
+            "dual_linf_online_role": "PRIMARY",
+            "dual_linf_recovered_role": "SECONDARY",
+            "recovered_secondary": True,
         },
         "verdict": _verdict(mono_part, admm_part, gap_rel, dual_linf_online),
     }
@@ -1339,6 +1345,48 @@ def run_excel_pipeline(
     return report
 
 
+def format_dual_honesty_summary(report: Dict[str, Any]) -> Dict[str, str]:
+    """PRIMARY online-λ vs SECONDARY recovered dual honesty (presentation only).
+
+    Pure formatter for How_to / Shadows footer / demo. Does not change VERDICT math
+    (still gates on dual_linf_online only).
+    """
+    admm = report.get("admm") or {}
+    cmp_ = report.get("comparison") or {}
+    path_ = str(admm.get("dual_recovery_path") or "package-admm")
+    online = cmp_.get("dual_linf_online")
+    recovered = cmp_.get("dual_linf_recovered")
+    try:
+        online_s = f"{float(online):.4g}" if online is not None else "n/a"
+    except (TypeError, ValueError):
+        online_s = str(online)
+    try:
+        recovered_s = f"{float(recovered):.4g}" if recovered is not None else "n/a"
+    except (TypeError, ValueError):
+        recovered_s = str(recovered)
+    return {
+        "primary_role": "PRIMARY",
+        "secondary_role": "SECONDARY",
+        "primary_metric": "dual_linf_online",
+        "secondary_metric": "dual_linf_recovered",
+        "dual_linf_online": online_s,
+        "dual_linf_recovered": recovered_s,
+        "verdict_dual_gate": "online_only",
+        "dual_gate": "online_lambda",
+        "dual_recovery_path": path_,
+        "recovered_secondary": "true",
+        "planner_one_liner": (
+            f"PRIMARY free online λ dual L∞≈{online_s} (gates VERDICT, tol≤15); "
+            f"SECONDARY recovered blender dual L∞≈{recovered_s} (face-dependent; not gate); "
+            f"path={path_}; not pure-ADMM dual ownership; not TF dual recovery."
+        ),
+        "shadows_role_banner": (
+            "PRIMARY admm_online_econ = free online λ economic value (gates dual L∞ / VERDICT dual check). "
+            "SECONDARY admm_recovered_econ = blender recovery LP face (may diverge; not VERDICT gate)."
+        ),
+    }
+
+
 def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     """Guide for lean PIMS-style results workbook (≤15 sheets)."""
     mono = report.get("mono") or {}
@@ -1346,8 +1394,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     cmp_ = report.get("comparison") or {}
     meta = report.get("meta") or {}
     gap_pct = 100.0 * float(cmp_.get("objective_gap_rel") or 0.0)
-    dual_linf = cmp_.get("dual_linf_online")
-    path_ = admm.get("dual_recovery_path") or "package-admm"
+    dual = format_dual_honesty_summary(report)
+    dual_linf = dual["dual_linf_online"]
+    dual_rec = dual["dual_linf_recovered"]
+    path_ = dual["dual_recovery_path"]
     return [
         (
             "goal",
@@ -1391,12 +1441,19 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
             "solve_boundary",
             f"Mono+ADMM still CDU+Blender only. Cascade FCC/Coker = solve_cdu_fcc. "
             f"This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "
-            f"gap={gap_pct:.4f}%, dual_L∞={dual_linf}, path={path_}.",
+            f"gap={gap_pct:.4f}%, dual_L∞_PRIMARY_online={dual_linf}, "
+            f"dual_L∞_SECONDARY_recovered={dual_rec}, path={path_}.",
         ),
         (
             "duals_online_lambda",
-            "Primary ADMM shadows on Shadows tab = free online λ (path labels online_lambda). "
-            "Recovered dual path is secondary. Not pure-ADMM dual ownership; not TF dual recovery.",
+            "PRIMARY ADMM shadows on Shadows tab = free online λ (path labels online_lambda; "
+            f"this-run dual L∞ online≈{dual_linf}). "
+            f"SECONDARY recovered blender duals (this-run dual L∞ recovered≈{dual_rec}; face-dependent). "
+            "Not pure-ADMM dual ownership; not TF dual recovery.",
+        ),
+        (
+            "duals_primary_secondary",
+            dual["planner_one_liner"],
         ),
         (
             "input",
@@ -1622,6 +1679,8 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
             preferred=["check", "predicted", "actual", "abs_err", "ok"],
         )
 
+    dual = format_dual_honesty_summary(report)
+
     ws = wb.create_sheet("Summary")
     _header(ws, ["key", "value"])
     for k, v in [
@@ -1645,7 +1704,12 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
         ("both_feasible", cmp_.get("both_feasible")),
         ("pipeline_wall_s", meta.get("pipeline_wall_s")),
         ("dual_linf_online", cmp_.get("dual_linf_online")),
+        ("dual_linf_online_role", "PRIMARY — free online λ; gates VERDICT dual L∞"),
         ("dual_linf_recovered", cmp_.get("dual_linf_recovered")),
+        ("dual_linf_recovered_role", "SECONDARY — blender recovery face; not VERDICT gate"),
+        ("dual_gate", "online_lambda"),
+        ("verdict_dual_gate", "online_only"),
+        ("recovered_secondary", True),
         ("model_form", model.get("form")),
         (
             "sheet_guide",
@@ -1668,8 +1732,32 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
             av = float(adict.get(name, 0.0))
             rates.append([kind, name, mv, av, av - mv])
 
+    # Shadows: PRIMARY online λ vs SECONDARY recovered (planner dual honesty surface).
     sh = wb.create_sheet("Shadows")
-    _header(sh, ["stream", "mono_shadow", "admm_online_econ", "admm_recovered_econ", "abs_diff_online"])
+    sh.append(["role_banner", dual["shadows_role_banner"]])
+    sh.append(
+        [
+            "role_online_col",
+            "admm_online_econ = PRIMARY — free online λ economic value; gates dual L∞ / VERDICT dual check",
+        ]
+    )
+    sh.append(
+        [
+            "role_recovered_col",
+            "admm_recovered_econ = SECONDARY — blender recovery LP face; may diverge; not VERDICT gate",
+        ]
+    )
+    sh.append(
+        [
+            "stream",
+            "mono_shadow",
+            "admm_online_econ (PRIMARY)",
+            "admm_recovered_econ (SECONDARY)",
+            "abs_diff_online",
+        ]
+    )
+    for c in sh[4]:
+        c.font = bold
     mono_sh = mono.get("shadow_prices") or {}
     admm_sh = admm.get("shadow_prices") or {}
     rec_sh = admm.get("shadow_prices_recovered") or {}
@@ -1677,6 +1765,15 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
         m, a, r = mono_sh.get(k), admm_sh.get(k), rec_sh.get(k)
         diff = abs(float(m) - float(a)) if m is not None and a is not None else None
         sh.append([k, m, a, r, diff])
+    # Footer metrics (this-run dual honesty; not stream rows).
+    sh.append([])
+    sh.append(["metric", "value"])
+    sh.append(["dual_L∞_online_vs_mono", cmp_.get("dual_linf_online")])
+    sh.append(["dual_L∞_recovered_vs_mono", cmp_.get("dual_linf_recovered")])
+    sh.append(["verdict_dual_gate", "online_only"])
+    sh.append(["dual_recovery_path", admm.get("dual_recovery_path")])
+    sh.append(["dual_gate", "online_lambda"])
+    sh.append(["recovered_secondary", True])
 
     if model:
         _apply_excel_formula_links(wb, model, mono)

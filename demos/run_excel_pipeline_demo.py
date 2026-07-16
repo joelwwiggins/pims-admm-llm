@@ -77,8 +77,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"       dual_recovery_path={admm['dual_recovery_path']}")
     print(f"Gap:   abs={cmp_['objective_gap_abs']:.6f}  rel={cmp_['objective_gap_rel']:.6%}")
     print(
-        f"Dual:  L∞ online={cmp_.get('dual_linf_online')}  "
-        f"L∞ recovered={cmp_.get('dual_linf_recovered')}"
+        f"Dual PRIMARY (online λ, gates VERDICT): L∞={cmp_.get('dual_linf_online')}  "
+        f"[verdict_dual_gate=online_only]"
+    )
+    print(
+        f"Dual SECONDARY (recovered blender face, not gate): L∞={cmp_.get('dual_linf_recovered')}  "
+        f"[recovered_secondary=true]"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
