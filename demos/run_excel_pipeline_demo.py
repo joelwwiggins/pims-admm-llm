@@ -86,10 +86,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     ph = (meta.get("planner_honesty") or {})
     offline_units = ph.get("offline_tf_units") or "FCC,COKER,CDU"
+    # Static readiness flags from meta only — never import tf_linear_blocks / live residual.
+    readiness_bits = []
+    if ph.get("offline_tf_priced_ready"):
+        readiness_bits.append("priced")
+    if ph.get("offline_tf_timing_ready"):
+        readiness_bits.append("timing")
+    if ph.get("offline_tf_admm_residual_ready"):
+        readiness_bits.append("admm_residual")
+    readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     print(
-        f"Offline TF: units={offline_units}  on_excel_case1_path="
-        f"{ph.get('on_excel_case1_path', False)}  "
-        f"(NOT on classic Case 1 solve; dual_recovery_path=None on TF surface)"
+        f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
+        f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
+        f"(NOT on classic Case 1; dual_recovery_path=None on TF surface; "
+        f"synthetic residual ≠ duals; not wire shipped)"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")

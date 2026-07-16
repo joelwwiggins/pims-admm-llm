@@ -484,9 +484,9 @@ def test_format_dual_honesty_summary_pure():
 def test_planner_honesty_glance_package(tmp_path):
     """E1/E2: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty.
 
-    After #16 timing/priced substrate: glance package also locks priced residual +
-    block-solve timing readiness (static; isolation-safe). Dual PRIMARY/SECONDARY
-    and classic form remain non-regression contracts.
+    After #18 ADMM residual harness + How_to: glance package also locks ADMM residual
+    readiness (synthetic λ,z,ρ) alongside priced + timing (static; isolation-safe).
+    Dual PRIMARY/SECONDARY and classic form remain non-regression contracts.
     """
     from pims_admm_llm.models.excel_pipeline import (
         format_planner_honesty_package,
@@ -510,6 +510,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "COKER" in pkg["index_row"]["what"] and "CDU" in pkg["index_row"]["what"]
     what_l = pkg["index_row"]["what"].lower()
     assert "priced" in what_l and "timing" in what_l
+    assert "admm residual" in what_l
+    assert "synthetic" in what_l
     assert "readiness" in what_l
     assert "not duals" in what_l or "prices not duals" in what_l
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
@@ -521,17 +523,26 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "online_lambda" in str(pkg["meta"]["dual_recovery_path"])
     assert pkg["meta"]["offline_tf_priced_ready"] is True
     assert pkg["meta"]["offline_tf_timing_ready"] is True
+    assert pkg["meta"]["offline_tf_admm_residual_ready"] is True
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
+    admm_note = str(pkg["meta"]["offline_tf_admm_residual"]).lower()
+    assert "admm residual" in admm_note or "synthetic" in admm_note
+    assert "not" in admm_note and (
+        "dual" in admm_note or "wire" in admm_note or "online" in admm_note
+    )
     assert "not" in str(pkg["meta"]["offline_tf_readiness_note"]).lower()
+    assert "admm residual" in str(pkg["meta"]["offline_tf_readiness_note"]).lower()
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
+    assert "admm residual" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
         "offline_tf_timing",
+        "offline_tf_admm_residual",
         "offline_tf_readiness_note",
         "offline_tf_units",
         "dual_gate",
@@ -546,6 +557,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_not_on_case1",
         "offline_tf_priced_not_duals",
         "offline_tf_timing_not_case1",
+        "offline_tf_admm_residual_not_duals",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -563,6 +575,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "online_lambda" in str(ph["dual_recovery_path"])
     assert ph["offline_tf_priced_ready"] is True
     assert ph["offline_tf_timing_ready"] is True
+    assert ph["offline_tf_admm_residual_ready"] is True
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
     assert "not duals" in str(ph["offline_tf_priced"]).lower() or "not admm" in str(
@@ -571,6 +584,11 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "not case 1" in str(ph["offline_tf_timing"]).lower() or "wall" in str(
         ph["offline_tf_timing"]
     ).lower()
+    ph_admm = str(ph["offline_tf_admm_residual"]).lower()
+    assert "synthetic" in ph_admm or "admm residual" in ph_admm
+    assert "not" in ph_admm and (
+        "dual" in ph_admm or "wire" in ph_admm or "online" in ph_admm
+    )
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -587,6 +605,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "not" in ot and ("case 1" in ot or "classic" in ot)
     assert "none" in ot or "dual_recovery_path" in ot
     assert "priced" in ot and "timing" in ot
+    assert "admm residual" in ot
+    assert "synthetic" in ot
     assert "readiness" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
@@ -612,12 +632,18 @@ def test_planner_honesty_glance_package(tmp_path):
     note = str(summary.get("offline_tf_note") or summary.get("index_offline_tf_note") or "")
     assert "not" in note.lower() and ("case 1" in note.lower() or "classic" in note.lower())
     assert "priced" in note.lower() and "timing" in note.lower()
+    assert "admm residual" in note.lower()
     priced_s = str(summary.get("offline_tf_priced") or "").lower()
     timing_s = str(summary.get("offline_tf_timing") or "").lower()
+    admm_s = str(summary.get("offline_tf_admm_residual") or "").lower()
     assert "priced" in priced_s
     assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
     assert "timing" in timing_s
     assert "not" in timing_s and ("case 1" in timing_s or "wall" in timing_s or "dual" in timing_s)
+    assert "admm residual" in admm_s or "synthetic" in admm_s
+    assert "not" in admm_s and (
+        "dual" in admm_s or "wire" in admm_s or "online" in admm_s
+    )
 
     # --- Calc_Check honesty audit rows (all ok) ---
     chk_h = [c.value for c in wb["Calc_Check"][1]]
@@ -633,6 +659,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("offline_tf_not_on_case1") is True
     assert checks.get("offline_tf_priced_not_duals") is True
     assert checks.get("offline_tf_timing_not_case1") is True
+    assert checks.get("offline_tf_admm_residual_not_duals") is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
@@ -672,6 +699,7 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_not_on_case1",
         "offline_tf_priced_not_duals",
         "offline_tf_timing_not_case1",
+        "offline_tf_admm_residual_not_duals",
     } <= names
     assert all(r["ok"] for r in rows_good)
 
@@ -682,10 +710,11 @@ def test_planner_honesty_check_rows_pure():
     assert rows["offline_tf_not_on_case1"] is True
     assert rows["offline_tf_priced_not_duals"] is True
     assert rows["offline_tf_timing_not_case1"] is True
+    assert rows["offline_tf_admm_residual_not_duals"] is True
 
 
 def test_format_planner_honesty_package_priced_timing_pure():
-    """Pure formatter exposes priced + timing readiness without TF or full solve."""
+    """Pure formatter exposes priced + timing + ADMM residual readiness without TF or full solve."""
     from pims_admm_llm.models.excel_pipeline import format_planner_honesty_package
 
     fake = {
@@ -703,16 +732,23 @@ def test_format_planner_honesty_package_priced_timing_pure():
     pkg = format_planner_honesty_package(fake)
     what = pkg["index_row"]["what"].lower()
     assert "priced" in what and "timing" in what and "readiness" in what
+    assert "admm residual" in what and "synthetic" in what
     assert "not" in what and "case 1" in what
     meta = pkg["meta"]
     assert meta["offline_tf_priced_ready"] is True
     assert meta["offline_tf_timing_ready"] is True
+    assert meta["offline_tf_admm_residual_ready"] is True
     assert meta["tf_dual_recovery_path"] is None
     assert meta["form"] == "classic_2block_excel_path"
     assert "priced" in meta["planner_one_liner"].lower()
     assert "timing" in meta["planner_one_liner"].lower()
+    assert "admm residual" in meta["planner_one_liner"].lower()
+    admm_note = str(meta["offline_tf_admm_residual"]).lower()
+    assert "synthetic" in admm_note or "admm residual" in admm_note
+    assert "not" in admm_note
     # anti-claim: must not claim wire shipped
     readiness = str(meta["offline_tf_readiness_note"]).lower()
+    assert "admm residual" in readiness
     assert "not wire shipped" in readiness or "not on classic case 1" in readiness
     assert "wire shipped" not in readiness.replace("not wire shipped", "")
 
