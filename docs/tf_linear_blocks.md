@@ -220,11 +220,12 @@ Planner-facing How_to keys `tf_offline_units` / `tf_offline_priced` / `tf_offlin
 offline exact-linear + priced residual + block-solve timing + ADMM residual + ADMM
 **block subproblem** readiness available; **not** on Case 1 solve; duals remain PRIMARY
 online-λ / SECONDARY recovered. Index / Summary / Calc_Check also glance-lock the
-readiness package (units + priced + timing + **ADMM residual**, synthetic λ/z/ρ ≠ Case 1
-duals) via pure static formatters
-(`format_planner_honesty_package` / `meta.planner_honesty.offline_tf_admm_residual_ready`)
-— still offline-only, still not wire shipped; no live residual/subproblem call on Excel
-write path.
+readiness package (units + priced + timing + **ADMM residual** + **ADMM block subproblem**,
+synthetic λ/z/ρ / x_star ≠ Case 1 duals) via pure static formatters
+(`format_planner_honesty_package` /
+`meta.planner_honesty.offline_tf_admm_residual_ready` +
+`offline_tf_admm_block_subproblem_ready`) — still offline-only, still not wire shipped;
+no live residual/subproblem call on Excel write path.
 
 ## Offline multi-unit ADMM block subproblem (goal 5 pre-wire maximizer)
 

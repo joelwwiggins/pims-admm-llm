@@ -1547,16 +1547,18 @@ def format_tf_offline_admm_block_subproblem_howto() -> Dict[str, str]:
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Index OFFLINE_TF one-liner: kernels + priced residual readiness + block-solve timing
-# readiness + ADMM residual readiness (synthetic λ,z,ρ). Hard negatives: not Case 1;
-# TF dual_recovery_path=None; prices ≠ duals; timings ≠ Case 1 wall / ≠ online λ;
-# synthetic residual ≠ Case 1 duals / ≠ pure-ADMM dual recovery / ≠ wire.
-# Static only — never call live readiness / residual reports.
+# readiness + ADMM residual readiness + ADMM block subproblem readiness (synthetic λ,z,ρ;
+# raw affine under box). Hard negatives: not Case 1; TF dual_recovery_path=None;
+# prices ≠ duals; timings ≠ Case 1 wall / ≠ online λ; synthetic residual/subproblem
+# ≠ Case 1 duals / ≠ pure-ADMM dual recovery / ≠ wire; x_star ≠ online λ.
+# Static only — never call live readiness / residual / subproblem reports.
 _OFFLINE_TF_INDEX_WHAT = (
     "FCC+COKER+CDU exact-linear kernels offline + priced residual readiness + "
-    "block-solve timing readiness + ADMM residual readiness (synthetic λ,z,ρ) — "
+    "block-solve timing readiness + ADMM residual readiness + "
+    "ADMM block subproblem readiness (synthetic λ,z,ρ; raw affine under box) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "prices not duals; timings not Case 1 wall / not online λ; "
-    "synthetic residual not duals / not pure-ADMM dual recovery / not wire"
+    "synthetic residual/subproblem not duals / not pure-ADMM dual recovery / not wire"
 )
 _OFFLINE_TF_PRICED_NOTE = (
     "offline priced residual readiness (FCC+COKER+CDU) — synthetic prices not ADMM λ / not Case 1 shadows"
@@ -1568,9 +1570,15 @@ _OFFLINE_TF_ADMM_RESIDUAL_NOTE = (
     "offline ADMM residual readiness (FCC+COKER+CDU) — synthetic λ/z/ρ not Case 1 PRIMARY online λ / "
     "not SECONDARY recovered duals / not pure-ADMM dual recovery / not wire shipped"
 )
+_OFFLINE_TF_ADMM_BLOCK_SUBPROBLEM_NOTE = (
+    "offline ADMM block subproblem readiness (FCC+COKER+CDU) — synthetic λ/z/ρ / x_star not Case 1 "
+    "PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM dual recovery / not wire; "
+    "raw affine under box (raw optimand ≠ full renorm for Coker)"
+)
 _OFFLINE_TF_READINESS_NOTE = (
-    "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual — "
-    "not on classic Case 1; dual_recovery_path=None on TF surface; not wire shipped"
+    "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
+    "ADMM block subproblem — not on classic Case 1; dual_recovery_path=None on TF surface; "
+    "not wire shipped"
 )
 
 
@@ -1580,16 +1588,18 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     Isolation-safe: reuses format_dual_honesty_summary + format_tf_offline_*_howto
     helpers and report fields only — never imports tensorflow / tf_linear_blocks,
     and never calls live multi_unit_* / offline_block_solve_readiness_report /
-    multi_unit_admm_residual_report. Presentation packaging only; does not change
-    VERDICT math. Dual PRIMARY online-λ / SECONDARY recovered packaging is read-only
-    preserve (#12/#14); offline TF readiness glance covers units + priced + timing +
-    ADMM residual (static harness-existence flags only).
+    multi_unit_admm_residual_report / multi_unit_admm_block_subproblem_report.
+    Presentation packaging only; does not change VERDICT math. Dual PRIMARY online-λ /
+    SECONDARY recovered packaging is read-only preserve (#12/#14); offline TF readiness
+    glance covers units + priced + timing + ADMM residual + ADMM block subproblem
+    (static harness-existence flags only).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
     tf_priced = format_tf_offline_priced_howto()
     tf_timing = format_tf_offline_timing_howto()
     tf_admm = format_tf_offline_admm_residual_howto()
+    tf_sub = format_tf_offline_admm_block_subproblem_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -1620,9 +1630,11 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_priced_ready": True,  # static harness-existence flag; not live report
         "offline_tf_timing_ready": True,  # static harness-existence flag; not live report
         "offline_tf_admm_residual_ready": True,  # static harness-existence; not live residual
+        "offline_tf_admm_block_subproblem_ready": True,  # static; not live maximizer
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
         "offline_tf_admm_residual": _OFFLINE_TF_ADMM_RESIDUAL_NOTE,
+        "offline_tf_admm_block_subproblem": _OFFLINE_TF_ADMM_BLOCK_SUBPROBLEM_NOTE,
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
         "on_excel_case1_path": False,
         "tf_on_excel_case1_path": False,
@@ -1633,8 +1645,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"PRIMARY online L∞={dual['dual_linf_online']}; "
             f"SECONDARY recovered L∞={dual['dual_linf_recovered']}; "
             f"offline_tf_units={_OFFLINE_TF_UNITS} + priced residual readiness + "
-            f"block-solve timing readiness + ADMM residual readiness "
-            f"(synthetic λ,z,ρ; not duals; not wire) not on Case 1; "
+            f"block-solve timing readiness + ADMM residual readiness + "
+            f"ADMM block subproblem readiness "
+            f"(synthetic λ,z,ρ; raw under box; not duals; not wire) not on Case 1; "
             f"tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -1663,6 +1676,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ("offline_tf_priced", _OFFLINE_TF_PRICED_NOTE),
         ("offline_tf_timing", _OFFLINE_TF_TIMING_NOTE),
         ("offline_tf_admm_residual", _OFFLINE_TF_ADMM_RESIDUAL_NOTE),
+        ("offline_tf_admm_block_subproblem", _OFFLINE_TF_ADMM_BLOCK_SUBPROBLEM_NOTE),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
     ]
     return {
@@ -1674,6 +1688,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_priced": tf_priced,
         "tf_offline_timing": tf_timing,
         "tf_offline_admm_residual": tf_admm,
+        "tf_offline_admm_block_subproblem": tf_sub,
     }
 
 
@@ -1682,8 +1697,8 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     Compatible with model_calc_check columns (check, predicted, actual, abs_err, ok).
     Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
-    Static only: never runs priced residual, timing, or ADMM residual harness
-    (isolation + smoke latency).
+    Static only: never runs priced residual, timing, ADMM residual, or block
+    subproblem harness (isolation + smoke latency).
     """
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -1757,6 +1772,20 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "actual": (
                 "static honesty — synthetic residual ≠ duals; dual_recovery_path=None on TF surface; "
                 "not pure-ADMM dual recovery; not wire"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_admm_block_subproblem_not_duals",
+            "predicted": (
+                "offline multi-unit ADMM block subproblem readiness exists under synthetic λ,z,ρ "
+                "on raw affine under box; not Case 1 PRIMARY online λ / not SECONDARY recovered "
+                "duals / not pure-ADMM dual recovery / not wire; x_star not Case 1 shadows"
+            ),
+            "actual": (
+                "static honesty — synthetic subproblem λ/z/ρ / x_star ≠ duals; "
+                "dual_recovery_path=None on TF surface; not pure-ADMM dual recovery; not wire"
             ),
             "abs_err": 0.0,
             "ok": True,
