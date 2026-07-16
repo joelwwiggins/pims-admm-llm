@@ -1508,6 +1508,42 @@ def format_tf_offline_admm_residual_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_admm_block_subproblem_howto() -> Dict[str, str]:
+    """Static offline ADMM block subproblem How_to (isolation-safe; no TF import).
+
+    Planner-facing note that multi-unit offline ADMM **block subproblem maximizer**
+    exists for FCC+COKER+CDU under synthetic λ,z,ρ on **raw affine** under driver box.
+    Does **not** load tf_linear_blocks or tensorflow. dual_recovery_path=None;
+    synthetic λ ≠ Case 1 online λ; not wire shipped; raw optimand ≠ full renorm for Coker.
+    """
+    one_liner = (
+        "Offline multi-unit ADMM block subproblem maximizer exists for FCC+COKER+CDU "
+        "under synthetic λ,z,ρ on raw affine under independent driver box "
+        "(maximize λ·y_raw − ρ‖y_raw−z‖₁; coordinate-ascent exact 1-D PL; not PuLP). "
+        "Still not on this Case 1 solve (classic_2block_excel_path). "
+        "Subproblem dual_recovery_path=None; synthetic λ/z/ρ / x_star are not Case 1 "
+        "PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM dual recovery; "
+        "not wire shipped. Raw optimand ≠ full renorm path for Coker (full is diagnostic). "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender."
+    )
+    return {
+        "topic": "tf_offline_admm_block_subproblem",
+        "units": "FCC+COKER+CDU",
+        "on_case1_solve": "false",
+        "form": "classic_2block_excel_path",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "optimand_space": "raw_affine",
+        "price_source": "synthetic_offline_demo",
+        "lam_source": "synthetic_offline_demo",
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "formula": "lambda_dot_y_raw - rho * ||y_raw - z||_1",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Index OFFLINE_TF one-liner: kernels + priced residual readiness + block-solve timing
@@ -1743,6 +1779,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_priced = format_tf_offline_priced_howto()
     tf_timing = format_tf_offline_timing_howto()
     tf_admm = format_tf_offline_admm_residual_howto()
+    tf_sub = format_tf_offline_admm_block_subproblem_howto()
     return [
         (
             "goal",
@@ -1797,6 +1834,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_admm_residual",
             tf_admm["planner_one_liner"],
+        ),
+        (
+            "tf_offline_admm_block_subproblem",
+            tf_sub["planner_one_liner"],
         ),
         (
             "solve_boundary",

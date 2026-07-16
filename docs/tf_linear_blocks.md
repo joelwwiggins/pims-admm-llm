@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -39,6 +39,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | Priced residual (goal 5) | `multi_unit_priced_residual_report` / `default_offline_prices` / `local_box_direction` — economics readiness; prices **not** duals |
 | Block-solve timing (goal 5) | `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report` / `cached_offline_unit_coeffs` — microsecond-class readiness; **not** Case 1 wall time; **not** duals |
 | ADMM residual (goal 5 pre-wire) | `multi_unit_admm_residual_report` / `admm_residual_for_unit` — consensus `r=y−z` + L1 augmented local under synthetic λ,z,ρ; **not** dual recovery; **not** Case 1 |
+| ADMM block subproblem (goal 5 pre-wire) | `multi_unit_admm_block_subproblem_report` / `admm_block_subproblem_for_unit` — maximize L1-augmented local on **raw affine** under driver box + synthetic λ,z,ρ; **not** dual recovery; **not** Case 1; **not** wire |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -214,14 +215,73 @@ Honesty table (ADMM residual surface):
 | Wire | **Not shipped** |
 
 Planner-facing How_to keys `tf_offline_units` / `tf_offline_priced` / `tf_offline_timing`
-/ `tf_offline_admm_residual` (static text in `excel_pipeline`, **no** import of this
-module) state the same honesty: FCC+COKER+CDU offline exact-linear + priced residual +
-block-solve timing + ADMM residual readiness available; **not** on Case 1 solve; duals
-remain PRIMARY online-λ / SECONDARY recovered. Index / Summary / Calc_Check also
-glance-lock the full readiness package (units + priced + timing + **ADMM residual**,
-synthetic λ/z/ρ ≠ Case 1 duals) via pure static formatters
+/ `tf_offline_admm_residual` / `tf_offline_admm_block_subproblem` (static text in
+`excel_pipeline`, **no** import of this module) state the same honesty: FCC+COKER+CDU
+offline exact-linear + priced residual + block-solve timing + ADMM residual + ADMM
+**block subproblem** readiness available; **not** on Case 1 solve; duals remain PRIMARY
+online-λ / SECONDARY recovered. Index / Summary / Calc_Check also glance-lock the
+readiness package (units + priced + timing + **ADMM residual**, synthetic λ/z/ρ ≠ Case 1
+duals) via pure static formatters
 (`format_planner_honesty_package` / `meta.planner_honesty.offline_tf_admm_residual_ready`)
-— still offline-only, still not wire shipped; no live residual call on Excel write path.
+— still offline-only, still not wire shipped; no live residual/subproblem call on Excel
+write path.
+
+## Offline multi-unit ADMM block subproblem (goal 5 pre-wire maximizer)
+
+Always-on numpy surface. **Maximizes** the L1-augmented local objective under an
+independent driver box on **raw affine** (not residual *evaluation* only; not
+postprocess optimand). Still offline, still dual-ban, still **not** on Case 1, still
+**not** wire shipped, still **not** pure-ADMM dual recovery. **No PuLP/CBC** on this path.
+
+Primary optimand (matches `local_box_direction` raw honesty):
+
+`augmented_local_raw = λ · y_raw − ρ ‖y_raw − z‖₁`
+
+with `y_raw = clamp(y0 + D @ (x − x0))` and `x ∈ [x0−δ, x0+δ]`.
+
+Default z = full postprocess(affine @ reference) while optimand is raw — labeled
+(`optimand_space=raw_affine`, `z_source`, full fields diagnostic only). Coker renorm:
+raw ≠ full expected. Method: coordinate-ascent with exact 1-D piecewise-linear
+maximizers + multi-start from `{x0, priced corner under λ}`; `optimality_note` does
+**not** claim multi-D global optimality.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    admm_block_subproblem_for_unit,
+    multi_unit_admm_block_subproblem_report,
+)
+
+report = multi_unit_admm_block_subproblem_report(rho=1.0, delta=0.5)
+assert report["ok"]
+assert report["kind"] == "offline_admm_block_subproblem"
+assert report["dual_recovery_path"] is None
+assert report["on_excel_case1_path"] is False
+assert report["solver"] is False
+assert report["optimand_space"] == "raw_affine"
+assert report["price_source"] == "synthetic_offline_demo"
+# per unit: x_star, y_raw_star, augmented_local_raw ≥ ref, formula raw-L1
+
+row = admm_block_subproblem_for_unit("COKER", delta=0.5)
+assert row["not_worse_than_ref"] is True
+assert row["optimand_space"] == "raw_affine"
+# full postprocess fields are diagnostic only
+_ = row["augmented_local_full_diagnostic"]
+```
+
+Honesty table (ADMM block subproblem surface):
+
+| Field | Value |
+|-------|-------|
+| `kind` | `offline_admm_block_subproblem` |
+| `solver` | `False` |
+| `dual_recovery_path` | `None` |
+| `on_excel_case1_path` | `False` |
+| `optimand_space` | `raw_affine` (full postprocess = diagnostic only) |
+| `price_source` / `lam_source` / `z_source` / `rho_source` | synthetic offline — **not** Case 1 PRIMARY online λ / **not** SECONDARY recovered |
+| Primary formula | L1 raw: `lambda_dot_y_raw - rho * \|\|y_raw - z\|\|_1` |
+| Method | `coordinate_ascent_exact_1d_pl` + multi-start; see `optimality_note` |
+| Wire | **Not shipped** |
+| Backend | Always-on numpy — **not** PuLP/CBC |
 
 ## Per-unit affine API
 
@@ -312,6 +372,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `multi_unit_priced_residual_report()` aggregate `ok` (always-on economics residual; dual_recovery_path=None; prices not duals)
 - [ ] Offline block-solve timing / readiness report green (cached affine; dual-ban intact; not Case 1 wall time) — `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report`
 - [x] `multi_unit_admm_residual_report()` ok (synthetic λ,z,ρ; dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped)
+- [x] `multi_unit_admm_block_subproblem_report()` ok (raw affine L1 maximizer under box; dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped; not PuLP)
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
@@ -320,7 +381,8 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] Case 1 demo VERDICT still PASS (gap ≤0.5%, dual L∞ online ≤15) with or without TF installed
 - [ ] Local box direction (if used) never treated as Case 1 shadows / online λ
 - [ ] Timings / local box gradients never treated as Case 1 shadows / online λ / pure-ADMM duals
-- [ ] Synthetic λ / z / ρ / ADMM residuals never treated as Case 1 online λ or recovered duals
+- [ ] Synthetic λ / z / ρ / ADMM residuals / subproblem x_star never treated as Case 1 online λ or recovered duals
+- [ ] ADMM block subproblem optimand stays raw_affine; full postprocess diagnostic only; no PuLP offline backend
 
 ## Critics checklist (before claiming “done”)
 
@@ -339,3 +401,4 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] Timing / readiness report honesty: dual_recovery_path=None; on_excel_case1_path=False; no flaky absolute µs hard-fail; timings not duals / not Case 1 wall time
 - [ ] `cached_offline_unit_coeffs` default-ref only; custom refs never silently reuse default cache
 - [ ] `multi_unit_admm_residual_report` ok without TF; honesty locks; L1 formula; Coker raw≠full residual honesty; synthetic λ ≠ Case 1 online λ
+- [ ] `multi_unit_admm_block_subproblem_report` ok without TF; raw optimand; maximizer ≥ ref; delta=0 ⇒ x_star≈x0; dual-ban; not wire; Coker raw≠full diagnostic
