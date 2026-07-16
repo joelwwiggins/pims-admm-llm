@@ -252,6 +252,7 @@ def test_readiness_admm_block_subproblem_ok_additive():
         warmup=0,
         include_admm_residual=True,
         include_admm_block_subproblem=True,
+        include_admm_coordination=False,
     )
     assert "admm_block_subproblem_ok" in rep
     assert rep["admm_block_subproblem_ok"] is True
@@ -272,6 +273,32 @@ def test_readiness_can_skip_subproblem_flag():
         warmup=0,
         include_admm_residual=False,
         include_admm_block_subproblem=False,
+        include_admm_coordination=False,
     )
     assert rep["admm_block_subproblem_ok"] is None
     assert rep["admm_residual_ok"] is None
+    assert rep["admm_coordination_ok"] is None
+
+
+def test_readiness_admm_coordination_ok_additive():
+    """Optional secondary: admm_coordination_ok additive; does not redefine ready."""
+    rep = tlb.offline_block_solve_readiness_report(
+        n_repeats=5,
+        warmup=0,
+        include_admm_residual=True,
+        include_admm_block_subproblem=True,
+        include_admm_coordination=True,
+    )
+    assert "admm_coordination_ok" in rep
+    assert rep["admm_coordination_ok"] is True
+    assert "admm_block_subproblem_ok" in rep
+    assert "admm_residual_ok" in rep
+    # ready_for_wire_discussion still parity∧priced∧timings∧honesty only
+    assert "ready_for_wire_discussion" in rep
+    ready = bool(rep["ready_for_wire_discussion"])
+    assert rep["ok"] is ready
+    note = (rep.get("note") or "").lower()
+    assert "additive" in note
+    assert "coordination" in note
+    assert "ready_for_wire_discussion" in note
+    assert "plant" in note or "linking" in note
