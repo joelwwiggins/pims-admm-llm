@@ -83,6 +83,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "units": list(UNITS),
         "tf_available": tf_available(),
         "block_solve_timing_available": True,
+        "admm_residual_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -93,7 +94,10 @@ def honesty_metadata() -> Dict[str, Any]:
             "TECH+A export (not a PIMS MB_* matrix twin like FCC/Coker). "
             "Offline cached block-solve timing / readiness harness available "
             "(multi_unit_block_solve_timing_report); timings are readiness only, "
-            "not Case 1 wall time and not ADMM duals."
+            "not Case 1 wall time and not ADMM duals. "
+            "Offline multi-unit ADMM-style consensus residual harness available "
+            "(multi_unit_admm_residual_report) under synthetic λ,z,ρ — dual-ban; "
+            "not Case 1 online λ; not pure-ADMM dual recovery; not wire shipped."
         ),
     }
 
@@ -1405,11 +1409,16 @@ def offline_block_solve_readiness_report(
     warmup: int = 3,
     include_box: bool = True,
     box_delta: float = 1.0,
+    include_admm_residual: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
     One call answers \"ready for wire discussion?\" without re-implementing
     parity/priced math. Does **not** mean wire is shipped or duals are owned.
+
+    ``admm_residual_ok`` is **additive** pre-wire checklist info (does **not**
+    change ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings
+    ∧honesty). Never claims wire shipped when residual ok.
     """
     base = multi_unit_block_solve_timing_report(
         n_repeats=n_repeats,
@@ -1427,16 +1436,345 @@ def offline_block_solve_readiness_report(
     base["kind"] = "offline_block_solve_readiness"
     base["ready_for_wire_discussion"] = ready
     base["ok"] = ready
+    admm_residual_ok: Optional[bool] = None
+    if include_admm_residual:
+        try:
+            admm_rep = multi_unit_admm_residual_report(rho=1.0, x_mode="offset")
+            admm_residual_ok = bool(admm_rep.get("ok"))
+        except Exception:  # pragma: no cover - defensive; harness should not raise
+            admm_residual_ok = False
+    base["admm_residual_ok"] = admm_residual_ok
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
-        "ready_for_wire_discussion is structural readiness only — wire is a "
-        "separate checklist + form label change; dual_recovery_path remains "
-        "None; on_excel_case1_path=False; timings/prices/gradients are NOT "
-        "ADMM λ / Case 1 shadows; not Case 1 solve wall time; not a solve. "
-        "Not pure-ADMM dual recovery."
+        "ready_for_wire_discussion is structural readiness only (parity∧priced"
+        "∧timings∧honesty) — wire is a separate checklist + form label change; "
+        "dual_recovery_path remains None; on_excel_case1_path=False; "
+        "timings/prices/gradients/ADMM residuals are NOT ADMM λ / Case 1 shadows; "
+        "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
+        "admm_residual_ok is an additive pre-wire checklist item (synthetic λ,z,ρ "
+        "consensus residual harness) and does not redefine ready_for_wire_discussion."
     )
     return base
+
+
+# ---------------------------------------------------------------------------
+# Offline multi-unit ADMM-style consensus residual / augmented local (goal 5)
+# ---------------------------------------------------------------------------
+
+ADMM_RESIDUAL_KIND = "offline_admm_block_residual"
+# Primary formula matches plant ADMM L1 consensus penalty spirit (blocks.py):
+# maximize λ·y − ρ‖y−z‖₁  → report evaluation of that form.
+ADMM_AUGMENTED_FORMULA_L1 = "lambda_dot_y - rho * ||y_full - z||_1"
+# Optional secondary diagnostic only (not primary dual form).
+ADMM_AUGMENTED_FORMULA_L2 = "lambda_dot_y - (rho/2) * ||y_full - z||_2^2"
+
+
+def _admm_residual_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / synthetic-λ locks for ADMM residual reports."""
+    return {
+        "kind": ADMM_RESIDUAL_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "not_a_solve": True,
+        "note": (
+            "Offline multi-unit ADMM-style consensus residual / augmented local "
+            "objective under synthetic λ, z, ρ only (not a solve). "
+            "Not on classic_2block_excel_path; dual_recovery_path=None. "
+            "Synthetic λ/z/ρ are NOT Case 1 PRIMARY online λ, NOT SECONDARY "
+            "recovered blender duals, NOT pure-ADMM dual recovery, NOT wire shipped. "
+            "Primary formula L1 spirit: lambda_dot_y - rho * ||y_full - z||_1 "
+            "(matches plant blocks.py consensus penalty shape language only)."
+        ),
+    }
+
+
+def _default_z_full_for_unit(unit: str, coeffs: AffineCoeffs) -> Dict[str, float]:
+    """Synthetic consensus z = postprocess(affine@x0) in product order (default)."""
+    post = _postprocess_for(unit)
+    y_raw = numpy_affine_forward(coeffs, coeffs.x0, clamp_products=True)
+    y_full = post(y_raw, products=coeffs.products)
+    return {p: float(y_full[p]) for p in coeffs.products}
+
+
+def _resolve_z_vector(
+    coeffs: AffineCoeffs,
+    z: Optional[Mapping[str, float]],
+) -> tuple[Dict[str, float], np.ndarray, str]:
+    """Pack z into product order; default = postprocess yields at reference."""
+    if z is None:
+        z_dict = _default_z_full_for_unit(coeffs.unit, coeffs)
+        source = "postprocess_yield_at_reference"
+    else:
+        z_dict = {str(k): float(v) for k, v in z.items()}
+        missing = [p for p in coeffs.products if p not in z_dict]
+        if missing:
+            raise ValueError(
+                f"Missing z products for unit {coeffs.unit!r}: {missing}"
+            )
+        unknown = sorted(set(z_dict) - set(coeffs.products))
+        if unknown:
+            raise ValueError(
+                f"Unknown z product keys {unknown} for unit {coeffs.unit!r}"
+            )
+        source = "caller_override"
+    z_vec = np.array([float(z_dict[p]) for p in coeffs.products], dtype=np.float64)
+    return z_dict, z_vec, source
+
+
+def _x_for_admm_mode(
+    unit: str,
+    coeffs: AffineCoeffs,
+    p_vec: np.ndarray,
+    *,
+    x_mode: str,
+    feed: Optional[Mapping[str, float]],
+    conditions: Optional[Mapping[str, Any]],
+    box_delta: float,
+) -> tuple[np.ndarray, str]:
+    """Resolve driver vector x under ref / offset / box modes (always-on)."""
+    mode = str(x_mode or "ref").lower().strip()
+    if feed is not None or conditions is not None:
+        builder = _builder_for(unit)
+        model = builder()
+        feed_use = dict(feed) if feed is not None else dict(model.reference_feed)
+        cond_use = (
+            dict(conditions)
+            if conditions is not None
+            else dict(model.reference_conditions)
+        )
+        x = pack_driver_vector(coeffs, feed=feed_use, conditions=cond_use)
+        return x, "explicit_feed_conditions"
+    if mode == "ref":
+        return np.array(coeffs.x0, dtype=np.float64, copy=True), "reference_x0"
+    if mode == "offset":
+        builder = _builder_for(unit)
+        model = builder()
+        feed_off, cond_off = _mild_offset_for(unit, model)
+        x = pack_driver_vector(coeffs, feed=feed_off, conditions=cond_off)
+        return x, "mild_offset"
+    if mode == "box":
+        x = _local_box_step_raw(coeffs, p_vec, delta=float(box_delta))
+        return x, "local_box_step"
+    raise ValueError(
+        f"Unknown x_mode {x_mode!r}; expected one of 'ref', 'offset', 'box'"
+    )
+
+
+def admm_residual_for_unit(
+    unit: str,
+    *,
+    prices: Optional[Mapping[str, float]] = None,
+    z: Optional[Mapping[str, float]] = None,
+    rho: float = 1.0,
+    x_mode: str = "ref",
+    feed: Optional[Mapping[str, float]] = None,
+    conditions: Optional[Mapping[str, Any]] = None,
+    box_delta: float = 1.0,
+) -> Dict[str, Any]:
+    """Per-unit ADMM-style consensus residual + L1 augmented local (always-on).
+
+    Under synthetic λ (default offline prices), synthetic consensus z (default:
+    postprocess yield at reference), and ρ > 0:
+
+    - ``y_raw`` = clamp affine forward at x
+    - ``y_full`` = unit postprocess(y_raw)  ← primary residual space
+    - ``r = y_full − z`` with L1 / L2 / L∞ scalars
+    - primary ``augmented_local = λ·y_full − ρ‖r‖₁`` (plant ADMM L1 spirit)
+    - optional L2 diagnostic field (secondary only)
+
+    Coker renorm: raw path may ≠ full even at reference; residual_on=postprocess.
+    Honesty: dual_recovery_path=None; not Case 1; synthetic λ ≠ online λ.
+    """
+    key = _normalize_unit_name(unit)
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    price_dict, p_vec, coeffs = _resolve_prices(key, prices)
+    # Prefer cached default-ref coeffs when no custom prices path needs rebuild
+    # (_resolve_prices already used offline_unit_coeffs; re-use for z default).
+    coeffs = cached_offline_unit_coeffs(key) if prices is None else coeffs
+    if prices is not None:
+        # re-pack against cached coeffs product order (same as offline_unit_coeffs)
+        coeffs = offline_unit_coeffs(key)
+        p_vec = pack_price_vector(coeffs, price_dict)
+
+    z_dict, z_vec, z_source = _resolve_z_vector(coeffs, z)
+    x, x_source = _x_for_admm_mode(
+        key,
+        coeffs,
+        p_vec,
+        x_mode=x_mode,
+        feed=feed,
+        conditions=conditions,
+        box_delta=box_delta,
+    )
+    post = _postprocess_for(key)
+    y_raw = numpy_affine_forward(coeffs, x, clamp_products=True)
+    y_full_map = post(y_raw, products=coeffs.products)
+    y_full = np.array(
+        [float(y_full_map[p]) for p in coeffs.products], dtype=np.float64
+    )
+    r_full = y_full - z_vec
+    r_raw = y_raw - z_vec  # honesty: may differ under renorm (Coker)
+
+    r_l1 = float(np.sum(np.abs(r_full)))
+    r_l2 = float(np.linalg.norm(r_full))
+    r_linf = float(np.max(np.abs(r_full))) if r_full.size else 0.0
+    r_raw_l1 = float(np.sum(np.abs(r_raw)))
+
+    lambda_dot_y = float(p_vec @ y_full)
+    penalty_l1 = float(rho) * r_l1
+    augmented_local = lambda_dot_y - penalty_l1
+    # Secondary diagnostic only — not primary plant dual form
+    penalty_l2 = 0.5 * float(rho) * float(r_l2 * r_l2)
+    augmented_local_l2 = lambda_dot_y - penalty_l2
+
+    finite_ok = bool(
+        np.all(np.isfinite(r_full))
+        and np.isfinite(augmented_local)
+        and np.isfinite(lambda_dot_y)
+        and np.isfinite(r_l1)
+        and np.isfinite(r_linf)
+    )
+    honesty = _admm_residual_honesty_fields()
+    r_dict = {p: float(r_full[i]) for i, p in enumerate(coeffs.products)}
+    y_raw_dict_ = {p: float(y_raw[i]) for i, p in enumerate(coeffs.products)}
+    y_full_dict = {p: float(y_full[i]) for i, p in enumerate(coeffs.products)}
+
+    return {
+        **honesty,
+        "unit": key,
+        "ok": finite_ok,
+        "products": list(coeffs.products),
+        "y_raw": y_raw_dict_,
+        "y_full": y_full_dict,
+        "z": z_dict,
+        "z_source": z_source,  # overrides honesty aggregate tag with concrete path
+        "x_source": x_source,
+        "x_mode": str(x_mode),
+        "rho": float(rho),
+        "prices": price_dict,
+        "residual_on": "postprocess",
+        "consensus_residual": r_dict,
+        "r_l1": r_l1,
+        "r_l2": r_l2,
+        "r_linf": r_linf,
+        "r_raw_l1": r_raw_l1,
+        "raw_vs_full_residual_l1_gap": abs(r_raw_l1 - r_l1),
+        "lambda_dot_y": lambda_dot_y,
+        "penalty": penalty_l1,
+        "penalty_l1": penalty_l1,
+        "augmented_local": augmented_local,
+        "formula": ADMM_AUGMENTED_FORMULA_L1,
+        "augmented_local_l2_diagnostic": augmented_local_l2,
+        "formula_l2_diagnostic": ADMM_AUGMENTED_FORMULA_L2,
+        "renorm_note": (
+            "Coker renorm always engages → y_raw may ≠ y_full even at reference; "
+            "primary residual uses postprocess (y_full) space when z is full-space."
+            if key == "COKER"
+            else "Primary residual uses postprocess (y_full) vs synthetic z."
+        ),
+    }
+
+
+def multi_unit_admm_residual_report(
+    *,
+    rho: float = 1.0,
+    x_mode: str = "offset",
+    use_box_step: bool = False,
+    box_delta: float = 1.0,
+    prices: Optional[Mapping[str, Mapping[str, float]]] = None,
+    z_override: Optional[Mapping[str, Mapping[str, float]]] = None,
+) -> Dict[str, Any]:
+    """Always-on multi-unit ADMM-style residual (FCC/COKER/CDU) + honesty locks.
+
+    For each registry unit under synthetic λ / z / ρ:
+
+    - consensus residual ``r = y_full − z`` (per-product + L1/L2/L∞)
+    - augmented local ``λ·y − ρ‖r‖₁`` (L1 spirit matching plant ADMM language)
+
+    Aggregate ``ok`` requires finite residuals + dual-ban honesty + unit structure.
+    Not a solve, not dual recovery, not on Excel Case 1, not wire shipped.
+    """
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    mode = "box" if use_box_step else str(x_mode or "offset")
+    units_out: Dict[str, Any] = {}
+    all_ok = True
+    honesty = _admm_residual_honesty_fields()
+
+    for desc in offline_unit_registry():
+        unit_prices: Optional[Mapping[str, float]] = None
+        if prices is not None and desc.unit in prices:
+            unit_prices = prices[desc.unit]
+        unit_z: Optional[Mapping[str, float]] = None
+        if z_override is not None and desc.unit in z_override:
+            unit_z = z_override[desc.unit]
+        row = admm_residual_for_unit(
+            desc.unit,
+            prices=unit_prices,
+            z=unit_z,
+            rho=float(rho),
+            x_mode=mode,
+            box_delta=float(box_delta),
+        )
+        unit_ok = bool(row.get("ok"))
+        unit_row = {
+            **row,
+            "ok": unit_ok,
+            "renorm_note": desc.renorm_note or row.get("renorm_note"),
+            "solver": False,
+            "dual_recovery_path": None,
+            "on_excel_case1_path": False,
+            "kind": ADMM_RESIDUAL_KIND,
+            "price_source": PRICE_SOURCE,
+            "not_a_solve": True,
+        }
+        units_out[desc.unit] = unit_row
+        if not unit_ok:
+            all_ok = False
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == ADMM_RESIDUAL_KIND
+        and honesty.get("not_a_solve") is True
+        and set(units_out.keys()) == set(UNITS)
+    )
+    if not honesty_ok:
+        all_ok = False
+
+    return {
+        "ok": all_ok,
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": ADMM_RESIDUAL_KIND,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "rho": float(rho),
+        "x_mode": mode,
+        "use_box_step": bool(use_box_step),
+        "formula": ADMM_AUGMENTED_FORMULA_L1,
+        "not_a_solve": True,
+        "honesty_ok": honesty_ok,
+        "tf_available": tf_available(),
+        "note": honesty["note"],
+    }
 
 
 def excel_fcc_matrix_matches_affine(
@@ -1580,6 +1918,10 @@ __all__ = [
     "local_box_direction",
     "multi_unit_block_solve_timing_report",
     "offline_block_solve_readiness_report",
+    "ADMM_RESIDUAL_KIND",
+    "ADMM_AUGMENTED_FORMULA_L1",
+    "admm_residual_for_unit",
+    "multi_unit_admm_residual_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
