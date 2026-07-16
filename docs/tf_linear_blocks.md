@@ -218,8 +218,10 @@ Planner-facing How_to keys `tf_offline_units` / `tf_offline_priced` / `tf_offlin
 module) state the same honesty: FCC+COKER+CDU offline exact-linear + priced residual +
 block-solve timing + ADMM residual readiness available; **not** on Case 1 solve; duals
 remain PRIMARY online-λ / SECONDARY recovered. Index / Summary / Calc_Check also
-glance-lock the readiness package via pure static formatters
-(`format_planner_honesty_package`) — still offline-only, still not wire shipped.
+glance-lock the full readiness package (units + priced + timing + **ADMM residual**,
+synthetic λ/z/ρ ≠ Case 1 duals) via pure static formatters
+(`format_planner_honesty_package` / `meta.planner_honesty.offline_tf_admm_residual_ready`)
+— still offline-only, still not wire shipped; no live residual call on Excel write path.
 
 ## Per-unit affine API
 
