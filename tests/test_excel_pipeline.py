@@ -297,6 +297,18 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "identity" in nlow or "incidence" in nlow
     assert "synthetic" in nlow  # distinct-from-synthetic language
 
+    # Offline wire-preflight How_to (static packaging of #28; still not Case 1; not wire)
+    tf_pre = how.get("tf_offline_wire_preflight", "")
+    assert tf_pre, "How_to_read must include tf_offline_wire_preflight"
+    prelow = tf_pre.lower()
+    assert "wire" in prelow and "preflight" in prelow
+    assert "wire_shipped" in prelow or "wire shipped" in prelow or "not wire" in prelow
+    assert "blocker" in prelow
+    assert "dual" in prelow and ("none" in prelow or "primary" in prelow)
+    assert "classic_2block" in prelow or "not on" in prelow
+    assert "isolation_rewrite_required" in prelow or "isolation" in prelow
+    assert "wire_not_shipped" in prelow or "not wire shipped" in prelow
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -488,6 +500,52 @@ def test_format_tf_offline_admm_plant_named_linking_howto_pure():
     assert "coordination" in one  # distinct-from-coordination language
 
 
+def test_format_tf_offline_wire_preflight_howto_pure():
+    """Static wire-preflight How_to: dual-ban, wire_shipped=False, blocker ids; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _OFFLINE_WIRE_BLOCKER_IDS,
+        format_tf_offline_wire_preflight_howto,
+    )
+
+    d = format_tf_offline_wire_preflight_howto()
+    assert d["topic"] == "tf_offline_wire_preflight"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    assert d["blockers_documented"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    assert d["preflight_lambda_is_not_case1_online_lambda"] == "true"
+    assert d["preflight_ok_is_not_wire_shipped"] == "true"
+    blockers = d["wire_blockers"]
+    for bid in _OFFLINE_WIRE_BLOCKER_IDS:
+        assert bid in blockers
+    # critical subset called out by plan
+    for critical in (
+        "isolation_rewrite_required",
+        "form_label_change_required",
+        "dual_linf_under_wire_unproven",
+        "case1_is_cdu_blender_package_admm",
+        "no_blender_offline_affine_kernel",
+        "wire_not_shipped",
+    ):
+        assert critical in blockers
+    one = d["planner_one_liner"].lower()
+    assert "wire" in one and "preflight" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "blocker" in one
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one and "none" in one
+    assert "structural" in one or "ready_for_wire_discussion" in one
+    assert "not wire tomorrow" in one or "≠ wire" in one or "not wire shipped" in one
+
+
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""
     from pims_admm_llm.models.tf_linear_blocks import excel_fcc_matrix_matches_affine
@@ -648,14 +706,14 @@ def test_format_dual_honesty_summary_pure():
 def test_planner_honesty_glance_package(tmp_path):
     """E1: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty.
 
-    After #26 multi-block plant-named linking harness: glance package also locks
-    multi-block plant-named linking readiness (plant product streams + identity
-    incidence; plant_named_offline_demo; not full plant MB; plant-named λ ≠ duals)
-    alongside synthetic plant-linking + multi-round coordination + residual +
-    block subproblem + priced + timing (static; isolation-safe). Dual
-    PRIMARY/SECONDARY and classic form remain non-regression contracts. Coordination
-    surface remains distinct (not_plant_linking_coordinator language preserved).
-    Synthetic plant-linking packaging remains green.
+    After #28 wire-preflight API: glance package also locks offline wire-preflight
+    readiness (blockers; wire_shipped=False; dual_recovery_path=None; preflight λ ≠
+    Case 1 duals) alongside multi-block plant-named linking + synthetic plant-linking
+    + multi-round coordination + residual + block subproblem + priced + timing
+    (static; isolation-safe). Dual PRIMARY/SECONDARY and classic form remain
+    non-regression contracts. Coordination surface remains distinct
+    (not_plant_linking_coordinator language preserved). Synthetic + plant-named
+    packaging remain green. No live offline_wire_preflight_report call.
     """
     from pims_admm_llm.models.excel_pipeline import (
         format_planner_honesty_package,
@@ -698,6 +756,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "plant-named linking readiness" in what_l or "plant named linking readiness" in what_l
     assert "plant_named_offline_demo" in what_l or "plant product streams" in what_l
     assert "identity incidence" in what_l or "plant product" in what_l
+    # Wire-preflight readiness (short Index clause; full blockers in How_to/Summary/meta)
+    assert "wire-preflight readiness" in what_l or "wire preflight readiness" in what_l
+    assert "wire_shipped=false" in what_l or "wire_shipped=false" in what_l.replace(" ", "")
+    assert "blockers" in what_l
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
     assert pkg["meta"]["dual_gate"] == "online_lambda"
     assert pkg["meta"]["verdict_dual_gate"] == "online_only"
@@ -712,6 +774,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_admm_coordination_ready"] is True
     assert pkg["meta"]["offline_tf_admm_plant_linking_ready"] is True
     assert pkg["meta"]["offline_tf_admm_plant_named_linking_ready"] is True
+    assert pkg["meta"]["offline_tf_wire_preflight_ready"] is True
+    assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
     admm_note = str(pkg["meta"]["offline_tf_admm_residual"]).lower()
@@ -749,6 +813,17 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "full plant" in named_note or "mass balance" in named_note
     assert "synthetic" in named_note  # distinct-from-synthetic
     assert "coordination" in named_note  # distinct-from-coordination
+    preflight_note = str(pkg["meta"]["offline_tf_wire_preflight"]).lower()
+    assert "wire" in preflight_note and "preflight" in preflight_note
+    assert "wire_shipped" in preflight_note or "not wire shipped" in preflight_note
+    assert "blocker" in preflight_note
+    assert "isolation_rewrite_required" in preflight_note
+    assert "wire_not_shipped" in preflight_note
+    assert "structural" in preflight_note or "ready_for_wire_discussion" in preflight_note
+    blockers_meta = str(pkg["meta"]["offline_tf_wire_blockers"])
+    assert "isolation_rewrite_required" in blockers_meta
+    assert "form_label_change_required" in blockers_meta
+    assert "wire_not_shipped" in blockers_meta
     readiness_note = str(pkg["meta"]["offline_tf_readiness_note"]).lower()
     assert "not" in readiness_note
     assert "admm residual" in readiness_note
@@ -756,6 +831,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "coordination" in readiness_note
     assert "plant-linking" in readiness_note or "plant linking" in readiness_note
     assert "plant-named" in readiness_note or "plant named" in readiness_note
+    assert "wire-preflight" in readiness_note or "wire preflight" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
@@ -763,6 +839,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "coordination" in one_l
     assert "plant-linking" in one_l or "plant linking" in one_l
     assert "plant-named" in one_l or "plant named" in one_l
+    assert "wire-preflight" in one_l or "wire preflight" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -773,6 +850,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["tf_offline_admm_plant_linking"]["topic"] == "tf_offline_admm_plant_linking"
     assert pkg.get("tf_offline_admm_plant_named_linking") is not None
     assert pkg["tf_offline_admm_plant_named_linking"]["topic"] == "tf_offline_admm_plant_named_linking"
+    assert pkg.get("tf_offline_wire_preflight") is not None
+    assert pkg["tf_offline_wire_preflight"]["topic"] == "tf_offline_wire_preflight"
+    assert pkg["tf_offline_wire_preflight"]["wire_shipped"] == "false"
+    assert pkg["tf_offline_wire_preflight"]["dual_recovery_path"] == "None"
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -782,6 +863,9 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_admm_coordination",
         "offline_tf_admm_plant_linking",
         "offline_tf_admm_plant_named_linking",
+        "offline_tf_wire_preflight",
+        "offline_tf_wire_blockers",
+        "offline_tf_wire_shipped",
         "offline_tf_readiness_note",
         "offline_tf_units",
         "dual_gate",
@@ -801,6 +885,8 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_admm_coordination_not_duals",
         "offline_tf_admm_plant_linking_not_duals",
         "offline_tf_admm_plant_named_linking_not_duals",
+        "offline_tf_wire_preflight_not_duals",
+        "offline_tf_wire_not_shipped",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -823,6 +909,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph["offline_tf_admm_coordination_ready"] is True
     assert ph["offline_tf_admm_plant_linking_ready"] is True
     assert ph["offline_tf_admm_plant_named_linking_ready"] is True
+    assert ph["offline_tf_wire_preflight_ready"] is True
+    assert ph["offline_tf_wire_shipped"] is False
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
     assert "not duals" in str(ph["offline_tf_priced"]).lower() or "not admm" in str(
@@ -861,6 +949,10 @@ def test_planner_honesty_glance_package(tmp_path):
         "dual" in ph_named or "wire" in ph_named or "online" in ph_named
     )
     assert "full plant" in ph_named or "mass balance" in ph_named
+    ph_pre = str(ph["offline_tf_wire_preflight"]).lower()
+    assert "preflight" in ph_pre
+    assert "blocker" in ph_pre
+    assert "wire_shipped" in ph_pre or "not wire shipped" in ph_pre
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -888,6 +980,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "not full plant" in ot or "full plant mb" in ot
     assert "plant-named linking readiness" in ot or "plant named linking readiness" in ot
     assert "plant_named_offline_demo" in ot or "plant product streams" in ot
+    assert "wire-preflight readiness" in ot or "wire preflight readiness" in ot
+    assert "wire_shipped=false" in ot or "wire_shipped=false" in ot.replace(" ", "")
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -917,6 +1011,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "coordination" in note.lower()
     assert "plant-linking" in note.lower() or "plant linking" in note.lower()
     assert "plant-named" in note.lower() or "plant named" in note.lower()
+    assert "wire-preflight" in note.lower() or "wire preflight" in note.lower()
     priced_s = str(summary.get("offline_tf_priced") or "").lower()
     timing_s = str(summary.get("offline_tf_timing") or "").lower()
     admm_s = str(summary.get("offline_tf_admm_residual") or "").lower()
@@ -924,6 +1019,8 @@ def test_planner_honesty_glance_package(tmp_path):
     coord_s = str(summary.get("offline_tf_admm_coordination") or "").lower()
     plant_s = str(summary.get("offline_tf_admm_plant_linking") or "").lower()
     named_s = str(summary.get("offline_tf_admm_plant_named_linking") or "").lower()
+    pre_s = str(summary.get("offline_tf_wire_preflight") or "").lower()
+    blockers_s = str(summary.get("offline_tf_wire_blockers") or "")
     assert "priced" in priced_s
     assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
     assert "timing" in timing_s
@@ -953,6 +1050,12 @@ def test_planner_honesty_glance_package(tmp_path):
         "dual" in named_s or "wire" in named_s or "online" in named_s
     )
     assert "full plant" in named_s or "mass balance" in named_s
+    assert "preflight" in pre_s
+    assert "blocker" in pre_s
+    assert "wire_shipped" in pre_s or "not wire shipped" in pre_s
+    assert "isolation_rewrite_required" in blockers_s
+    assert "wire_not_shipped" in blockers_s
+    assert summary.get("offline_tf_wire_shipped") is False
 
     # --- Calc_Check honesty audit rows (all ok) ---
     chk_h = [c.value for c in wb["Calc_Check"][1]]
@@ -973,11 +1076,14 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("offline_tf_admm_coordination_not_duals") is True
     assert checks.get("offline_tf_admm_plant_linking_not_duals") is True
     assert checks.get("offline_tf_admm_plant_named_linking_not_duals") is True
+    assert checks.get("offline_tf_wire_preflight_not_duals") is True
+    assert checks.get("offline_tf_wire_not_shipped") is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
     # How_to offline + dual keys preserved (units + priced + timing + residual +
-    # subproblem + multi-round coordination + multi-block plant-linking + plant-named)
+    # subproblem + multi-round coordination + multi-block plant-linking + plant-named
+    # + wire-preflight)
     how = {
         str(r[0].value): str(r[1].value or "")
         for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
@@ -991,6 +1097,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_admm_coordination")
     assert how.get("tf_offline_admm_plant_linking")
     assert how.get("tf_offline_admm_plant_named_linking")
+    assert how.get("tf_offline_wire_preflight")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -1022,6 +1129,8 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_admm_coordination_not_duals",
         "offline_tf_admm_plant_linking_not_duals",
         "offline_tf_admm_plant_named_linking_not_duals",
+        "offline_tf_wire_preflight_not_duals",
+        "offline_tf_wire_not_shipped",
     } <= names
     assert all(r["ok"] for r in rows_good)
 
@@ -1037,10 +1146,12 @@ def test_planner_honesty_check_rows_pure():
     assert rows["offline_tf_admm_coordination_not_duals"] is True
     assert rows["offline_tf_admm_plant_linking_not_duals"] is True
     assert rows["offline_tf_admm_plant_named_linking_not_duals"] is True
+    assert rows["offline_tf_wire_preflight_not_duals"] is True
+    assert rows["offline_tf_wire_not_shipped"] is True
 
 
 def test_format_planner_honesty_package_priced_timing_pure():
-    """Pure formatter exposes priced + timing + residual + subproblem + coordination + plant-linking + plant-named readiness without TF or full solve."""
+    """Pure formatter exposes priced + timing + residual + subproblem + coordination + plant-linking + plant-named + wire-preflight readiness without TF or full solve."""
     from pims_admm_llm.models.excel_pipeline import format_planner_honesty_package
 
     fake = {
@@ -1064,6 +1175,8 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "plant-linking readiness" in what or "plant linking readiness" in what
     assert "plant-named linking readiness" in what or "plant named linking readiness" in what
     assert "plant_named_offline_demo" in what or "plant product streams" in what
+    assert "wire-preflight readiness" in what or "wire preflight readiness" in what
+    assert "wire_shipped=false" in what or "wire_shipped=false" in what.replace(" ", "")
     assert "not" in what and "case 1" in what
     assert "not full plant" in what or "full plant mb" in what
     meta = pkg["meta"]
@@ -1074,6 +1187,8 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert meta["offline_tf_admm_coordination_ready"] is True
     assert meta["offline_tf_admm_plant_linking_ready"] is True
     assert meta["offline_tf_admm_plant_named_linking_ready"] is True
+    assert meta["offline_tf_wire_preflight_ready"] is True
+    assert meta["offline_tf_wire_shipped"] is False
     assert meta["tf_dual_recovery_path"] is None
     assert meta["form"] == "classic_2block_excel_path"
     assert "priced" in meta["planner_one_liner"].lower()
@@ -1085,6 +1200,9 @@ def test_format_planner_honesty_package_priced_timing_pure():
         "planner_one_liner"
     ].lower()
     assert "plant-named" in meta["planner_one_liner"].lower() or "plant named" in meta[
+        "planner_one_liner"
+    ].lower()
+    assert "wire-preflight" in meta["planner_one_liner"].lower() or "wire preflight" in meta[
         "planner_one_liner"
     ].lower()
     admm_note = str(meta["offline_tf_admm_residual"]).lower()
@@ -1107,6 +1225,11 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "plant_named_offline_demo" in named_note or "plant product" in named_note
     assert "not" in named_note
     assert "full plant" in named_note or "mass balance" in named_note
+    preflight_note = str(meta["offline_tf_wire_preflight"]).lower()
+    assert "preflight" in preflight_note
+    assert "blocker" in preflight_note
+    assert "isolation_rewrite_required" in preflight_note
+    assert "wire_not_shipped" in preflight_note
     # anti-claim: must not claim wire shipped or full plant mass balance shipped
     readiness = str(meta["offline_tf_readiness_note"]).lower()
     assert "admm residual" in readiness
@@ -1114,6 +1237,7 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "coordination" in readiness
     assert "plant-linking" in readiness or "plant linking" in readiness
     assert "plant-named" in readiness or "plant named" in readiness
+    assert "wire-preflight" in readiness or "wire preflight" in readiness
     assert "not wire shipped" in readiness or "not on classic case 1" in readiness
     assert "wire shipped" not in readiness.replace("not wire shipped", "")
     assert "full plant mass balance shipped" not in readiness
@@ -1129,6 +1253,12 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert pkg["tf_offline_admm_plant_named_linking"]["topology_source"] == "plant_named_offline_demo"
     assert pkg["tf_offline_admm_plant_named_linking"]["linking_space"] == "plant_named_linking_streams"
     assert pkg["tf_offline_admm_plant_named_linking"]["not_full_plant_mass_balance"] == "true"
+    assert pkg["tf_offline_wire_preflight"]["topic"] == "tf_offline_wire_preflight"
+    assert pkg["tf_offline_wire_preflight"]["dual_recovery_path"] == "None"
+    assert pkg["tf_offline_wire_preflight"]["wire_shipped"] == "false"
+    assert pkg["tf_offline_wire_preflight"]["not_wire_shipped"] == "true"
+    assert "isolation_rewrite_required" in pkg["tf_offline_wire_preflight"]["wire_blockers"]
+    assert "wire_not_shipped" in pkg["tf_offline_wire_preflight"]["wire_blockers"]
 
 
 def test_load_pims_excel_has_crudes(tmp_path):
