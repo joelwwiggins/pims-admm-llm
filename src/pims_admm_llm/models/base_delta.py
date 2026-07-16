@@ -627,6 +627,25 @@ def build_fcc_base_delta(
     )
 
 
+def postprocess_fcc_yields(y: Mapping[str, float]) -> Dict[str, float]:
+    """FCC non-linear shell: coke clamp + liquid renorm (outside any TF graph).
+
+    Matches historic ``_FCCModel._postprocess_yields`` math. Conditions are unused
+    for the yield shell; they remain on the evaluate() signature for API parity.
+    """
+    out = {str(k): float(v) for k, v in y.items()}
+    coke = _clamp(float(out.get("fcc_coke", 0.05)), 0.03, 0.12)
+    liquids = ["fcc_dry_gas", "fcc_lpg", "fcc_naphtha", "fcc_lco", "fcc_slurry"]
+    liquid_vol = _clamp(0.96 - 0.55 * coke, 0.88, 0.96)
+    s = sum(max(0.0, float(out.get(p, 0.0))) for p in liquids)
+    if s > 1e-12:
+        sc = liquid_vol / s
+        for p in liquids:
+            out[p] = max(0.0, float(out.get(p, 0.0))) * sc
+    out["fcc_coke"] = coke
+    return out
+
+
 class _FCCModel(BaseDeltaModel):
     def evaluate(
         self,
@@ -662,16 +681,9 @@ class _FCCModel(BaseDeltaModel):
     def _postprocess_yields(
         self, y: Dict[str, float], cond: Mapping[str, Any]
     ) -> Dict[str, float]:
-        coke = _clamp(y.get("fcc_coke", 0.05), 0.03, 0.12)
-        liquids = ["fcc_dry_gas", "fcc_lpg", "fcc_naphtha", "fcc_lco", "fcc_slurry"]
-        liquid_vol = _clamp(0.96 - 0.55 * coke, 0.88, 0.96)
-        s = sum(max(0.0, y[p]) for p in liquids)
-        if s > 1e-12:
-            sc = liquid_vol / s
-            for p in liquids:
-                y[p] = max(0.0, y[p]) * sc
-        y["fcc_coke"] = coke
-        return y
+        # cond unused by FCC shell (kept for BaseDeltaModel signature)
+        _ = cond
+        return postprocess_fcc_yields(y)
 
     def _adjust_composition(
         self,

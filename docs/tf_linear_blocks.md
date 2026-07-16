@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** scaffold only (optional dependency + import isolation).  
+**Status:** exact-linear FCC kernel + parity (optional TF) + Excel coeff honesty.  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -24,22 +24,48 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 
 | Claim | Reality |
 |-------|---------|
-| Formula (future blocks) | Exact affine copy of base_delta: `y = y0 + D @ (x − x0)` |
-| Postprocess / clamps | Outside any TF graph (numpy/Python) |
+| Formula | Exact affine copy of base_delta: `y_raw = y0 + D @ (x − x0)` |
+| Postprocess / clamps | Outside any TF graph (`postprocess_fcc_yields` / numpy) |
 | Excel Case 1 solver | **No** — stays `classic_2block_excel_path` (CBC + package ADMM) |
 | ADMM dual recovery | **No** — `dual_recovery_path` on this surface is always `None` |
 | Learned / neural weights | **No** — coefficients come from base_delta only |
+| Excel Submodel_FCC | MB_* BASE/D_* match the same affine package (always-on check) |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
-## API (current cycle)
+## API
 
 ```python
-from pims_admm_llm.models.tf_linear_blocks import tf_available, honesty_metadata
+from pims_admm_llm.models.tf_linear_blocks import (
+    tf_available,
+    honesty_metadata,
+    affine_coeffs_from_base_delta,
+    numpy_affine_forward,
+    pack_driver_vector,
+    apply_fcc_postprocess,
+    tf_linear_fcc,          # requires TensorFlow
+    excel_fcc_matrix_matches_affine,
+)
+from pims_admm_llm.models.base_delta import build_fcc_base_delta
 
-tf_available()       # False when TF not installed
-honesty_metadata()   # solver=False, dual_recovery_path=None, on_excel_case1_path=False
+coeffs = affine_coeffs_from_base_delta(build_fcc_base_delta())
+x = pack_driver_vector(coeffs, feed={"api": 24.0}, conditions={"riser_outlet_temp_f": 990.0})
+y_raw = numpy_affine_forward(coeffs, x, clamp_products=True)
+y_full = apply_fcc_postprocess(y_raw, products=coeffs.products)
+
+# Optional TF path (ImportError if TF missing)
+if tf_available():
+    block = tf_linear_fcc()
+    y_tf = block.forward(x, clamp_products=True)
+
+honesty_metadata()  # solver=False, dual_recovery_path=None, on_excel_case1_path=False
+excel_fcc_matrix_matches_affine()  # Submodel_FCC export ↔ y0/D
 ```
 
-Forward TF matvec blocks land in a later cycle behind parity tests. Do not wire
-this module into `excel_pipeline` or the ADMM coordinator without dual L∞ proof
-and an explicit form label change.
+## Honesty boundary (planner-facing)
+
+1. **Excel Submodel_FCC** — base_delta **export** of BASE / D_* (pre-postprocess).
+2. **Offline TF / numpy affine** — exact linear copy of the same coeffs; optional dep.
+3. **Case 1 solve** — still CDU+Blender package ADMM; duals labeled with online λ; **not** TF duals.
+
+Do not wire this module into `excel_pipeline` or the ADMM coordinator without dual L∞
+proof and an explicit form label change.

@@ -1366,10 +1366,21 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
             "PIMS matrix: FEED · BASE · D_* · MB_* · E_BASE_REF · E_quality_REF (−999) · FREE. No satellite tabs.",
         ),
         (
+            "fcc_three_path",
+            "Submodel_FCC BASE/D_* = base_delta export (planner-visible coeffs). "
+            "Optional offline TF (tf_linear_blocks) = exact linear copy of the same y0/D (not this solve). "
+            "Case 1 mono/ADMM remains classic_2block_excel_path (CDU+Blender); duals are not TF-owned.",
+        ),
+        (
             "solve_boundary",
             f"Mono+ADMM still CDU+Blender only. Cascade FCC/Coker = solve_cdu_fcc. "
             f"This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "
             f"gap={gap_pct:.4f}%, dual_L∞={dual_linf}, path={path_}.",
+        ),
+        (
+            "duals_online_lambda",
+            "Primary ADMM shadows on Shadows tab = free online λ (path labels online_lambda). "
+            "Recovered dual path is secondary. Not pure-ADMM dual ownership; not TF dual recovery.",
         ),
         (
             "input",
