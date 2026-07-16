@@ -84,6 +84,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "tf_available": tf_available(),
         "block_solve_timing_available": True,
         "admm_residual_available": True,
+        "admm_block_subproblem_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -97,7 +98,11 @@ def honesty_metadata() -> Dict[str, Any]:
             "not Case 1 wall time and not ADMM duals. "
             "Offline multi-unit ADMM-style consensus residual harness available "
             "(multi_unit_admm_residual_report) under synthetic λ,z,ρ — dual-ban; "
-            "not Case 1 online λ; not pure-ADMM dual recovery; not wire shipped."
+            "not Case 1 online λ; not pure-ADMM dual recovery; not wire shipped. "
+            "Offline multi-unit ADMM block subproblem maximizer available "
+            "(multi_unit_admm_block_subproblem_report) on raw affine under synthetic "
+            "λ,z,ρ + driver box — dual-ban; not Case 1; not pure-ADMM dual recovery; "
+            "not wire shipped; not PuLP."
         ),
     }
 
@@ -1777,6 +1782,544 @@ def multi_unit_admm_residual_report(
     }
 
 
+# ---------------------------------------------------------------------------
+# Offline multi-unit ADMM block subproblem (goal 5 pre-wire) — maximize L1
+# augmented local under independent driver box on **raw affine** (not residual-eval)
+# ---------------------------------------------------------------------------
+
+ADMM_SUBPROBLEM_KIND = "offline_admm_block_subproblem"
+# Optimand is raw affine (matches local_box_direction honesty). Residual-eval
+# primary remains postprocess/full; do not silently reuse residual formula space.
+ADMM_SUBPROBLEM_FORMULA_L1_RAW = "lambda_dot_y_raw - rho * ||y_raw - z||_1"
+ADMM_SUBPROBLEM_METHOD = "coordinate_ascent_exact_1d_pl"
+ADMM_SUBPROBLEM_OPTIMALITY_NOTE = (
+    "Coordinate-ascent with exact 1-D piecewise-linear maximizers per driver; "
+    "multi-start from {x0, local_box under λ}. Exact per coordinate; multi-D "
+    "global optimality not claimed (independent box, coupled via y)."
+)
+
+
+def _admm_subproblem_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / synthetic-λ locks for ADMM block subproblem."""
+    return {
+        "kind": ADMM_SUBPROBLEM_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "optimand_space": "raw_affine",
+        "z_space": "full_postprocess_default",
+        "not_a_solve": False,  # this surface *is* a local maximizer (offline only)
+        "not_case1_solve": True,
+        "method": ADMM_SUBPROBLEM_METHOD,
+        "optimality_note": ADMM_SUBPROBLEM_OPTIMALITY_NOTE,
+        "note": (
+            "Offline multi-unit ADMM block subproblem: maximize L1-augmented local "
+            "on raw affine under independent driver box and synthetic λ,z,ρ. "
+            "Optimand space = raw_affine (clamp affine); full postprocess fields are "
+            "diagnostic only (Coker renorm: raw ≠ full expected). "
+            "Not on classic_2block_excel_path; dual_recovery_path=None; solver=False. "
+            "Synthetic λ/z/ρ and x_star are NOT Case 1 PRIMARY online λ, NOT SECONDARY "
+            "recovered blender duals, NOT pure-ADMM dual recovery, NOT wire shipped. "
+            "Not PuLP/CBC; always-on numpy piecewise-linear coordinate ascent. "
+            "Default z is full-space postprocess@ref while optimand is raw — labeled."
+        ),
+    }
+
+
+def _augmented_local_raw_parts(
+    p_vec: np.ndarray,
+    y_raw: np.ndarray,
+    z_vec: np.ndarray,
+    rho: float,
+) -> tuple[float, float, float]:
+    """Return (augmented_local_raw, lambda_dot_y_raw, r_l1_raw)."""
+    r = y_raw - z_vec
+    r_l1 = float(np.sum(np.abs(r)))
+    lambda_dot = float(p_vec @ y_raw)
+    return lambda_dot - float(rho) * r_l1, lambda_dot, r_l1
+
+
+def _eval_aug_raw_at_x(
+    coeffs: AffineCoeffs,
+    p_vec: np.ndarray,
+    z_vec: np.ndarray,
+    rho: float,
+    x: np.ndarray,
+) -> tuple[float, np.ndarray, float, float]:
+    y_raw = numpy_affine_forward(coeffs, x, clamp_products=True)
+    aug, ld, rl1 = _augmented_local_raw_parts(p_vec, y_raw, z_vec, rho)
+    return aug, y_raw, ld, rl1
+
+
+def _parse_delta_vec(
+    coeffs: AffineCoeffs,
+    delta: Union[float, Mapping[str, float], np.ndarray],
+) -> np.ndarray:
+    n_d = int(coeffs.x0.shape[0])
+    if isinstance(delta, Mapping):
+        d_vec = np.array(
+            [float(delta.get(drv, 0.0)) for drv in coeffs.drivers],
+            dtype=np.float64,
+        )
+    elif np.isscalar(delta):
+        d_vec = np.full(n_d, float(np.asarray(delta).item()), dtype=np.float64)
+    else:
+        d_vec = np.asarray(delta, dtype=np.float64).reshape(-1)
+        if d_vec.shape[0] != n_d:
+            raise ValueError(
+                f"delta length {d_vec.shape[0]} != n_drivers {n_d}"
+            )
+    if np.any(d_vec < 0.0):
+        raise ValueError("delta components must be non-negative")
+    return d_vec
+
+
+def _exact_1d_pl_max_coordinate(
+    coeffs: AffineCoeffs,
+    p_vec: np.ndarray,
+    z_vec: np.ndarray,
+    rho: float,
+    x_fixed: np.ndarray,
+    j: int,
+    lo: float,
+    hi: float,
+) -> tuple[float, float]:
+    """Exact 1-D piecewise-linear max of raw L1-augmented objective on coord j.
+
+    y_i(t) = max(0, c_i + b_i * (t - t0)) with other drivers fixed.
+    Breakpoints: box ends, product clamp-to-zero, and y_i = z_i crossings.
+    Continuous PL ⇒ max at a breakpoint.
+    """
+    if hi < lo - 1e-15:
+        raise ValueError(f"empty box on driver {j}: lo={lo} hi={hi}")
+    if abs(hi - lo) <= 1e-15:
+        x = np.array(x_fixed, dtype=np.float64, copy=True)
+        x[j] = 0.5 * (lo + hi)
+        aug, _, _, _ = _eval_aug_raw_at_x(coeffs, p_vec, z_vec, rho, x)
+        return float(x[j]), float(aug)
+
+    t0 = float(coeffs.x0[j])
+    b = np.asarray(coeffs.D[:, j], dtype=np.float64)
+    dx = np.asarray(x_fixed, dtype=np.float64) - coeffs.x0
+    dx[j] = 0.0
+    c = coeffs.y0 + coeffs.D @ dx  # unclamped y when t = t0 (coord j at x0)
+
+    candidates: List[float] = [float(lo), float(hi)]
+    n_p = int(b.shape[0])
+    for i in range(n_p):
+        bi = float(b[i])
+        if abs(bi) < 1e-15:
+            continue
+        # clamp kink: c_i + b_i*(t-t0) = 0
+        t_clamp = t0 - float(c[i]) / bi
+        if lo - 1e-12 <= t_clamp <= hi + 1e-12:
+            candidates.append(float(np.clip(t_clamp, lo, hi)))
+        # |y-z| kink when unclamped y crosses z (only meaningful if z > 0)
+        zi = float(z_vec[i])
+        if zi > 1e-15:
+            t_cross = t0 + (zi - float(c[i])) / bi
+            if lo - 1e-12 <= t_cross <= hi + 1e-12:
+                candidates.append(float(np.clip(t_cross, lo, hi)))
+
+    # unique sorted
+    cand = np.array(sorted(set(float(np.clip(t, lo, hi)) for t in candidates)), dtype=np.float64)
+
+    best_t = float(lo)
+    best_f = -np.inf
+    x = np.array(x_fixed, dtype=np.float64, copy=True)
+    for t in cand:
+        x[j] = float(t)
+        # Direct eval (includes clamp)
+        y = np.maximum(c + b * (float(t) - t0), 0.0)
+        aug, _, _ = _augmented_local_raw_parts(p_vec, y, z_vec, rho)
+        # Prefer higher f; on ties prefer closer to x0 then lower t (deterministic)
+        better = False
+        if aug > best_f + 1e-12:
+            better = True
+        elif abs(aug - best_f) <= 1e-12:
+            if abs(float(t) - t0) < abs(best_t - t0) - 1e-15:
+                better = True
+            elif abs(abs(float(t) - t0) - abs(best_t - t0)) <= 1e-15 and float(t) < best_t:
+                better = True
+        if better:
+            best_f = float(aug)
+            best_t = float(t)
+    return best_t, float(best_f)
+
+
+def _priced_corner_seed(
+    coeffs: AffineCoeffs,
+    p_vec: np.ndarray,
+    d_vec: np.ndarray,
+    mask: np.ndarray,
+) -> np.ndarray:
+    """Corner maximizer of linear p·y_raw under box (same spirit as local_box)."""
+    g = coeffs.D.T @ p_vec
+    x = np.array(coeffs.x0, dtype=np.float64, copy=True)
+    for j in range(int(coeffs.x0.shape[0])):
+        if not mask[j] or abs(float(g[j])) < 1e-15 or float(d_vec[j]) == 0.0:
+            continue
+        x[j] = float(coeffs.x0[j]) + float(d_vec[j]) * float(np.sign(g[j]))
+    return x
+
+
+def _coordinate_ascent_admm_subproblem(
+    coeffs: AffineCoeffs,
+    p_vec: np.ndarray,
+    z_vec: np.ndarray,
+    rho: float,
+    d_vec: np.ndarray,
+    mask: np.ndarray,
+    *,
+    max_passes: int = 32,
+    atol: float = 1e-10,
+) -> tuple[np.ndarray, float, int, List[str]]:
+    """Multi-start coordinate ascent with exact 1-D PL maximizers.
+
+    Seeds: x0 and priced corner under λ. Returns best (x_star, f_star, passes, seeds_used).
+    """
+    x0 = np.array(coeffs.x0, dtype=np.float64, copy=True)
+    seeds = [
+        ("x0", x0),
+        ("priced_corner", _priced_corner_seed(coeffs, p_vec, d_vec, mask)),
+    ]
+    # De-dupe seeds that are numerically identical
+    unique_seeds: List[tuple[str, np.ndarray]] = []
+    for name, s in seeds:
+        if any(np.allclose(s, us, atol=1e-12, rtol=0.0) for _, us in unique_seeds):
+            continue
+        unique_seeds.append((name, s))
+
+    best_x = np.array(x0, copy=True)
+    best_f, _, _, _ = _eval_aug_raw_at_x(coeffs, p_vec, z_vec, rho, best_x)
+    best_passes = 0
+    seed_names: List[str] = []
+
+    for sname, seed in unique_seeds:
+        seed_names.append(sname)
+        x = np.array(seed, dtype=np.float64, copy=True)
+        # Project seed into box (priced corner already on box; keep general)
+        for j in range(int(x.shape[0])):
+            lo = float(coeffs.x0[j]) - float(d_vec[j])
+            hi = float(coeffs.x0[j]) + float(d_vec[j])
+            x[j] = float(np.clip(x[j], lo, hi))
+        f, _, _, _ = _eval_aug_raw_at_x(coeffs, p_vec, z_vec, rho, x)
+        passes_used = 0
+        for _p in range(int(max_passes)):
+            passes_used = _p + 1
+            improved = False
+            for j in range(int(coeffs.x0.shape[0])):
+                if not mask[j] or float(d_vec[j]) == 0.0:
+                    continue
+                lo = float(coeffs.x0[j]) - float(d_vec[j])
+                hi = float(coeffs.x0[j]) + float(d_vec[j])
+                t_star, f_1d = _exact_1d_pl_max_coordinate(
+                    coeffs, p_vec, z_vec, rho, x, j, lo, hi
+                )
+                if f_1d > f + atol or (
+                    abs(f_1d - f) <= atol and abs(t_star - float(x[j])) > atol
+                ):
+                    if f_1d > f + atol:
+                        improved = True
+                    x[j] = t_star
+                    f = f_1d
+            if not improved:
+                break
+        # Recompute f at final x for safety
+        f, _, _, _ = _eval_aug_raw_at_x(coeffs, p_vec, z_vec, rho, x)
+        if f > best_f + atol or (
+            abs(f - best_f) <= atol and np.linalg.norm(x - x0) < np.linalg.norm(best_x - x0)
+        ):
+            best_f = f
+            best_x = np.array(x, copy=True)
+            best_passes = passes_used
+
+    return best_x, float(best_f), int(best_passes), seed_names
+
+
+def admm_block_subproblem_for_unit(
+    unit: str,
+    *,
+    prices: Optional[Mapping[str, float]] = None,
+    z: Optional[Mapping[str, float]] = None,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float], np.ndarray] = 1.0,
+    driver_mask: Optional[Sequence[bool]] = None,
+    max_passes: int = 32,
+) -> Dict[str, Any]:
+    """Per-unit offline ADMM block subproblem maximizer (always-on numpy).
+
+    Maximize on **raw affine** under independent driver box::
+
+        augmented_local_raw = λ · y_raw − ρ ‖y_raw − z‖₁
+        y_raw = clamp(y0 + D @ (x − x0))
+        x ∈ [x0 − δ, x0 + δ]
+
+    Defaults parallel residual harness: synthetic offline prices, z = full
+    postprocess yield at reference, ρ > 0. Method: coordinate-ascent with exact
+    1-D piecewise-linear maximizers + multi-start from {x0, priced corner}.
+
+    Honesty: dual_recovery_path=None; not Case 1; not pure-ADMM dual recovery;
+    not wire; raw optimand (full postprocess diagnostic only).
+    """
+    key = _normalize_unit_name(unit)
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if int(max_passes) < 1:
+        raise ValueError("max_passes must be >= 1")
+
+    price_dict, p_vec, coeffs = _resolve_prices(key, prices)
+    coeffs = cached_offline_unit_coeffs(key) if prices is None else coeffs
+    if prices is not None:
+        coeffs = offline_unit_coeffs(key)
+        p_vec = pack_price_vector(coeffs, price_dict)
+
+    z_dict, z_vec, z_source = _resolve_z_vector(coeffs, z)
+    d_vec = _parse_delta_vec(coeffs, delta)
+    n_d = int(coeffs.x0.shape[0])
+    mask = np.ones(n_d, dtype=bool)
+    if driver_mask is not None:
+        mask_arr = np.asarray(list(driver_mask), dtype=bool).reshape(-1)
+        if mask_arr.shape[0] != n_d:
+            raise ValueError(
+                f"driver_mask length {mask_arr.shape[0]} != n_drivers {n_d}"
+            )
+        mask = mask_arr
+
+    x0 = np.array(coeffs.x0, dtype=np.float64, copy=True)
+    aug_ref, y_raw_ref, ld_ref, r_l1_ref = _eval_aug_raw_at_x(
+        coeffs, p_vec, z_vec, float(rho), x0
+    )
+
+    x_star, aug_star, passes_used, seeds_used = _coordinate_ascent_admm_subproblem(
+        coeffs,
+        p_vec,
+        z_vec,
+        float(rho),
+        d_vec,
+        mask,
+        max_passes=int(max_passes),
+    )
+    # Clamp x_star into box (numerical)
+    for j in range(n_d):
+        lo = float(x0[j]) - float(d_vec[j])
+        hi = float(x0[j]) + float(d_vec[j])
+        x_star[j] = float(np.clip(x_star[j], lo, hi))
+
+    aug_star, y_raw_star, ld_star, r_l1_star = _eval_aug_raw_at_x(
+        coeffs, p_vec, z_vec, float(rho), x_star
+    )
+    # If numerical drift made star worse than ref, snap to ref (maximizer gate)
+    if aug_star < aug_ref - 1e-9:
+        x_star = np.array(x0, copy=True)
+        aug_star, y_raw_star, ld_star, r_l1_star = (
+            aug_ref,
+            y_raw_ref,
+            ld_ref,
+            r_l1_ref,
+        )
+
+    post = _postprocess_for(key)
+    y_full_star_map = post(y_raw_star, products=coeffs.products)
+    y_full_star = np.array(
+        [float(y_full_star_map[p]) for p in coeffs.products], dtype=np.float64
+    )
+    y_full_ref_map = post(y_raw_ref, products=coeffs.products)
+    y_full_ref = np.array(
+        [float(y_full_ref_map[p]) for p in coeffs.products], dtype=np.float64
+    )
+    # Diagnostic full-space augmented local (NOT the optimand)
+    r_full = y_full_star - z_vec
+    r_full_l1 = float(np.sum(np.abs(r_full)))
+    lambda_dot_y_full = float(p_vec @ y_full_star)
+    aug_full_star = lambda_dot_y_full - float(rho) * r_full_l1
+    r_full_ref = y_full_ref - z_vec
+    r_full_ref_l1 = float(np.sum(np.abs(r_full_ref)))
+    aug_full_ref = float(p_vec @ y_full_ref) - float(rho) * r_full_ref_l1
+
+    # Diagnostic: raw aug at priced corner (soft comparison; high ρ can prefer ref)
+    x_box = _priced_corner_seed(coeffs, p_vec, d_vec, mask)
+    aug_box, _, _, _ = _eval_aug_raw_at_x(coeffs, p_vec, z_vec, float(rho), x_box)
+
+    not_worse_than_ref = bool(aug_star + 1e-9 >= aug_ref)
+    finite_ok = bool(
+        np.all(np.isfinite(x_star))
+        and np.all(np.isfinite(y_raw_star))
+        and np.isfinite(aug_star)
+        and np.isfinite(ld_star)
+        and np.isfinite(r_l1_star)
+    )
+    honesty = _admm_subproblem_honesty_fields()
+
+    # Optional thin TF arm: raw forward at x_star when TF available (parity only)
+    tf_section: Dict[str, Any] = {
+        "skipped": True,
+        "ok": None,
+        "reason": "tf_unavailable",
+    }
+    if tf_available():
+        try:
+            block = build_offline_unit(key)
+            y_tf = np.asarray(
+                block.forward(x_star, clamp_products=True, as_dict=False),
+                dtype=np.float64,
+            ).reshape(-1)
+            tf_ok = bool(np.max(np.abs(y_tf - y_raw_star)) <= 1e-9)
+            tf_section = {
+                "skipped": False,
+                "ok": tf_ok,
+                "y_raw_star_tf_max_abs_diff": float(np.max(np.abs(y_tf - y_raw_star))),
+                "reason": None,
+            }
+        except Exception as exc:  # pragma: no cover - env dependent
+            tf_section = {
+                "skipped": False,
+                "ok": False,
+                "reason": f"{type(exc).__name__}: {exc}",
+            }
+
+    y_raw_star_dict = {p: float(y_raw_star[i]) for i, p in enumerate(coeffs.products)}
+    y_full_star_dict = {
+        p: float(y_full_star[i]) for i, p in enumerate(coeffs.products)
+    }
+
+    ok = bool(finite_ok and not_worse_than_ref)
+    return {
+        **honesty,
+        "unit": key,
+        "ok": ok,
+        "products": list(coeffs.products),
+        "drivers": list(coeffs.drivers),
+        "x0": x0.tolist(),
+        "x_star": x_star.tolist(),
+        "delta": d_vec.tolist(),
+        "rho": float(rho),
+        "prices": price_dict,
+        "z": z_dict,
+        "z_source": z_source,
+        "y_raw_star": y_raw_star_dict,
+        "y_full_star": y_full_star_dict,
+        "augmented_local_raw": float(aug_star),
+        "augmented_local_raw_ref": float(aug_ref),
+        "augmented_local_raw_priced_box": float(aug_box),
+        "lambda_dot_y_raw": float(ld_star),
+        "penalty_raw": float(rho) * float(r_l1_star),
+        "r_l1_raw": float(r_l1_star),
+        "augmented_local_full_diagnostic": float(aug_full_star),
+        "augmented_local_full_ref_diagnostic": float(aug_full_ref),
+        "r_l1_full_diagnostic": float(r_full_l1),
+        "raw_vs_full_aug_gap_star": abs(float(aug_star) - float(aug_full_star)),
+        "raw_vs_full_r_l1_gap_star": abs(float(r_l1_star) - float(r_full_l1)),
+        "not_worse_than_ref": not_worse_than_ref,
+        "improvement_raw": float(aug_star - aug_ref),
+        "formula": ADMM_SUBPROBLEM_FORMULA_L1_RAW,
+        "passes_used": int(passes_used),
+        "seeds_used": list(seeds_used),
+        "max_passes": int(max_passes),
+        "tf": tf_section,
+        "renorm_note": (
+            "Coker renorm always engages → y_raw may ≠ y_full even at reference; "
+            "subproblem optimand is raw_affine; full postprocess fields are diagnostic only."
+            if key == "COKER"
+            else "Subproblem optimand is raw_affine; full postprocess fields are diagnostic only."
+        ),
+    }
+
+
+def multi_unit_admm_block_subproblem_report(
+    *,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float]] = 1.0,
+    prices: Optional[Mapping[str, Mapping[str, float]]] = None,
+    z_override: Optional[Mapping[str, Mapping[str, float]]] = None,
+    max_passes: int = 32,
+) -> Dict[str, Any]:
+    """Always-on multi-unit ADMM block subproblem report (FCC/COKER/CDU).
+
+    Aggregate ``ok`` = finite values + honesty locks + per-unit structure +
+    maximizer-not-worse-than-ref. No absolute residual magnitude SLAs; no flaky
+    µs hard-fail. Not Case 1, not wire, not dual recovery.
+    """
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    units_out: Dict[str, Any] = {}
+    all_ok = True
+    honesty = _admm_subproblem_honesty_fields()
+
+    for desc in offline_unit_registry():
+        unit_prices: Optional[Mapping[str, float]] = None
+        if prices is not None and desc.unit in prices:
+            unit_prices = prices[desc.unit]
+        unit_z: Optional[Mapping[str, float]] = None
+        if z_override is not None and desc.unit in z_override:
+            unit_z = z_override[desc.unit]
+        # Per-unit delta may be scalar or shared mapping of driver→δ
+        row = admm_block_subproblem_for_unit(
+            desc.unit,
+            prices=unit_prices,
+            z=unit_z,
+            rho=float(rho),
+            delta=delta,
+            max_passes=int(max_passes),
+        )
+        unit_ok = bool(row.get("ok"))
+        unit_row = {
+            **row,
+            "ok": unit_ok,
+            "renorm_note": desc.renorm_note or row.get("renorm_note"),
+            "solver": False,
+            "dual_recovery_path": None,
+            "on_excel_case1_path": False,
+            "kind": ADMM_SUBPROBLEM_KIND,
+            "price_source": PRICE_SOURCE,
+            "optimand_space": "raw_affine",
+        }
+        units_out[desc.unit] = unit_row
+        if not unit_ok:
+            all_ok = False
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == ADMM_SUBPROBLEM_KIND
+        and honesty.get("optimand_space") == "raw_affine"
+        and set(units_out.keys()) == set(UNITS)
+    )
+    if not honesty_ok:
+        all_ok = False
+
+    return {
+        "ok": all_ok,
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": ADMM_SUBPROBLEM_KIND,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "optimand_space": "raw_affine",
+        "rho": float(rho),
+        "formula": ADMM_SUBPROBLEM_FORMULA_L1_RAW,
+        "method": ADMM_SUBPROBLEM_METHOD,
+        "optimality_note": ADMM_SUBPROBLEM_OPTIMALITY_NOTE,
+        "honesty_ok": honesty_ok,
+        "tf_available": tf_available(),
+        "note": honesty["note"],
+    }
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -1922,6 +2465,10 @@ __all__ = [
     "ADMM_AUGMENTED_FORMULA_L1",
     "admm_residual_for_unit",
     "multi_unit_admm_residual_report",
+    "ADMM_SUBPROBLEM_KIND",
+    "ADMM_SUBPROBLEM_FORMULA_L1_RAW",
+    "admm_block_subproblem_for_unit",
+    "multi_unit_admm_block_subproblem_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]

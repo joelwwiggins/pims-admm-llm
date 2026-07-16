@@ -246,6 +246,18 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "synthetic" in alow or "λ" in alow or "lambda" in alow
     assert "not" in alow and ("wire" in alow or "online" in alow or "shadow" in alow)
 
+    # Optional secondary: offline ADMM block subproblem maximizer (static How_to)
+    tf_sub = how.get("tf_offline_admm_block_subproblem", "")
+    assert tf_sub, "How_to_read must include tf_offline_admm_block_subproblem"
+    slow = tf_sub.lower()
+    assert "admm" in slow and "subproblem" in slow
+    assert "raw" in slow
+    assert "fcc" in slow and "coker" in slow and "cdu" in slow
+    assert "not on" in slow or "classic_2block" in slow
+    assert "dual" in slow and ("none" in slow or "primary" in slow)
+    assert "not" in slow and "wire" in slow
+    assert "synthetic" in slow or "λ" in slow or "lambda" in slow
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -317,6 +329,31 @@ def test_format_tf_offline_admm_residual_howto_pure():
     assert d["lam_source"] == "synthetic_offline_demo"
     one = d["planner_one_liner"].lower()
     assert "admm" in one and ("residual" in one or "consensus" in one)
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one
+    assert "not" in one and "wire" in one
+    assert "synthetic" in one
+
+
+def test_format_tf_offline_admm_block_subproblem_howto_pure():
+    """Static ADMM block subproblem How_to: isolation-safe; no TF import."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_admm_block_subproblem_howto,
+    )
+
+    d = format_tf_offline_admm_block_subproblem_howto()
+    assert d["topic"] == "tf_offline_admm_block_subproblem"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    assert d["optimand_space"] == "raw_affine"
+    assert d["price_source"] == "synthetic_offline_demo"
+    assert d["lam_source"] == "synthetic_offline_demo"
+    one = d["planner_one_liner"].lower()
+    assert "admm" in one and "subproblem" in one
+    assert "raw" in one
     assert "classic_2block" in one or "not on" in one
     assert "primary" in one
     assert "dual" in one
