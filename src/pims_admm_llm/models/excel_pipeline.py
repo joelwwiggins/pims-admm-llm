@@ -1379,6 +1379,15 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
             "Coker postprocess renorm is outside affine export: raw BASE/D_* ≠ full evaluate() even at reference.",
         ),
         (
+            "cdu_three_path",
+            "Submodel_CDU = classic mono/ADMM TECH+A yield/recipe export (Case 1 solve path) — "
+            "not Aspen How-To 07 BASE/DELTA / MB_* matrix (unlike Submodel_FCC / Submodel_Coker). "
+            "Optional offline TF/numpy affine (tf_linear_cdu) = exact linear copy of build_cdu_base_delta "
+            "y0/D/x0 (nested cut_points_f.* drivers) — not this solve. "
+            "Duals remain package-ADMM free online λ on classic path — not TF-owned. "
+            "Liquid renorm + offgas clamp sit outside raw affine (full evaluate = affine + postprocess).",
+        ),
+        (
             "solve_boundary",
             f"Mono+ADMM still CDU+Blender only. Cascade FCC/Coker = solve_cdu_fcc. "
             f"This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "
