@@ -202,6 +202,34 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "online" in cdu.lower() or "dual" in cdu.lower()
     assert "postprocess" in cdu.lower() or "renorm" in cdu.lower() or "affine" in cdu.lower()
 
+    # E1/E2: multi-unit offline TF status (static How_to; not on Case 1 solve)
+    tf_off = how.get("tf_offline_units", "")
+    assert tf_off, "How_to_read must include tf_offline_units"
+    low = tf_off.lower()
+    assert "fcc" in low and "coker" in low and "cdu" in low
+    assert "classic_2block" in low or "not on this case 1" in low or "not on" in low
+    assert "dual_recovery_path" in low or "dual" in low
+    assert "primary" in low
+    assert "solver=false" in low or "solver=False" in tf_off
+    assert "none" in low  # dual_recovery_path=None on TF surface
+
+
+def test_format_tf_offline_units_howto_pure():
+    """Static helper: no solve, isolation-safe contract strings."""
+    from pims_admm_llm.models.excel_pipeline import format_tf_offline_units_howto
+
+    d = format_tf_offline_units_howto()
+    assert d["topic"] == "tf_offline_units"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    one = d["planner_one_liner"].lower()
+    assert "offline" in one
+    assert "classic_2block" in one
+    assert "primary" in one
+    assert "dual" in one
+
 
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""

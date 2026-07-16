@@ -410,6 +410,328 @@ def tf_linear_cdu(
     return TFLinearBlock(coeffs)
 
 
+# ---------------------------------------------------------------------------
+# Multi-unit offline registry + wiring-readiness harness (not a solve / dual)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class OfflineUnitDescriptor:
+    """Metadata for one offline exact-linear unit (FCC / COKER / CDU).
+
+    Callables are stored as symbols; factories stay lazy (TF not imported until
+    ``build_offline_unit`` / factory is invoked).
+    """
+
+    unit: str
+    builder_name: str
+    factory_name: str
+    postprocess_name: str
+    excel_match_name: Optional[str]  # None for CDU (TECH+A, not MB_* twin)
+    renorm_note: str
+    n_products: int
+    n_drivers: int
+
+
+def _normalize_unit_name(unit: str) -> str:
+    key = str(unit or "").strip().upper()
+    if key not in UNITS:
+        raise ValueError(
+            f"Unknown offline unit {unit!r}; expected one of {list(UNITS)}"
+        )
+    return key
+
+
+def offline_unit_registry() -> List[OfflineUnitDescriptor]:
+    """Ordered multi-unit offline registry: FCC, COKER, CDU.
+
+    Always-on / TF-free. Does not construct models or import tensorflow.
+    Shapes are the frozen base_delta catalog sizes (exact-linear shell).
+    """
+    return [
+        OfflineUnitDescriptor(
+            unit="FCC",
+            builder_name="build_fcc_base_delta",
+            factory_name="tf_linear_fcc",
+            postprocess_name="apply_fcc_postprocess",
+            excel_match_name="excel_fcc_matrix_matches_affine",
+            renorm_note=(
+                "FCC coke clamp + liquid renorm outside TF; raw may ≠ evaluate "
+                "when renorm engages (offset cases)."
+            ),
+            n_products=6,
+            n_drivers=8,
+        ),
+        OfflineUnitDescriptor(
+            unit="COKER",
+            builder_name="build_coker_base_delta",
+            factory_name="tf_linear_coker",
+            postprocess_name="apply_coker_postprocess",
+            excel_match_name="excel_coker_matrix_matches_affine",
+            renorm_note=(
+                "Coker renorm always engages → raw affine ≠ evaluate even at "
+                "reference; L1 uses affine + postprocess."
+            ),
+            n_products=5,
+            n_drivers=6,
+        ),
+        OfflineUnitDescriptor(
+            unit="CDU",
+            builder_name="build_cdu_base_delta",
+            factory_name="tf_linear_cdu",
+            postprocess_name="apply_cdu_postprocess",
+            excel_match_name=None,  # never invent excel_cdu_matrix_matches_affine
+            renorm_note=(
+                "CDU liquid renorm + offgas clamp outside TF; renorm often "
+                "identity at reference (mass-conserving drivers). Nested "
+                "cut_points_f.* in x0. Submodel_CDU is TECH+A export, not MB_*."
+            ),
+            n_products=6,
+            n_drivers=8,
+        ),
+    ]
+
+
+def _builder_for(unit: str):
+    from .base_delta import (
+        build_cdu_base_delta,
+        build_coker_base_delta,
+        build_fcc_base_delta,
+    )
+
+    key = _normalize_unit_name(unit)
+    return {
+        "FCC": build_fcc_base_delta,
+        "COKER": build_coker_base_delta,
+        "CDU": build_cdu_base_delta,
+    }[key]
+
+
+def _postprocess_for(unit: str):
+    key = _normalize_unit_name(unit)
+    return {
+        "FCC": apply_fcc_postprocess,
+        "COKER": apply_coker_postprocess,
+        "CDU": apply_cdu_postprocess,
+    }[key]
+
+
+def _factory_for(unit: str):
+    key = _normalize_unit_name(unit)
+    return {
+        "FCC": tf_linear_fcc,
+        "COKER": tf_linear_coker,
+        "CDU": tf_linear_cdu,
+    }[key]
+
+
+def offline_unit_coeffs(
+    unit: str,
+    reference_feed: Optional[Mapping[str, float]] = None,
+    reference_conditions: Optional[Mapping[str, Any]] = None,
+) -> AffineCoeffs:
+    """Always-on AffineCoeffs for a registry unit (no TensorFlow)."""
+    builder = _builder_for(unit)
+    model = builder(
+        reference_feed=reference_feed,
+        reference_conditions=reference_conditions,
+    )
+    return affine_coeffs_from_base_delta(model)
+
+
+def build_offline_unit(
+    unit: str,
+    reference_feed: Optional[Mapping[str, float]] = None,
+    reference_conditions: Optional[Mapping[str, Any]] = None,
+) -> TFLinearBlock:
+    """Lazy TF factory via registry unit name. Raises ImportError if TF missing."""
+    factory = _factory_for(unit)
+    return factory(
+        reference_feed=reference_feed,
+        reference_conditions=reference_conditions,
+    )
+
+
+def offline_units_status() -> Dict[str, Any]:
+    """Honesty status for the multi-unit offline surface (always-on).
+
+    Never claims dual recovery or Case 1 solve ownership. ``tf_available`` is
+    probed lazily; coefficients shapes are live from base_delta builders.
+    """
+    per_unit: Dict[str, Any] = {}
+    for desc in offline_unit_registry():
+        coeffs = offline_unit_coeffs(desc.unit)
+        per_unit[desc.unit] = {
+            "n_products": int(coeffs.y0.shape[0]),
+            "n_drivers": int(coeffs.x0.shape[0]),
+            "shape": [int(coeffs.y0.shape[0]), int(coeffs.x0.shape[0])],
+            "excel_match": desc.excel_match_name is not None,
+            "excel_match_name": desc.excel_match_name,
+            "postprocess": desc.postprocess_name,
+            "factory": desc.factory_name,
+            "builder": desc.builder_name,
+            "renorm_note": desc.renorm_note,
+        }
+    return {
+        "units": list(UNITS),
+        "solver": SOLVER,
+        "dual_recovery_path": DUAL_RECOVERY_PATH,
+        "on_excel_case1_path": ON_EXCEL_CASE1_PATH,
+        "tf_available": tf_available(),
+        "per_unit": per_unit,
+        "kind": MODULE_KIND,
+        "source": SOURCE,
+        "postprocess": POSTPROCESS,
+        "note": (
+            "Offline exact-linear FCC+COKER+CDU kernels available; "
+            "not on Excel Case 1 solve (classic_2block_excel_path); "
+            "dual_recovery_path=None on TF surface; Case 1 duals remain "
+            "PRIMARY online-λ / SECONDARY recovered (not TF-owned)."
+        ),
+    }
+
+
+def _mild_offset_for(unit: str, model: Any) -> tuple[Dict[str, float], Dict[str, Any]]:
+    """One mild feed/process offset per unit for L1 readiness (not a solve)."""
+    key = _normalize_unit_name(unit)
+    feed = dict(getattr(model, "reference_feed", None) or {})
+    cond = dict(getattr(model, "reference_conditions", None) or {})
+    if key == "FCC":
+        feed["api"] = float(feed.get("api", 22.0)) + 3.0
+        cond["riser_outlet_temp_f"] = float(cond.get("riser_outlet_temp_f", 980.0)) + 10.0
+    elif key == "COKER":
+        feed["api"] = float(feed.get("api", 10.0)) + 2.0
+        cond["recycle_ratio"] = float(cond.get("recycle_ratio", 0.1)) + 0.05
+    else:  # CDU
+        feed["api"] = float(feed.get("api", 28.0)) + 2.0
+        cuts = dict(cond.get("cut_points_f") or {})
+        if cuts:
+            cuts = {k: float(v) + 8.0 for k, v in cuts.items()}
+            cond["cut_points_f"] = cuts
+        else:
+            cond["cut_points_f"] = {
+                "naphtha_ep": 400.0,
+                "distillate_ep": 700.0,
+                "gasoil_ep": 1030.0,
+            }
+    return feed, cond
+
+
+def multi_unit_parity_report(atol: float = 1e-9) -> Dict[str, Any]:
+    """Wiring-readiness harness: multi-unit numpy parity (optional TF skip).
+
+    **Not** a solve, **not** ADMM, **not** dual recovery. For each registry unit:
+    pack@ref ≡ x0; numpy affine + unit postprocess ≡ ``evaluate()`` at reference
+    and one mild offset. Optional TF arm compares raw forward when available.
+
+    Aggregate ``ok`` requires numeric checks **and** honesty fields
+    (solver=False, dual_recovery_path=None, on_excel_case1_path=False).
+    """
+    units_out: Dict[str, Any] = {}
+    all_ok = True
+    for desc in offline_unit_registry():
+        builder = _builder_for(desc.unit)
+        post = _postprocess_for(desc.unit)
+        model = builder()
+        coeffs = affine_coeffs_from_base_delta(model)
+        checks: Dict[str, Any] = {}
+
+        # pack@ref ≡ x0
+        x_ref = pack_driver_vector(
+            coeffs,
+            feed=model.reference_feed,
+            conditions=model.reference_conditions,
+        )
+        pack_ok = bool(np.allclose(x_ref, coeffs.x0, atol=atol, rtol=0.0))
+        checks["pack_ref_eq_x0"] = pack_ok
+
+        def _l1_case(feed: Mapping[str, float], cond: Mapping[str, Any]) -> bool:
+            x = pack_driver_vector(coeffs, feed=feed, conditions=cond)
+            y_raw = numpy_affine_forward(coeffs, x, clamp_products=True)
+            y_full = post(y_raw, products=coeffs.products)
+            y_eval = model.evaluate(feed, cond, clamp_products=True)
+            for p in coeffs.products:
+                if abs(float(y_full[p]) - float(y_eval[p])) > atol:
+                    return False
+            return True
+
+        ref_ok = _l1_case(model.reference_feed, model.reference_conditions)
+        checks["affine_postprocess_eq_evaluate_ref"] = ref_ok
+        feed_off, cond_off = _mild_offset_for(desc.unit, model)
+        off_ok = _l1_case(feed_off, cond_off)
+        checks["affine_postprocess_eq_evaluate_offset"] = off_ok
+
+        tf_section: Dict[str, Any] = {
+            "skipped": True,
+            "ok": None,
+            "reason": "tf_unavailable",
+        }
+        if tf_available():
+            try:
+                block = build_offline_unit(desc.unit)
+                x_off = pack_driver_vector(coeffs, feed=feed_off, conditions=cond_off)
+                y_np = numpy_affine_forward(coeffs, x_off, clamp_products=True)
+                y_tf_raw = block.forward(x_off, clamp_products=True, as_dict=False)
+                y_tf = np.asarray(y_tf_raw, dtype=np.float64).reshape(-1)
+                tf_ok = bool(np.allclose(y_np, y_tf, atol=atol, rtol=0.0))
+                tf_section = {"skipped": False, "ok": tf_ok, "reason": None}
+                checks["tf_raw_eq_numpy_raw_offset"] = tf_ok
+            except Exception as exc:  # pragma: no cover - env dependent
+                tf_section = {
+                    "skipped": False,
+                    "ok": False,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+                checks["tf_raw_eq_numpy_raw_offset"] = False
+
+        unit_numeric_ok = pack_ok and ref_ok and off_ok
+        # TF optional: only fail aggregate when TF path was attempted and failed
+        if tf_section.get("skipped") is False and tf_section.get("ok") is False:
+            unit_numeric_ok = False
+
+        unit_row = {
+            "ok": unit_numeric_ok,
+            "unit": desc.unit,
+            "n_products": int(coeffs.y0.shape[0]),
+            "n_drivers": int(coeffs.x0.shape[0]),
+            "excel_match_name": desc.excel_match_name,
+            "checks": checks,
+            "tf": tf_section,
+            "solver": False,
+            "dual_recovery_path": None,
+            "on_excel_case1_path": False,
+            "renorm_note": desc.renorm_note,
+        }
+        units_out[desc.unit] = unit_row
+        if not unit_numeric_ok:
+            all_ok = False
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+    )
+    if not honesty_ok:
+        all_ok = False
+
+    return {
+        "ok": all_ok,
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "solver": SOLVER,
+        "dual_recovery_path": DUAL_RECOVERY_PATH,
+        "on_excel_case1_path": ON_EXCEL_CASE1_PATH,
+        "honesty_ok": honesty_ok,
+        "tf_available": tf_available(),
+        "atol": atol,
+        "note": (
+            "Wiring-readiness only: exact linear copy parity across FCC/COKER/CDU. "
+            "Not a solve; not ADMM; not dual recovery. TF dual_recovery_path stays None."
+        ),
+    }
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -521,6 +843,7 @@ __all__ = [
     "POSTPROCESS",
     "UNITS",
     "AffineCoeffs",
+    "OfflineUnitDescriptor",
     "tf_available",
     "tf_import_error",
     "honesty_metadata",
@@ -535,6 +858,11 @@ __all__ = [
     "tf_linear_fcc",
     "tf_linear_coker",
     "tf_linear_cdu",
+    "offline_unit_registry",
+    "offline_unit_coeffs",
+    "build_offline_unit",
+    "offline_units_status",
+    "multi_unit_parity_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
