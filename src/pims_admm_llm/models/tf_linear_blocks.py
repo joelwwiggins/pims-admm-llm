@@ -88,6 +88,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_coordination_available": True,
         "admm_plant_linking_available": True,
         "admm_plant_named_linking_available": True,
+        "wire_preflight_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -114,7 +115,11 @@ def honesty_metadata() -> Dict[str, Any]:
             "(multi_block_plant_linking_admm_report): synthetic (default) and plant-named "
             "linking topology modes + shared λ/z + per-unit incidence; composes block "
             "subproblem; not full plant mass balance; plant-linking λ ≠ Case 1 online λ; "
-            "not wire shipped; plant-named offline demo ≠ live cascade."
+            "not wire shipped; plant-named offline demo ≠ live cascade. "
+            "Offline dual-honest wire preflight available "
+            "(offline_wire_preflight_report): composes readiness gates + machine-readable "
+            "wire_blockers; wire_shipped=False; preflight ≠ wire; dual_recovery_path=None; "
+            "ready_for_wire_discussion meaning unchanged (structural only)."
         ),
     }
 
@@ -3633,6 +3638,259 @@ def multi_block_plant_named_linking_admm_report(
 
 
 
+# ---------------------------------------------------------------------------
+# Offline dual-honest wire preflight (goal 5 residual after plant-named packaging)
+# ---------------------------------------------------------------------------
+# Always-on numpy. Composes existing readiness gates and lists machine-readable
+# wire_blockers. Does NOT ship wire, flip Case 1 form, rewrite isolation, or
+# redefine ready_for_wire_discussion.
+
+WIRE_PREFLIGHT_KIND = "offline_wire_preflight"
+
+# Stable honesty ids true at HEAD (pre-wire residual). Not failure theater.
+DEFAULT_WIRE_BLOCKERS: tuple = (
+    "isolation_rewrite_required",
+    "form_label_change_required",
+    "dual_linf_under_wire_unproven",
+    "case1_is_cdu_blender_package_admm",
+    "no_blender_offline_affine_kernel",
+    "wire_not_shipped",
+    "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp",
+)
+
+WIRE_BLOCKER_NOTES: Dict[str, str] = {
+    "isolation_rewrite_required": (
+        "test_tf_import_isolation.py must be rewritten WITH a dual-honest wire; "
+        "do not silently break or delete isolation gates."
+    ),
+    "form_label_change_required": (
+        "Case 1 still uses form classic_2block_excel_path; any TF-aware path needs "
+        "an explicit form label change (never silent form reuse)."
+    ),
+    "dual_linf_under_wire_unproven": (
+        "Online λ L∞ gate under a TF-aware path is not proven; Case 1 PRIMARY "
+        "online dual honesty remains on the classic package ADMM path."
+    ),
+    "case1_is_cdu_blender_package_admm": (
+        "Case 1 is CDU+Blender package ADMM, not multi-unit FCC/COKER/CDU "
+        "plant-linking alone."
+    ),
+    "no_blender_offline_affine_kernel": (
+        "Offline UNITS are FCC/COKER/CDU only; no blender offline affine kernel."
+    ),
+    "wire_not_shipped": (
+        "TF is not wired into Excel Case 1 or the ADMM coordinator; "
+        "wire_shipped=False always on this surface."
+    ),
+    "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp": (
+        "Affine TF kernels model yield response to drivers — not full plant_blocks "
+        "feed-rate LPs; do not claim producer-consumer plant_blocks ADMM shipped "
+        "via this affine-only surface."
+    ),
+}
+
+# Honest next-wave hint only (no executor / no auto-wire).
+SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT = (
+    "dual_honest_tf_case1_wire_with_isolation_rewrite_and_form_label_change"
+)
+
+
+def offline_wire_blocker_catalog() -> Dict[str, Any]:
+    """Stable wire_blockers catalog true at HEAD (honesty, not CI red).
+
+    Always-on. Does not claim wire shipped or dual recovery.
+    """
+    return {
+        "kind": "offline_wire_blocker_catalog",
+        "wire_blockers": list(DEFAULT_WIRE_BLOCKERS),
+        "wire_blocker_notes": dict(WIRE_BLOCKER_NOTES),
+        "wire_shipped": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "solver": False,
+        "not_full_plant_mass_balance": True,
+        "not_pure_admm_dual_recovery": True,
+        "note": (
+            "Machine-readable wire blockers true at HEAD. Blockers are honesty "
+            "documentation for dual-honest wire — not test failures. "
+            "preflight documents them; wire is still deferred."
+        ),
+    }
+
+
+def _wire_preflight_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-wire locks for preflight reports."""
+    return {
+        "kind": WIRE_PREFLIGHT_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "not_case1_solve": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_full_plant_mass_balance": True,
+        "not_pure_admm_dual_recovery": True,
+        "preflight_lambda_is_not_case1_online_lambda": True,
+        "preflight_is_not_case1_primary_or_secondary_duals": True,
+        "plant_linking_lambda_is_not_case1_online_lambda": True,
+        "suggested_next_wave": SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT,
+    }
+
+
+def offline_wire_preflight_report(
+    *,
+    readiness_n_repeats: int = 30,
+    readiness_warmup: int = 1,
+    include_box: bool = True,
+    box_delta: float = 1.0,
+    include_admm_residual: bool = True,
+    include_admm_block_subproblem: bool = True,
+    include_admm_coordination: bool = True,
+    include_admm_plant_linking: bool = True,
+    include_admm_plant_named_linking: bool = True,
+) -> Dict[str, Any]:
+    """Compose green offline gates + explicit machine-readable wire_blockers.
+
+    Always-on numpy (no TensorFlow, no PuLP). Reuses
+    ``offline_block_solve_readiness_report`` — does **not** re-implement
+    residual/subproblem/coordination/plant-linking maximizer math.
+
+    Honesty:
+    - ``wire_shipped=False`` always; preflight ≠ wire shipped
+    - ``dual_recovery_path=None``; not pure-ADMM dual recovery; not Case 1 duals
+    - ``ready_for_wire_discussion`` meaning **unchanged** (parity∧priced∧timings∧honesty)
+    - ``preflight_ok`` / ``blockers_documented`` are separate from ready
+    - ``ok`` means finite compose + honesty locks + blockers documented — **not** wire
+
+    Does **not** flip Case 1 form, rewrite isolation, retune ρ, or import TF.
+    """
+    honesty = _wire_preflight_honesty_fields()
+    catalog = offline_wire_blocker_catalog()
+    wire_blockers = list(catalog["wire_blockers"])
+    wire_blocker_notes = dict(catalog["wire_blocker_notes"])
+
+    readiness = offline_block_solve_readiness_report(
+        n_repeats=readiness_n_repeats,
+        warmup=readiness_warmup,
+        include_box=include_box,
+        box_delta=box_delta,
+        include_admm_residual=include_admm_residual,
+        include_admm_block_subproblem=include_admm_block_subproblem,
+        include_admm_coordination=include_admm_coordination,
+        include_admm_plant_linking=include_admm_plant_linking,
+        include_admm_plant_named_linking=include_admm_plant_named_linking,
+    )
+
+    # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
+    parity_ok = bool(readiness.get("parity_ok"))
+    priced_ok = bool(readiness.get("priced_ok"))
+    timings_ok = bool(readiness.get("timings_ok"))
+    honesty_ok = bool(readiness.get("honesty_ok"))
+    ready = bool(readiness.get("ready_for_wire_discussion"))
+    expected_ready = bool(parity_ok and priced_ok and timings_ok and honesty_ok)
+    ready_semantics_ok = ready is expected_ready
+
+    admm_residual_ok = readiness.get("admm_residual_ok")
+    admm_block_subproblem_ok = readiness.get("admm_block_subproblem_ok")
+    admm_coordination_ok = readiness.get("admm_coordination_ok")
+    admm_plant_linking_ok = readiness.get("admm_plant_linking_ok")
+    admm_plant_named_linking_ok = readiness.get("admm_plant_named_linking_ok")
+
+    blockers_documented = (
+        len(wire_blockers) > 0
+        and "wire_not_shipped" in wire_blockers
+        and "isolation_rewrite_required" in wire_blockers
+        and "form_label_change_required" in wire_blockers
+        and "dual_linf_under_wire_unproven" in wire_blockers
+        and "case1_is_cdu_blender_package_admm" in wire_blockers
+        and "no_blender_offline_affine_kernel" in wire_blockers
+    )
+
+    compose_ok = bool(
+        ready_semantics_ok
+        and honesty_ok
+        and readiness.get("dual_recovery_path") is None
+        and readiness.get("on_excel_case1_path") is False
+        and readiness.get("solver") is False
+    )
+    # When gates are included, prefer true (green ladder); None only if skipped.
+    for flag, included in (
+        (admm_residual_ok, include_admm_residual),
+        (admm_block_subproblem_ok, include_admm_block_subproblem),
+        (admm_coordination_ok, include_admm_coordination),
+        (admm_plant_linking_ok, include_admm_plant_linking),
+        (admm_plant_named_linking_ok, include_admm_plant_named_linking),
+    ):
+        if included and flag is False:
+            compose_ok = False
+
+    honesty_locks_ok = bool(
+        honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["not_wire_shipped"] is True
+        and honesty["not_full_plant_mass_balance"] is True
+        and honesty["not_pure_admm_dual_recovery"] is True
+        and honesty["not_case1_solve"] is True
+    )
+
+    preflight_ok = bool(compose_ok and honesty_locks_ok and blockers_documented)
+    # ok = preflight surface healthy — NEVER means wire shipped
+    ok = preflight_ok and (honesty["wire_shipped"] is False)
+
+    note = (
+        "Offline dual-honest wire preflight: composes offline_block_solve_readiness_report "
+        "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
+        "plant_linking/plant_named gates) and lists machine-readable wire_blockers true at "
+        "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
+        "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
+        "or blockers). wire_shipped=False always; dual_recovery_path=None; not Case 1 solve; "
+        "not pure-ADMM dual recovery; not full plant mass balance. Preflight / plant-linking "
+        "λ,z,ρ are synthetic offline demos — not Case 1 PRIMARY online λ or SECONDARY "
+        "recovered duals. Blockers are honesty (isolation rewrite, form label change, dual "
+        "L∞ under wire unproven, Case 1 CDU+Blender shape, no blender affine kernel, "
+        "wire_not_shipped, affine≠plant_blocks feed LP) — not CI failure theater. "
+        "This report does not ship wire."
+    )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "preflight_ok": preflight_ok,
+        "blockers_documented": blockers_documented,
+        "compose_ok": compose_ok,
+        "honesty_locks_ok": honesty_locks_ok,
+        "ready_semantics_ok": ready_semantics_ok,
+        # Structural mirror — meaning unchanged
+        "ready_for_wire_discussion": ready,
+        "parity_ok": parity_ok,
+        "priced_ok": priced_ok,
+        "timings_ok": timings_ok,
+        "honesty_ok": honesty_ok,
+        # Additive ADMM ladder flags (mirror readiness; None if skipped)
+        "admm_residual_ok": admm_residual_ok,
+        "admm_block_subproblem_ok": admm_block_subproblem_ok,
+        "admm_coordination_ok": admm_coordination_ok,
+        "admm_plant_linking_ok": admm_plant_linking_ok,
+        "admm_plant_named_linking_ok": admm_plant_named_linking_ok,
+        # Blockers
+        "wire_blockers": wire_blockers,
+        "wire_blocker_notes": wire_blocker_notes,
+        "n_wire_blockers": len(wire_blockers),
+        # Nested readiness for full detail (timings etc.) without redefining ready
+        "readiness": readiness,
+        "units": list(UNITS),
+        "tf_available": tf_available(),
+        "note": note,
+    }
+
+
+def multi_unit_wire_preflight_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_wire_preflight_report`` (multi-unit naming twin)."""
+    return offline_wire_preflight_report(**kwargs)
 
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
@@ -3802,6 +4060,13 @@ __all__ = [
     "plant_linking_admm_round",
     "multi_block_plant_linking_admm_report",
     "multi_block_plant_named_linking_admm_report",
+    "WIRE_PREFLIGHT_KIND",
+    "DEFAULT_WIRE_BLOCKERS",
+    "WIRE_BLOCKER_NOTES",
+    "SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT",
+    "offline_wire_blocker_catalog",
+    "offline_wire_preflight_report",
+    "multi_unit_wire_preflight_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
