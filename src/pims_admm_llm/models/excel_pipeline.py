@@ -1333,6 +1333,8 @@ def run_excel_pipeline(
         },
         "verdict": _verdict(mono_part, admm_part, gap_rel, dual_linf_online),
     }
+    # Planner honesty glance package (presentation only; no solve/VERDICT change).
+    report["meta"]["planner_honesty"] = format_planner_honesty_package(report)["meta"]
 
     if results_xlsx:
         write_results_excel(results_xlsx, report)
@@ -1411,6 +1413,148 @@ def format_tf_offline_units_howto() -> Dict[str, str]:
         "on_excel_case1_path": "false",
         "planner_one_liner": one_liner,
     }
+
+
+# Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
+_OFFLINE_TF_UNITS = "FCC,COKER,CDU"
+_OFFLINE_TF_INDEX_WHAT = (
+    "FCC+COKER+CDU exact-linear kernels offline — NOT on classic Case 1 solve; "
+    "dual_recovery_path=None on TF surface"
+)
+
+
+def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Pure composer for Index / Summary / Calc_Check / meta honesty glance.
+
+    Isolation-safe: reuses format_dual_honesty_summary + format_tf_offline_units_howto
+    and report fields only — never imports tensorflow / tf_linear_blocks.
+    Presentation packaging only; does not change VERDICT math.
+    """
+    dual = format_dual_honesty_summary(report)
+    tf_off = format_tf_offline_units_howto()
+    model = report.get("model") or {}
+    cmp_ = report.get("comparison") or {}
+    form = str(model.get("form") or tf_off["form"])
+    path_ = dual["dual_recovery_path"]
+    online = cmp_.get("dual_linf_online")
+    recovered = cmp_.get("dual_linf_recovered")
+    try:
+        online_f = float(online) if online is not None else None
+    except (TypeError, ValueError):
+        online_f = None
+    try:
+        recovered_f = float(recovered) if recovered is not None else None
+    except (TypeError, ValueError):
+        recovered_f = None
+
+    meta = {
+        "form": form,
+        "model_form": form,
+        "dual_gate": dual["dual_gate"],
+        "verdict_dual_gate": dual["verdict_dual_gate"],
+        "dual_linf_online": online_f if online_f is not None else dual["dual_linf_online"],
+        "dual_linf_recovered": (
+            recovered_f if recovered_f is not None else dual["dual_linf_recovered"]
+        ),
+        "dual_linf_online_role": dual["primary_role"],
+        "dual_linf_recovered_role": dual["secondary_role"],
+        "offline_tf_units": _OFFLINE_TF_UNITS,
+        "on_excel_case1_path": False,
+        "tf_on_excel_case1_path": False,
+        "dual_recovery_path": path_,
+        "tf_dual_recovery_path": None,
+        "planner_one_liner": (
+            f"form={form}; dual_gate={dual['dual_gate']} ({dual['verdict_dual_gate']}); "
+            f"PRIMARY online L∞={dual['dual_linf_online']}; "
+            f"SECONDARY recovered L∞={dual['dual_linf_recovered']}; "
+            f"offline_tf_units={_OFFLINE_TF_UNITS} not on Case 1; "
+            f"tf_on_excel_case1_path=False; path={path_}."
+        ),
+    }
+    index_row = {
+        "block": "OFFLINE_TF",
+        "sheet": "How_to_read",
+        "what": _OFFLINE_TF_INDEX_WHAT,
+    }
+    summary_pairs = [
+        ("model_form", form),
+        ("dual_gate", dual["dual_gate"]),
+        ("verdict_dual_gate", dual["verdict_dual_gate"]),
+        ("dual_linf_online", online),
+        (
+            "dual_linf_online_role",
+            "PRIMARY — free online λ; gates VERDICT dual L∞",
+        ),
+        ("dual_linf_recovered", recovered),
+        (
+            "dual_linf_recovered_role",
+            "SECONDARY — blender recovery face; not VERDICT gate",
+        ),
+        ("offline_tf_units", _OFFLINE_TF_UNITS),
+        ("tf_on_excel_case1_path", False),
+        (
+            "offline_tf_note",
+            "FCC+COKER+CDU exact-linear offline — not on classic Case 1 solve",
+        ),
+    ]
+    return {
+        "index_row": index_row,
+        "summary_pairs": summary_pairs,
+        "meta": meta,
+        "dual": dual,
+        "tf_offline": tf_off,
+    }
+
+
+def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Always-on form / dual_gate / offline_tf identity audits for Calc_Check.
+
+    Compatible with model_calc_check columns (check, predicted, actual, abs_err, ok).
+    Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
+    """
+    model = report.get("model") or {}
+    cmp_ = report.get("comparison") or {}
+    admm = report.get("admm") or {}
+    form = str(model.get("form") or "")
+    form_ok = form == "classic_2block_excel_path"
+    dual_gate = str(cmp_.get("dual_gate") or "")
+    verdict_gate = str(cmp_.get("verdict_dual_gate") or "")
+    online_role = str(cmp_.get("dual_linf_online_role") or "")
+    path_ = str(admm.get("dual_recovery_path") or "")
+    dual_ok = (
+        dual_gate == "online_lambda"
+        and verdict_gate == "online_only"
+        and "PRIMARY" in online_role
+        and "online_lambda" in path_
+    )
+    # Static honesty: offline TF is never on classic Case 1 path.
+    offline_ok = True
+    return [
+        {
+            "check": "form_classic_2block",
+            "predicted": "classic_2block_excel_path",
+            "actual": form or "(missing)",
+            "abs_err": 0.0 if form_ok else 1.0,
+            "ok": form_ok,
+        },
+        {
+            "check": "dual_gate_online_only",
+            "predicted": "online_lambda / online_only / PRIMARY",
+            "actual": (
+                f"dual_gate={dual_gate}; verdict_dual_gate={verdict_gate}; "
+                f"role={online_role}; path has online_lambda={'online_lambda' in path_}"
+            ),
+            "abs_err": 0.0 if dual_ok else 1.0,
+            "ok": dual_ok,
+        },
+        {
+            "check": "offline_tf_not_on_case1",
+            "predicted": f"offline_tf_units={_OFFLINE_TF_UNITS}; on_excel_case1_path=False",
+            "actual": "not on classic Case 1 solve (static honesty)",
+            "abs_err": 0.0,
+            "ok": offline_ok,
+        },
+    ]
 
 
 def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
@@ -1629,15 +1773,31 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
                 s.append([r.get(k) for k in keys])
         return s
 
+    honesty = format_planner_honesty_package(report)
+    dual = honesty["dual"]
+
     if model:
         sm = submodel_matrix_tables(model)
         lean_index = [
             {"block": "CDU", "sheet": "Submodel_CDU", "what": "TECH yields + A matrix (CAP/YLD) — classic solve"},
             {"block": "BLENDER", "sheet": "Submodel_Blender", "what": "TECH recipes + A matrix (BLD) — classic solve"},
-            {"block": "FCC", "sheet": "Submodel_FCC", "what": "PIMS BASE/DELTA matrix (FEED_FFD, BASE, D_*, E-rows, FREE)"},
-            {"block": "COKER", "sheet": "Submodel_Coker", "what": "PIMS BASE/DELTA matrix (FEED_CFD, BASE, D_*, E-rows, FREE)"},
+            {
+                "block": "FCC",
+                "sheet": "Submodel_FCC",
+                "what": (
+                    "PIMS BASE/DELTA export/teaching matrices — not live ADMM blocks on this path"
+                ),
+            },
+            {
+                "block": "COKER",
+                "sheet": "Submodel_Coker",
+                "what": (
+                    "PIMS BASE/DELTA export/teaching matrices — not live ADMM blocks on this path"
+                ),
+            },
             {"block": "LINKING", "sheet": "Submodel_Linking", "what": "prod−use balances; duals → Shadows"},
             {"block": "MASTER_ADMM", "sheet": "(outside Excel)", "what": "ρ / dual ascent / consensus — Python only"},
+            honesty["index_row"],
         ]
         _dict_rows_sheet("Submodel_Index", lean_index, preferred=["block", "sheet", "what"])
         _dict_rows_sheet(
@@ -1704,16 +1864,16 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
                 "meaning",
             ],
         )
+        check_rows = list(model_calc_check(model, mono)) + planner_honesty_check_rows(report)
         _dict_rows_sheet(
             "Calc_Check",
-            model_calc_check(model, mono),
+            check_rows,
             preferred=["check", "predicted", "actual", "abs_err", "ok"],
         )
 
-    dual = format_dual_honesty_summary(report)
-
     ws = wb.create_sheet("Summary")
     _header(ws, ["key", "value"])
+    honesty_summary_keys = {k for k, _ in honesty["summary_pairs"]}
     for k, v in [
         ("verdict", report.get("verdict")),
         ("input", meta.get("input")),
@@ -1734,20 +1894,22 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
         ("gap_rel", cmp_.get("objective_gap_rel")),
         ("both_feasible", cmp_.get("both_feasible")),
         ("pipeline_wall_s", meta.get("pipeline_wall_s")),
-        ("dual_linf_online", cmp_.get("dual_linf_online")),
-        ("dual_linf_online_role", "PRIMARY — free online λ; gates VERDICT dual L∞"),
-        ("dual_linf_recovered", cmp_.get("dual_linf_recovered")),
-        ("dual_linf_recovered_role", "SECONDARY — blender recovery face; not VERDICT gate"),
-        ("dual_gate", "online_lambda"),
-        ("verdict_dual_gate", "online_only"),
         ("recovered_secondary", True),
-        ("model_form", model.get("form")),
+        # Honesty strip (form + dual PRIMARY gate + offline TF not-on-path).
+        *honesty["summary_pairs"],
         (
             "sheet_guide",
             "How_to_read → Index → Calc_Yields/Blend → Submodel_CDU/Blender/FCC/Coker/Linking → Rates → Shadows → Summary",
         ),
         ("n_sheets_target", "≤15 lean PIMS-style"),
+        (
+            "index_offline_tf_note",
+            "See Submodel_Index OFFLINE_TF row (FCC+COKER+CDU not on classic Case 1)",
+        ),
     ]:
+        # Guard against accidental double-append of honesty keys.
+        if k in honesty_summary_keys and (k, v) not in honesty["summary_pairs"]:
+            continue
         ws.append([k, v])
 
     rates = wb.create_sheet("Rates")

@@ -84,6 +84,13 @@ def main(argv: list[str] | None = None) -> int:
         f"Dual SECONDARY (recovered blender face, not gate): L∞={cmp_.get('dual_linf_recovered')}  "
         f"[recovered_secondary=true]"
     )
+    ph = (meta.get("planner_honesty") or {})
+    offline_units = ph.get("offline_tf_units") or "FCC,COKER,CDU"
+    print(
+        f"Offline TF: units={offline_units}  on_excel_case1_path="
+        f"{ph.get('on_excel_case1_path', False)}  "
+        f"(NOT on classic Case 1 solve; dual_recovery_path=None on TF surface)"
+    )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
     print(f"Shadows mono:  { {k: round(v, 2) for k, v in mono['shadow_prices'].items()} }")

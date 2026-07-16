@@ -388,6 +388,145 @@ def test_format_dual_honesty_summary_pure():
     assert "PRIMARY" in d["shadows_role_banner"] and "SECONDARY" in d["shadows_role_banner"]
 
 
+def test_planner_honesty_glance_package(tmp_path):
+    """E1/E2: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    out = tmp_path / "honesty_glance.xlsx"
+    write_results_excel(out, report)
+    import openpyxl
+
+    wb = openpyxl.load_workbook(out)
+    assert len(wb.sheetnames) <= GOAL_MAX_SHEETS
+
+    # --- Pure helpers ---
+    pkg = format_planner_honesty_package(report)
+    assert pkg["index_row"]["block"] == "OFFLINE_TF"
+    assert "NOT" in pkg["index_row"]["what"] and "FCC" in pkg["index_row"]["what"]
+    assert "COKER" in pkg["index_row"]["what"] and "CDU" in pkg["index_row"]["what"]
+    assert pkg["meta"]["form"] == "classic_2block_excel_path"
+    assert pkg["meta"]["dual_gate"] == "online_lambda"
+    assert pkg["meta"]["verdict_dual_gate"] == "online_only"
+    assert pkg["meta"]["on_excel_case1_path"] is False
+    assert pkg["meta"]["tf_on_excel_case1_path"] is False
+    assert "FCC" in pkg["meta"]["offline_tf_units"]
+    assert "online_lambda" in str(pkg["meta"]["dual_recovery_path"])
+
+    rows = planner_honesty_check_rows(report)
+    names = {r["check"] for r in rows}
+    assert {
+        "form_classic_2block",
+        "dual_gate_online_only",
+        "offline_tf_not_on_case1",
+    } <= names
+    assert all(r["ok"] is True for r in rows)
+
+    # --- meta.planner_honesty on report ---
+    ph = report["meta"]["planner_honesty"]
+    assert ph["form"] == "classic_2block_excel_path"
+    assert ph["dual_gate"] == "online_lambda"
+    assert ph["verdict_dual_gate"] == "online_only"
+    assert ph["dual_linf_online_role"] == "PRIMARY"
+    assert ph["dual_linf_recovered_role"] == "SECONDARY"
+    assert ph["on_excel_case1_path"] is False
+    assert ph["tf_on_excel_case1_path"] is False
+    assert "FCC" in ph["offline_tf_units"] and "COKER" in ph["offline_tf_units"]
+    assert "CDU" in ph["offline_tf_units"]
+    assert "online_lambda" in str(ph["dual_recovery_path"])
+
+    # --- Submodel_Index OFFLINE_TF readiness ---
+    ih = [c.value for c in wb["Submodel_Index"][1]]
+    bi = ih.index("block")
+    wi = ih.index("what")
+    index_rows = {
+        r[bi].value: str(r[wi].value or "")
+        for r in wb["Submodel_Index"].iter_rows(min_row=2)
+        if r[bi].value
+    }
+    assert "OFFLINE_TF" in index_rows
+    ot = index_rows["OFFLINE_TF"].lower()
+    assert "fcc" in ot and "coker" in ot and "cdu" in ot
+    assert "not" in ot and ("case 1" in ot or "classic" in ot)
+    assert "none" in ot or "dual_recovery_path" in ot
+    # FCC/COKER export-vs-live wording
+    assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
+    assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
+    assert {"CDU", "BLENDER", "FCC", "COKER", "LINKING", "MASTER_ADMM", "OFFLINE_TF"} <= set(
+        index_rows
+    )
+
+    # --- Summary honesty strip ---
+    summary = {
+        str(r[0].value): r[1].value
+        for r in wb["Summary"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert summary.get("model_form") == "classic_2block_excel_path"
+    assert summary.get("dual_gate") == "online_lambda"
+    assert summary.get("verdict_dual_gate") == "online_only"
+    assert summary.get("tf_on_excel_case1_path") is False
+    offline_units = str(summary.get("offline_tf_units") or "")
+    assert "FCC" in offline_units and "COKER" in offline_units and "CDU" in offline_units
+    assert "PRIMARY" in str(summary.get("dual_linf_online_role") or "")
+    assert "SECONDARY" in str(summary.get("dual_linf_recovered_role") or "")
+    note = str(summary.get("offline_tf_note") or summary.get("index_offline_tf_note") or "")
+    assert "not" in note.lower() and ("case 1" in note.lower() or "classic" in note.lower())
+
+    # --- Calc_Check honesty audit rows (all ok) ---
+    chk_h = [c.value for c in wb["Calc_Check"][1]]
+    ci = chk_h.index("check")
+    oi = chk_h.index("ok")
+    checks = {
+        r[ci]: r[oi]
+        for r in wb["Calc_Check"].iter_rows(min_row=2, values_only=True)
+        if r[ci]
+    }
+    assert checks.get("form_classic_2block") is True
+    assert checks.get("dual_gate_online_only") is True
+    assert checks.get("offline_tf_not_on_case1") is True
+    for name, ok in checks.items():
+        assert ok is True, (name, ok)
+
+    # How_to offline + dual keys preserved
+    how = {
+        str(r[0].value): str(r[1].value or "")
+        for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert how.get("tf_offline_units")
+    assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
+        "duals_primary_secondary", ""
+    )
+
+
+def test_planner_honesty_check_rows_pure():
+    """Honesty audits fail closed on form / dual-gate drift (no solve needed)."""
+    from pims_admm_llm.models.excel_pipeline import planner_honesty_check_rows
+
+    good = {
+        "model": {"form": "classic_2block_excel_path"},
+        "comparison": {
+            "dual_gate": "online_lambda",
+            "verdict_dual_gate": "online_only",
+            "dual_linf_online_role": "PRIMARY",
+        },
+        "admm": {"dual_recovery_path": "package-admm/qp_l2+online_lambda_shadows"},
+    }
+    assert all(r["ok"] for r in planner_honesty_check_rows(good))
+
+    bad_form = dict(good)
+    bad_form["model"] = {"form": "wired_tf_path"}
+    rows = {r["check"]: r["ok"] for r in planner_honesty_check_rows(bad_form)}
+    assert rows["form_classic_2block"] is False
+    assert rows["offline_tf_not_on_case1"] is True
+
+
 def test_load_pims_excel_has_crudes(tmp_path):
     xlsx = tmp_path / "t.xlsx"
     write_template_excel(xlsx)

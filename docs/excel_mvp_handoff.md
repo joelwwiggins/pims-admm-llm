@@ -36,16 +36,18 @@ Target **≤15 sheets**, one planner tab per unit. Source of truth: `tests/test_
 
 | Sheet | Role |
 |-------|------|
-| How_to_read | Planner guide |
-| Submodel_Index | Unit map |
+| How_to_read | Planner guide (three-path + dual PRIMARY/SECONDARY + `tf_offline_units`) |
+| Submodel_Index | Unit map + **OFFLINE_TF** readiness row (FCC+COKER+CDU exact-linear offline — **not** classic Case 1 solve) |
 | Calc_Yields / Calc_Blend | Editable coefficients |
 | Submodel_CDU / Submodel_Blender | Classic **live** 2-block solve tables |
 | Submodel_FCC / Submodel_Coker | PIMS BASE/DELTA **export** matrices (not live ADMM blocks on this path) |
 | Submodel_Linking | prod−use balances → duals |
-| Calc_Check | Identity / feasibility checks |
-| Summary / Rates / Shadows | Verdict, rates, mono vs online-λ vs recovered duals |
+| Calc_Check | Identity / feasibility checks + **honesty audits** (`form_classic_2block`, `dual_gate_online_only`, `offline_tf_not_on_case1`) |
+| Summary / Rates / Shadows | Verdict, rates, mono vs online-λ vs recovered duals; Summary honesty strip includes form + dual_gate + offline_tf |
 
-`model.form == classic_2block_excel_path` — Excel solve remains CDU+Blender only; FCC/Coker tabs are teaching/export from `base_delta`.
+`model.form == classic_2block_excel_path` — Excel solve remains CDU+Blender only; FCC/Coker tabs are teaching/export from `base_delta`. Offline TF kernels (FCC+COKER+CDU) are readiness-only; not on Case 1 solve; `dual_recovery_path=None` on TF surface.
+
+After dual-honesty packaging and TF offline multi-unit registry: Index / Summary / Calc_Check **glance-lock** offline TF not-on-solve + dual PRIMARY gate + classic form (see `meta.planner_honesty` and `format_planner_honesty_package`).
 
 ## Honesty
 
