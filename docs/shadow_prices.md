@@ -79,3 +79,17 @@ Both produce duals on linking constraints with the same economic meaning as a
 full PIMS solve **at convergence**. ADMM updates λ each iteration via the
 augmented residual; DW takes duals of the restricted master. This project uses
 ADMM as the multi-agent coordinator; Worker 7 reports and validates the prices.
+
+## Case 1 Excel dual honesty (PRIMARY vs SECONDARY)
+
+Excel Case 1 (`classic_2block_excel_path`) packages duals for planners as:
+
+| Role | Source | Surface | Gates VERDICT dual L∞? |
+|------|--------|---------|------------------------|
+| **PRIMARY** | Free online λ economic value (`online_lambda` in `dual_recovery_path`) | `Shadows.admm_online_econ (PRIMARY)`, report `shadow_prices`, `dual_linf_online` | **Yes** (tol ≤ 15) |
+| **SECONDARY** | Blender recovery LP face | `Shadows.admm_recovered_econ (SECONDARY)`, `shadow_prices_recovered`, `dual_linf_recovered` | **No** — may diverge / be large |
+
+- VERDICT dual check uses **online L∞ only** + objective gap ≤ 0.5%. Recovered L∞ is **not** a PASS requirement.
+- Path string includes `online_lambda`; this is **not** pure-ADMM dual ownership and **not** TF dual recovery.
+- Optional TF linear blocks (FCC/Coker/CDU offline kernels) keep `dual_recovery_path=None` and never own Case 1 duals. See `docs/tf_linear_blocks.md`.
+- Shadows footer and How_to `duals_primary_secondary` print this-run online vs recovered L∞ for audit.

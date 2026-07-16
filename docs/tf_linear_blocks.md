@@ -116,6 +116,11 @@ identity at exact reference.
 Do not wire this module into `excel_pipeline` or the ADMM coordinator without dual L∞
 proof and an explicit form label change.
 
+**Case 1 dual ownership (not this module):** PRIMARY economic shadows = free online λ
+(`online_lambda` in `dual_recovery_path`); SECONDARY = recovered blender duals (may
+diverge). VERDICT dual gate is online L∞ only. TF surface never owns Case 1 duals
+(`dual_recovery_path=None`). See `docs/shadow_prices.md` § Case 1 Excel dual honesty.
+
 ## Critics checklist (before claiming “done”)
 
 - [ ] `solver=False` and `dual_recovery_path=None` on honesty_metadata / block

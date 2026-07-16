@@ -242,6 +242,124 @@ def test_excel_pipeline_case1_tf_non_wiring_contract(tmp_path):
     assert isinstance(admm.get("shadow_prices_recovered"), dict)
 
 
+def test_excel_dual_honesty_primary_secondary(tmp_path):
+    """E1/E2: Shadows/How_to/Summary PRIMARY online vs SECONDARY recovered; online-only gate."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _verdict,
+        format_dual_honesty_summary,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    out = tmp_path / "dual_honesty.xlsx"
+    write_results_excel(out, report)
+    import openpyxl
+
+    wb = openpyxl.load_workbook(out)
+    assert len(wb.sheetnames) <= GOAL_MAX_SHEETS
+
+    # --- Report comparison roles (JSON honesty feed) ---
+    cmp_ = report["comparison"]
+    assert cmp_["dual_gate"] == "online_lambda"
+    assert cmp_["verdict_dual_gate"] == "online_only"
+    assert cmp_["dual_linf_online_role"] == "PRIMARY"
+    assert cmp_["dual_linf_recovered_role"] == "SECONDARY"
+    assert cmp_["recovered_secondary"] is True
+    assert cmp_["dual_linf_online"] <= 15.0
+    # Recovered may be large / ≥ online; never require recovered ≤15.
+    assert cmp_["dual_linf_recovered"] + 1e-9 >= cmp_["dual_linf_online"]
+
+    # Online-only VERDICT math lock (anti-recovered-PASS regression).
+    assert report["verdict"].startswith("PASS")
+    soft = _verdict(
+        report["mono"],
+        report["admm"],
+        cmp_["objective_gap_rel"],
+        dual_linf=100.0,  # would fail if this were the gate input
+    )
+    assert soft.startswith("PASS_SOFT") or soft.startswith("FAIL")
+    assert "dual L∞" in soft or "dual" in soft.lower()
+
+    dual = format_dual_honesty_summary(report)
+    assert dual["primary_role"] == "PRIMARY"
+    assert dual["secondary_role"] == "SECONDARY"
+    assert dual["verdict_dual_gate"] == "online_only"
+    assert "online_lambda" in dual["dual_recovery_path"]
+    assert "PRIMARY" in dual["planner_one_liner"] and "SECONDARY" in dual["planner_one_liner"]
+
+    # --- Shadows surface ---
+    sh_vals = []
+    for row in wb["Shadows"].iter_rows(values_only=True):
+        sh_vals.extend(str(c) for c in row if c is not None)
+    blob = " | ".join(sh_vals)
+    assert "PRIMARY" in blob
+    assert "SECONDARY" in blob
+    assert "admm_online_econ" in blob
+    assert "admm_recovered_econ" in blob
+    assert "online_only" in blob or "verdict_dual_gate" in blob
+    assert "online_lambda" in blob
+    assert any("dual_L" in s and "online" in s.lower() for s in sh_vals) or (
+        "dual_L∞_online_vs_mono" in blob or "dual_linf_online" in blob.lower()
+    )
+    assert any("recovered" in s.lower() and "dual" in s.lower() for s in sh_vals) or (
+        "dual_L∞_recovered_vs_mono" in blob
+    )
+
+    # --- How_to this-run numbers + gate language ---
+    how = {
+        str(r[0].value): str(r[1].value or "")
+        for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    dual_note = how.get("duals_online_lambda", "")
+    assert "PRIMARY" in dual_note and "SECONDARY" in dual_note
+    assert "online_lambda" in dual_note
+    # this-run number presence (formatted L∞ from report)
+    online_s = dual["dual_linf_online"]
+    assert online_s in dual_note or online_s in how.get("duals_primary_secondary", "")
+    dps = how.get("duals_primary_secondary", "")
+    assert dps and "PRIMARY" in dps and "SECONDARY" in dps
+    assert "online_only" in dps or "gates VERDICT" in dps or "tol" in dps
+    assert "not pure-ADMM" in dps.lower() or "not pure-admm" in dps.lower()
+    assert "not TF" in dps or "not TF dual" in dps
+    sb = how.get("solve_boundary", "")
+    assert "PRIMARY" in sb and "SECONDARY" in sb
+
+    # --- Summary gate notes ---
+    summary = {
+        str(r[0].value): r[1].value
+        for r in wb["Summary"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert summary.get("dual_gate") == "online_lambda"
+    assert summary.get("verdict_dual_gate") == "online_only"
+    assert summary.get("recovered_secondary") is True
+    online_role = str(summary.get("dual_linf_online_role") or "")
+    rec_role = str(summary.get("dual_linf_recovered_role") or "")
+    assert "PRIMARY" in online_role and "VERDICT" in online_role
+    assert "SECONDARY" in rec_role
+    assert "online_lambda" in str(summary.get("dual_recovery_path") or "")
+
+
+def test_format_dual_honesty_summary_pure():
+    """DRY helper works without a full solve."""
+    from pims_admm_llm.models.excel_pipeline import format_dual_honesty_summary
+
+    fake = {
+        "admm": {"dual_recovery_path": "package-admm/qp_l2+online_lambda_shadows"},
+        "comparison": {"dual_linf_online": 2.66, "dual_linf_recovered": 112.0},
+    }
+    d = format_dual_honesty_summary(fake)
+    assert d["primary_role"] == "PRIMARY"
+    assert d["secondary_role"] == "SECONDARY"
+    assert d["verdict_dual_gate"] == "online_only"
+    assert "2.66" in d["dual_linf_online"]
+    assert "112" in d["dual_linf_recovered"]
+    assert "online_lambda" in d["dual_recovery_path"]
+    assert "PRIMARY" in d["shadows_role_banner"] and "SECONDARY" in d["shadows_role_banner"]
+
+
 def test_load_pims_excel_has_crudes(tmp_path):
     xlsx = tmp_path / "t.xlsx"
     write_template_excel(xlsx)
