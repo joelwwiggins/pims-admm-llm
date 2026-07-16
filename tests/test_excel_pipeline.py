@@ -213,6 +213,16 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "solver=false" in low or "solver=False" in tf_off
     assert "none" in low  # dual_recovery_path=None on TF surface
 
+    # Optional secondary: priced residual readiness (static How_to; still not Case 1)
+    tf_priced = how.get("tf_offline_priced", "")
+    assert tf_priced, "How_to_read must include tf_offline_priced"
+    plow = tf_priced.lower()
+    assert "priced residual" in plow or "priced" in plow
+    assert "fcc" in plow and "coker" in plow and "cdu" in plow
+    assert "not on" in plow or "classic_2block" in plow
+    assert "dual" in plow and ("none" in plow or "primary" in plow)
+    assert "not" in plow and ("shadow" in plow or "λ" in plow or "lambda" in plow or "admm" in plow)
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -230,6 +240,24 @@ def test_format_tf_offline_units_howto_pure():
     assert "primary" in one
     assert "dual" in one
 
+
+def test_format_tf_offline_priced_howto_pure():
+    """Static priced residual How_to: isolation-safe; no TF import."""
+    from pims_admm_llm.models.excel_pipeline import format_tf_offline_priced_howto
+
+    d = format_tf_offline_priced_howto()
+    assert d["topic"] == "tf_offline_priced"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    assert d["price_source"] == "synthetic_offline_demo"
+    one = d["planner_one_liner"].lower()
+    assert "priced residual" in one or "priced" in one
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one
+    assert "not" in one
 
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""

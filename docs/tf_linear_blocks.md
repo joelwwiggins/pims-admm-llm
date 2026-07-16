@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -36,6 +36,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | CDU renorm honesty | Often **identity at reference** (liquids already sum≈1); cut/API offsets can engage renorm → raw ≠ evaluate |
 | CDU nested drivers | `cut_points_f.*` flattened into x0 (same as pack/evaluate) |
 | Multi-unit registry | `offline_unit_registry` / `offline_units_status` / `multi_unit_parity_report` — readiness only |
+| Priced residual (goal 5) | `multi_unit_priced_residual_report` / `default_offline_prices` / `local_box_direction` — economics readiness; prices **not** duals |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -68,6 +69,47 @@ assert report["dual_recovery_path"] is None
 coeffs = offline_unit_coeffs("FCC")  # always-on AffineCoeffs
 # block = build_offline_unit("CDU")  # ImportError if TF missing
 ```
+
+## Offline priced residual / local box direction (goal 5 readiness)
+
+Always-on numpy surface. Proves exact-linear blocks track **economics** under
+simple synthetic product prices, and optionally a tiny closed-form local box
+step on drivers. Still offline, still dual-ban, still not on Case 1.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    default_offline_prices,
+    pack_price_vector,
+    priced_residual_for_unit,
+    multi_unit_priced_residual_report,
+    local_box_direction,
+)
+
+prices = default_offline_prices("FCC")  # synthetic_offline_demo — NOT duals
+report = multi_unit_priced_residual_report()  # FCC+COKER+CDU at ref + mild offset
+assert report["ok"]
+assert report["kind"] == "offline_priced_residual"
+assert report["dual_recovery_path"] is None
+assert report["on_excel_case1_path"] is False
+assert report["price_source"] == "synthetic_offline_demo"
+# Coker: raw priced value may ≠ full evaluate even at reference (renorm)
+
+box = local_box_direction("COKER", delta=0.5)
+# x_star = x0 + δ * sign(D.T @ p); postprocess outside LP
+assert box["dual_recovery_path"] is None
+assert box["kind"] == "offline_local_box_direction"
+```
+
+Honesty table (priced surface):
+
+| Field | Value |
+|-------|-------|
+| `kind` | `offline_priced_residual` / `offline_local_box_direction` |
+| `solver` | `False` |
+| `dual_recovery_path` | `None` |
+| `on_excel_case1_path` | `False` |
+| `price_source` | `synthetic_offline_demo` (not Case 1 blender / not online λ) |
+| Local box gradients | **Not** ADMM λ / **not** Case 1 shadows |
 
 Planner-facing How_to key `tf_offline_units` (static text in `excel_pipeline`,
 **no** import of this module) states the same honesty: FCC+COKER+CDU offline
@@ -160,12 +202,14 @@ diverge). VERDICT dual gate is online L∞ only. TF surface never owns Case 1 du
 This is a **gate list only** — do **not** implement the wire from this doc alone.
 
 - [ ] `multi_unit_parity_report()` aggregate `ok` (always-on numpy; TF arm green if installed)
+- [ ] `multi_unit_priced_residual_report()` aggregate `ok` (always-on economics residual; dual_recovery_path=None; prices not duals)
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
 - [ ] TF never claims dual recovery without an online-λ proof path (`dual_recovery_path` must stay labeled honestly)
 - [ ] Excel lean ≤15 sheets preserved; no EMRPS on hot path; no reformer/HDT kernel as wire side-effect
 - [ ] Case 1 demo VERDICT still PASS (gap ≤0.5%, dual L∞ online ≤15) with or without TF installed
+- [ ] Local box direction (if used) never treated as Case 1 shadows / online λ
 
 ## Critics checklist (before claiming “done”)
 
@@ -178,4 +222,6 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] FCC E1/E10 and Coker E7/E8 excel match gates still green
 - [ ] How_to includes `fcc_three_path` + `coker_three_path` + `cdu_three_path` + `tf_offline_units`
 - [ ] `offline_unit_registry` lists exactly FCC/COKER/CDU; `multi_unit_parity_report` ok without TF
+- [ ] `multi_unit_priced_residual_report` ok without TF; Coker raw≠full priced honesty preserved
 - [ ] Pre-wire dual-L∞ proof checklist present (this doc); wire not claimed as shipped
+- [ ] Priced residual pre-wire gate present; local box gradients not claimed as duals

@@ -732,6 +732,395 @@ def multi_unit_parity_report(atol: float = 1e-9) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Offline priced residual harness + optional local box direction (goal 5)
+# Always-on numpy; not a solve; not ADMM duals; not on Excel Case 1 path.
+# ---------------------------------------------------------------------------
+
+PRICE_SOURCE = "synthetic_offline_demo"
+
+# Stable non-negative synthetic demo prices (not Case 1 blender / not ADMM λ).
+_DEFAULT_OFFLINE_PRICES: Dict[str, Dict[str, float]] = {
+    "FCC": {
+        "fcc_dry_gas": 8.0,
+        "fcc_lpg": 22.0,
+        "fcc_naphtha": 45.0,
+        "fcc_lco": 38.0,
+        "fcc_slurry": 18.0,
+        "fcc_coke": 2.0,
+    },
+    "COKER": {
+        "coker_dry_gas": 7.0,
+        "coker_lpg": 20.0,
+        "coker_naphtha": 40.0,
+        "coker_gasoil": 35.0,
+        "coker_coke": 5.0,
+    },
+    "CDU": {
+        "cdu_offgas": 6.0,
+        "cdu_naphtha_light": 48.0,
+        "cdu_naphtha_heavy": 44.0,
+        "cdu_distillate": 42.0,
+        "cdu_gasoil": 36.0,
+        "cdu_resid": 15.0,
+    },
+}
+
+
+def _priced_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / Case1-off contract for priced residual reports."""
+    return {
+        "kind": "offline_priced_residual",
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "price_source": PRICE_SOURCE,
+        "note": (
+            "Offline priced residual harness only: product prices are synthetic demo "
+            "values (not ADMM λ, not pure-ADMM dual recovery, not Case 1 shadows). "
+            "Not a solve; not on classic_2block_excel_path. TF dual_recovery_path stays None."
+        ),
+    }
+
+
+def default_offline_prices(unit: str) -> Dict[str, float]:
+    """Stable synthetic non-negative product prices for one registry unit.
+
+    Prices are **readiness demo values** only (``price_source=synthetic_offline_demo``).
+    They are **not** Case 1 blender prices, online λ, recovered duals, or shadows.
+    """
+    key = _normalize_unit_name(unit)
+    prices = _DEFAULT_OFFLINE_PRICES.get(key)
+    if prices is None:
+        raise ValueError(
+            f"No default offline prices for unit {unit!r}; expected one of {list(UNITS)}"
+        )
+    return dict(prices)
+
+
+def pack_price_vector(
+    unit_or_coeffs: Union[str, AffineCoeffs],
+    prices: Mapping[str, float],
+    *,
+    fill_missing: bool = False,
+) -> np.ndarray:
+    """Pack product prices into product order matching AffineCoeffs.products.
+
+    By default missing product keys raise ValueError (honesty). Set
+    ``fill_missing=True`` to fill absent keys with 0.0. Unknown keys raise.
+    """
+    if isinstance(unit_or_coeffs, AffineCoeffs):
+        coeffs = unit_or_coeffs
+        products = list(coeffs.products)
+    else:
+        coeffs = offline_unit_coeffs(str(unit_or_coeffs))
+        products = list(coeffs.products)
+
+    price_map = {str(k): float(v) for k, v in prices.items()}
+    unknown = sorted(set(price_map) - set(products))
+    if unknown:
+        raise ValueError(
+            f"Unknown product price keys {unknown} for unit {coeffs.unit!r}; "
+            f"expected subset of {products}"
+        )
+    missing = [p for p in products if p not in price_map]
+    if missing and not fill_missing:
+        raise ValueError(
+            f"Missing product prices for unit {coeffs.unit!r}: {missing}"
+        )
+    vec = np.zeros(len(products), dtype=np.float64)
+    for i, p in enumerate(products):
+        if p in price_map:
+            val = float(price_map[p])
+            if val < 0.0:
+                raise ValueError(f"Price for {p!r} must be non-negative, got {val}")
+            vec[i] = val
+        else:
+            vec[i] = 0.0
+    return vec
+
+
+def _dot_prices(p_vec: np.ndarray, y_map: Mapping[str, float], products: Sequence[str]) -> float:
+    total = 0.0
+    for i, prod in enumerate(products):
+        total += float(p_vec[i]) * float(y_map[prod])
+    return float(total)
+
+
+def _resolve_prices(
+    unit: str, prices: Optional[Mapping[str, float]]
+) -> tuple[Dict[str, float], np.ndarray, AffineCoeffs]:
+    coeffs = offline_unit_coeffs(unit)
+    price_dict = dict(prices) if prices is not None else default_offline_prices(unit)
+    p_vec = pack_price_vector(coeffs, price_dict)
+    return price_dict, p_vec, coeffs
+
+
+def priced_residual_for_unit(
+    unit: str,
+    prices: Optional[Mapping[str, float]] = None,
+    *,
+    feed: Optional[Mapping[str, float]] = None,
+    conditions: Optional[Mapping[str, Any]] = None,
+    atol: float = 1e-9,
+    rtol: float = 1e-9,
+) -> Dict[str, Any]:
+    """Per-unit priced residual: p·postprocess(affine) vs p·evaluate (always-on).
+
+    At the given drivers (default: reference), compares economics under product
+    prices. Also reports raw affine priced value (may ≠ full for Coker renorm).
+    Honesty: dual_recovery_path=None; not on Case 1; prices are not duals.
+    """
+    key = _normalize_unit_name(unit)
+    price_dict, p_vec, coeffs = _resolve_prices(key, prices)
+    builder = _builder_for(key)
+    post = _postprocess_for(key)
+    model = builder()
+    feed_use = dict(feed) if feed is not None else dict(model.reference_feed)
+    cond_use = (
+        dict(conditions)
+        if conditions is not None
+        else dict(model.reference_conditions)
+    )
+
+    x = pack_driver_vector(coeffs, feed=feed_use, conditions=cond_use)
+    y_raw = numpy_affine_forward(coeffs, x, clamp_products=True)
+    y_aff_full = post(y_raw, products=coeffs.products)
+    y_eval = model.evaluate(feed_use, cond_use, clamp_products=True)
+
+    v_raw = float(p_vec @ y_raw)
+    v_aff = _dot_prices(p_vec, y_aff_full, coeffs.products)
+    v_eval = _dot_prices(p_vec, y_eval, coeffs.products)
+    abs_err = abs(v_aff - v_eval)
+    scale = max(abs(v_eval), 1e-12)
+    rel_err = abs_err / scale
+    ok = bool(abs_err <= atol + rtol * abs(v_eval))
+    raw_vs_full = abs(v_raw - v_eval)
+
+    honesty = _priced_honesty_fields()
+    return {
+        "unit": key,
+        "ok": ok,
+        "v_eval": v_eval,
+        "v_aff": v_aff,
+        "v_raw": v_raw,
+        "abs_err": abs_err,
+        "rel_err": rel_err,
+        "raw_vs_full_priced_gap": raw_vs_full,
+        "prices": price_dict,
+        "products": list(coeffs.products),
+        "atol": atol,
+        "rtol": rtol,
+        **honesty,
+    }
+
+
+def multi_unit_priced_residual_report(
+    prices: Optional[Mapping[str, Mapping[str, float]]] = None,
+    *,
+    atol: float = 1e-9,
+    rtol: float = 1e-9,
+) -> Dict[str, Any]:
+    """Always-on multi-unit priced residual (FCC/COKER/CDU) + honesty locks.
+
+    For each registry unit, at reference and one mild driver offset, compares
+    ``p · postprocess(numpy_affine_forward)`` vs ``p · evaluate``. Aggregate
+    ``ok`` requires numeric residuals within atol/rtol **and** dual-ban honesty.
+
+    Not a solve, not ADMM, not dual recovery, not on Excel Case 1.
+    """
+    units_out: Dict[str, Any] = {}
+    all_ok = True
+    honesty = _priced_honesty_fields()
+
+    for desc in offline_unit_registry():
+        unit_prices: Optional[Mapping[str, float]] = None
+        if prices is not None and desc.unit in prices:
+            unit_prices = prices[desc.unit]
+        elif prices is not None and desc.unit not in prices:
+            unit_prices = None  # fall back to defaults
+
+        builder = _builder_for(desc.unit)
+        model = builder()
+        feed_off, cond_off = _mild_offset_for(desc.unit, model)
+
+        ref_row = priced_residual_for_unit(
+            desc.unit, unit_prices, atol=atol, rtol=rtol
+        )
+        off_row = priced_residual_for_unit(
+            desc.unit,
+            unit_prices,
+            feed=feed_off,
+            conditions=cond_off,
+            atol=atol,
+            rtol=rtol,
+        )
+        unit_ok = bool(ref_row["ok"] and off_row["ok"])
+        unit_row = {
+            "ok": unit_ok,
+            "unit": desc.unit,
+            "ref": ref_row,
+            "offset": off_row,
+            "raw_vs_full_priced_gap_ref": ref_row["raw_vs_full_priced_gap"],
+            "renorm_note": desc.renorm_note,
+            "solver": False,
+            "dual_recovery_path": None,
+            "on_excel_case1_path": False,
+            "kind": "offline_priced_residual",
+            "price_source": PRICE_SOURCE,
+        }
+        units_out[desc.unit] = unit_row
+        if not unit_ok:
+            all_ok = False
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+    )
+    if not honesty_ok:
+        all_ok = False
+
+    return {
+        "ok": all_ok,
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": "offline_priced_residual",
+        "price_source": PRICE_SOURCE,
+        "honesty_ok": honesty_ok,
+        "tf_available": tf_available(),
+        "atol": atol,
+        "rtol": rtol,
+        "note": honesty["note"],
+    }
+
+
+def local_box_direction(
+    unit: str,
+    prices: Optional[Mapping[str, float]] = None,
+    *,
+    delta: Union[float, Mapping[str, float], np.ndarray] = 1.0,
+    driver_mask: Optional[Sequence[bool]] = None,
+) -> Dict[str, Any]:
+    """Closed-form local box maximizer for raw affine product value (offline).
+
+    Maximizes ``p · (y0 + D @ (x − x0))`` over box ``x ∈ [x0−δ, x0+δ]``
+    (independent per driver). Maximizer is a corner: ``sign(D.T @ p)``.
+
+    Reports ``x_star``, ``v_raw_star``, and postprocess ``v_full_star``.
+    Postprocess is **outside** the linear program (Coker raw ≠ full expected).
+    Gradients / local prices are **not** ADMM λ or Case 1 shadows.
+    """
+    key = _normalize_unit_name(unit)
+    price_dict, p_vec, coeffs = _resolve_prices(key, prices)
+    n_d = int(coeffs.x0.shape[0])
+
+    if isinstance(delta, Mapping):
+        d_vec = np.array(
+            [float(delta.get(drv, 0.0)) for drv in coeffs.drivers],
+            dtype=np.float64,
+        )
+    elif np.isscalar(delta):
+        d_vec = np.full(n_d, float(np.asarray(delta).item()), dtype=np.float64)
+    else:
+        d_vec = np.asarray(delta, dtype=np.float64).reshape(-1)
+        if d_vec.shape[0] != n_d:
+            raise ValueError(
+                f"delta length {d_vec.shape[0]} != n_drivers {n_d}"
+            )
+    if np.any(d_vec < 0.0):
+        raise ValueError("delta components must be non-negative")
+
+    mask = np.ones(n_d, dtype=bool)
+    if driver_mask is not None:
+        mask_arr = np.asarray(list(driver_mask), dtype=bool).reshape(-1)
+        if mask_arr.shape[0] != n_d:
+            raise ValueError(
+                f"driver_mask length {mask_arr.shape[0]} != n_drivers {n_d}"
+            )
+        mask = mask_arr
+
+    # Gradient of raw affine value w.r.t. x: g = D.T @ p
+    g = coeffs.D.T @ p_vec
+    x_star = np.array(coeffs.x0, dtype=np.float64, copy=True)
+    for j in range(n_d):
+        if not mask[j] or abs(float(g[j])) < 1e-15 or float(d_vec[j]) == 0.0:
+            continue
+        x_star[j] = float(coeffs.x0[j]) + float(d_vec[j]) * float(np.sign(g[j]))
+
+    y_raw = numpy_affine_forward(coeffs, x_star, clamp_products=True)
+    v_raw_star = float(p_vec @ y_raw)
+    post = _postprocess_for(key)
+    y_full = post(y_raw, products=coeffs.products)
+    v_full_star = _dot_prices(p_vec, y_full, coeffs.products)
+
+    # Reference raw value for comparison
+    y_raw_ref = numpy_affine_forward(coeffs, coeffs.x0, clamp_products=True)
+    v_raw_ref = float(p_vec @ y_raw_ref)
+
+    tf_section: Dict[str, Any] = {
+        "skipped": True,
+        "ok": None,
+        "reason": "tf_unavailable",
+    }
+    if tf_available():
+        try:
+            block = build_offline_unit(key)
+            y_tf = np.asarray(
+                block.forward(x_star, clamp_products=True, as_dict=False),
+                dtype=np.float64,
+            ).reshape(-1)
+            v_tf_raw = float(p_vec @ y_tf)
+            tf_ok = bool(abs(v_tf_raw - v_raw_star) <= 1e-9)
+            tf_section = {
+                "skipped": False,
+                "ok": tf_ok,
+                "v_raw_star_tf": v_tf_raw,
+                "reason": None,
+            }
+        except Exception as exc:  # pragma: no cover - env dependent
+            tf_section = {
+                "skipped": False,
+                "ok": False,
+                "reason": f"{type(exc).__name__}: {exc}",
+            }
+
+    return {
+        "unit": key,
+        "kind": "offline_local_box_direction",
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "price_source": PRICE_SOURCE,
+        "prices": price_dict,
+        "x0": coeffs.x0.tolist(),
+        "x_star": x_star.tolist(),
+        "drivers": list(coeffs.drivers),
+        "gradient_raw": g.tolist(),
+        "delta": d_vec.tolist(),
+        "v_raw_ref": v_raw_ref,
+        "v_raw_star": v_raw_star,
+        "v_full_star": v_full_star,
+        "raw_vs_full_priced_gap_star": abs(v_raw_star - v_full_star),
+        "tf": tf_section,
+        "note": (
+            "Offline local box maximizer for raw affine product value under "
+            "independent driver box. Maximizer is a corner (sign of D.T @ p). "
+            "Postprocess (renorm/clamp) is outside the linear program — raw vs "
+            "full may differ (especially Coker). Local gradients/prices are "
+            "NOT ADMM λ, NOT pure-ADMM dual recovery, NOT Case 1 shadows. "
+            "Not a solve; not on classic_2block_excel_path."
+        ),
+    }
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -863,6 +1252,12 @@ __all__ = [
     "build_offline_unit",
     "offline_units_status",
     "multi_unit_parity_report",
+    "PRICE_SOURCE",
+    "default_offline_prices",
+    "pack_price_vector",
+    "priced_residual_for_unit",
+    "multi_unit_priced_residual_report",
+    "local_box_direction",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
