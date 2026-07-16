@@ -160,10 +160,12 @@ Honesty table (timing / readiness surface):
 | Timings | **Offline readiness** — not Case 1 wall time; not ADMM duals / shadows |
 | `ready_for_wire_discussion` | Structural only (parity + priced + timing + honesty); **not** wire shipped |
 
-Planner-facing How_to key `tf_offline_units` (static text in `excel_pipeline`,
-**no** import of this module) states the same honesty: FCC+COKER+CDU offline
-exact-linear available; **not** on Case 1 solve; duals remain PRIMARY online-λ /
-SECONDARY recovered.
+Planner-facing How_to keys `tf_offline_units` / `tf_offline_priced` / `tf_offline_timing`
+(static text in `excel_pipeline`, **no** import of this module) state the same honesty:
+FCC+COKER+CDU offline exact-linear + priced residual + block-solve timing readiness
+available; **not** on Case 1 solve; duals remain PRIMARY online-λ / SECONDARY recovered.
+Index / Summary / Calc_Check also glance-lock that readiness package via pure static
+formatters (`format_planner_honesty_package`) — still offline-only, still not wire shipped.
 
 ## Per-unit affine API
 
