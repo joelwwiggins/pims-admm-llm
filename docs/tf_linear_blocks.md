@@ -445,16 +445,23 @@ plant-linking readiness **statically** (`tf_offline_admm_plant_linking` How_to t
 `topology_source=plant_named_offline_demo`) **and** offline wire-preflight readiness
 (`tf_offline_wire_preflight` How_to topic; `offline_tf_wire_preflight_ready`;
 `offline_tf_wire_preflight_not_duals` / `offline_tf_wire_not_shipped`;
-`wire_shipped=False`; static mirror of `DEFAULT_WIRE_BLOCKERS` honesty ids). Existence
+`wire_shipped=False`; static mirror of `DEFAULT_WIRE_BLOCKERS` honesty ids) **and**
+offline Case-1-shaped CDU↔Blender skeleton readiness
+(`tf_offline_case1_shaped_linking` How_to topic; `offline_tf_case1_shaped_linking_ready`;
+`offline_tf_case1_shaped_linking_not_duals` / `offline_tf_case1_shaped_not_wire`;
+`blender_surface=linear_quality_pooling`; streams naphtha/distillate/gasoil/residue;
+`wire_shipped=False`; skeleton λ ≠ Case 1 duals; skeleton ≠ package-ADMM wire). Existence
 packaging only — **not** a live
 `multi_block_plant_linking_admm_report` / `multi_block_plant_named_linking_admm_report`
-/ `offline_wire_preflight_report` call from the Excel write path; **not** Case 1;
-**not** full plant mass balance; **not** wire shipped; plant-linking / plant-named /
-preflight λ ≠ Case 1 duals. `ready_for_wire_discussion` remains structural only
+/ `offline_wire_preflight_report` / `offline_case1_shaped_cdu_blender_linking_report`
+call from the Excel write path; **not** Case 1; **not** full plant mass balance; **not**
+wire shipped; plant-linking / plant-named / preflight / skeleton λ ≠ Case 1 duals.
+`ready_for_wire_discussion` remains structural only
 (parity∧priced∧timings∧honesty) — packaging surfaces blockers so structural ready ≠
 "wire tomorrow". Per-unit coordination surface remains distinct
 (`not_plant_linking_coordinator=True`). Synthetic plant-linking packaging remains
-present alongside plant-named.
+present alongside plant-named. Case-1-shaped packaging does **not** clear
+`DEFAULT_WIRE_BLOCKERS` / Excel `_OFFLINE_WIRE_BLOCKER_IDS`.
 
 ## Per-unit affine API
 
