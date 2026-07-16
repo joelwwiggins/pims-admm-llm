@@ -274,10 +274,12 @@ def test_readiness_can_skip_subproblem_flag():
         include_admm_residual=False,
         include_admm_block_subproblem=False,
         include_admm_coordination=False,
+        include_admm_plant_linking=False,
     )
     assert rep["admm_block_subproblem_ok"] is None
     assert rep["admm_residual_ok"] is None
     assert rep["admm_coordination_ok"] is None
+    assert rep["admm_plant_linking_ok"] is None
 
 
 def test_readiness_admm_coordination_ok_additive():
