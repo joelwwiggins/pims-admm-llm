@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + parity (optional TF) + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -35,9 +35,46 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | Coker renorm honesty | Raw affine ≠ full `evaluate()` **even at reference** (renorm always engages) |
 | CDU renorm honesty | Often **identity at reference** (liquids already sum≈1); cut/API offsets can engage renorm → raw ≠ evaluate |
 | CDU nested drivers | `cut_points_f.*` flattened into x0 (same as pack/evaluate) |
+| Multi-unit registry | `offline_unit_registry` / `offline_units_status` / `multi_unit_parity_report` — readiness only |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
-## API
+## Multi-unit offline registry API
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    offline_unit_registry,
+    offline_unit_coeffs,
+    build_offline_unit,       # requires TensorFlow
+    offline_units_status,
+    multi_unit_parity_report,
+    UNITS,                    # ("FCC", "COKER", "CDU")
+)
+
+reg = offline_unit_registry()
+# ordered OfflineUnitDescriptor: unit, builder/factory/postprocess names,
+# excel_match_name (None for CDU), renorm_note, shape
+
+status = offline_units_status()
+# solver=False, dual_recovery_path=None, on_excel_case1_path=False,
+# tf_available, per_unit shapes — never claims dual recovery or Case 1 ownership
+
+report = multi_unit_parity_report(atol=1e-9)
+# always-on numpy: pack@ref≡x0; affine+postprocess≡evaluate at ref + mild offset
+# optional TF raw≡numpy raw when tf_available(); skipped otherwise
+# report["ok"] requires numeric checks + honesty fields
+assert report["ok"]
+assert report["dual_recovery_path"] is None
+
+coeffs = offline_unit_coeffs("FCC")  # always-on AffineCoeffs
+# block = build_offline_unit("CDU")  # ImportError if TF missing
+```
+
+Planner-facing How_to key `tf_offline_units` (static text in `excel_pipeline`,
+**no** import of this module) states the same honesty: FCC+COKER+CDU offline
+exact-linear available; **not** on Case 1 solve; duals remain PRIMARY online-λ /
+SECONDARY recovered.
+
+## Per-unit affine API
 
 ```python
 from pims_admm_llm.models.tf_linear_blocks import (
@@ -59,9 +96,6 @@ from pims_admm_llm.models.base_delta import (
     build_fcc_base_delta,
     build_coker_base_delta,
     build_cdu_base_delta,
-    postprocess_fcc_yields,
-    postprocess_coker_yields,
-    postprocess_cdu_yields,
 )
 
 # FCC
@@ -121,13 +155,27 @@ proof and an explicit form label change.
 diverge). VERDICT dual gate is online L∞ only. TF surface never owns Case 1 duals
 (`dual_recovery_path=None`). See `docs/shadow_prices.md` § Case 1 Excel dual honesty.
 
+## Before wiring TF into ADMM / Case 1 (pre-wire checklist)
+
+This is a **gate list only** — do **not** implement the wire from this doc alone.
+
+- [ ] `multi_unit_parity_report()` aggregate `ok` (always-on numpy; TF arm green if installed)
+- [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
+- [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
+- [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
+- [ ] TF never claims dual recovery without an online-λ proof path (`dual_recovery_path` must stay labeled honestly)
+- [ ] Excel lean ≤15 sheets preserved; no EMRPS on hot path; no reformer/HDT kernel as wire side-effect
+- [ ] Case 1 demo VERDICT still PASS (gap ≤0.5%, dual L∞ online ≤15) with or without TF installed
+
 ## Critics checklist (before claiming “done”)
 
-- [ ] `solver=False` and `dual_recovery_path=None` on honesty_metadata / block
+- [ ] `solver=False` and `dual_recovery_path=None` on honesty_metadata / block / offline_units_status
 - [ ] Not on Excel Case 1 path (`on_excel_case1_path=False`; form still classic_2block)
 - [ ] No learned weights — base_delta coeffs only
 - [ ] Postprocess outside TF; Coker L_div (raw ≠ evaluate at ref) tested
 - [ ] CDU nested x0 honesty + L0/L1; no fake `excel_cdu_matrix_matches_affine`
 - [ ] Isolation: excel_pipeline / models `__init__` do not import tf_linear_blocks / tensorflow
 - [ ] FCC E1/E10 and Coker E7/E8 excel match gates still green
-- [ ] How_to includes `fcc_three_path` + `coker_three_path` + `cdu_three_path`
+- [ ] How_to includes `fcc_three_path` + `coker_three_path` + `cdu_three_path` + `tf_offline_units`
+- [ ] `offline_unit_registry` lists exactly FCC/COKER/CDU; `multi_unit_parity_report` ok without TF
+- [ ] Pre-wire dual-L∞ proof checklist present (this doc); wire not claimed as shipped

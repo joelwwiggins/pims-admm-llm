@@ -1387,6 +1387,32 @@ def format_dual_honesty_summary(report: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
+def format_tf_offline_units_howto() -> Dict[str, str]:
+    """Static offline TF multi-unit How_to strings (isolation-safe; no TF import).
+
+    Mirrors the honesty contract of tf_linear_blocks without importing that module
+    or tensorflow (E6/E14 isolation lock). Planner-facing only — not a solve claim.
+    """
+    one_liner = (
+        "Offline exact-linear TF/numpy kernels available for FCC + COKER + CDU "
+        "(tf_linear_fcc / tf_linear_coker / tf_linear_cdu; base_delta y0/D affine). "
+        "Not on this Case 1 solve (classic_2block_excel_path; mono+ADMM still CDU+Blender). "
+        "Offline surface: solver=False, dual_recovery_path=None, on_excel_case1_path=False. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender "
+        "(see duals_primary_secondary); TF never owns duals."
+    )
+    return {
+        "topic": "tf_offline_units",
+        "units": "FCC+COKER+CDU",
+        "on_case1_solve": "false",
+        "form": "classic_2block_excel_path",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "planner_one_liner": one_liner,
+    }
+
+
 def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     """Guide for lean PIMS-style results workbook (≤15 sheets)."""
     mono = report.get("mono") or {}
@@ -1398,6 +1424,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     dual_linf = dual["dual_linf_online"]
     dual_rec = dual["dual_linf_recovered"]
     path_ = dual["dual_recovery_path"]
+    tf_off = format_tf_offline_units_howto()
     return [
         (
             "goal",
@@ -1436,6 +1463,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
             "y0/D/x0 (nested cut_points_f.* drivers) — not this solve. "
             "Duals remain package-ADMM free online λ on classic path — not TF-owned. "
             "Liquid renorm + offgas clamp sit outside raw affine (full evaluate = affine + postprocess).",
+        ),
+        (
+            "tf_offline_units",
+            tf_off["planner_one_liner"],
         ),
         (
             "solve_boundary",
