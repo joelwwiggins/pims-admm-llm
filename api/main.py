@@ -629,6 +629,7 @@ async def post_excel_solve(
             "cdu_capacity_kbd": report.get("meta", {}).get("cdu_capacity_kbd"),
             "pipeline_wall_s": report.get("meta", {}).get("pipeline_wall_s"),
             "download_results_xlsx": f"/api/excel/results?path={xlsx_out.name}",
+            "planner_honesty": report.get("meta", {}).get("planner_honesty"),
         },
     }
 

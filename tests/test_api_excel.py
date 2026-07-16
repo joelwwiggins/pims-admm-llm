@@ -56,6 +56,15 @@ def test_excel_solve_json(client: TestClient, tmp_path: Path):
     assert body["comparison"]["objective_gap_rel"] <= 0.01 + 1e-9
     assert body["meta"]["results_xlsx"]
     assert body["meta"]["download_results_xlsx"].startswith("/api/excel/results?path=")
+    # Honesty glance strip for API consumers (presentation only).
+    ph = body["meta"].get("planner_honesty") or {}
+    assert ph.get("form") == "classic_2block_excel_path" or ph.get("model_form") == (
+        "classic_2block_excel_path"
+    )
+    assert ph.get("dual_gate") == "online_lambda"
+    assert ph.get("verdict_dual_gate") == "online_only"
+    assert ph.get("on_excel_case1_path") is False
+    assert "FCC" in str(ph.get("offline_tf_units") or "")
 
     # download written results
     base = Path(body["meta"]["results_xlsx"]).name
