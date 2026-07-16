@@ -448,7 +448,12 @@ def test_format_dual_honesty_summary_pure():
 
 
 def test_planner_honesty_glance_package(tmp_path):
-    """E1/E2: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty."""
+    """E1/E2: Index OFFLINE_TF + Summary strip + Calc_Check audits + meta.planner_honesty.
+
+    After #16 timing/priced substrate: glance package also locks priced residual +
+    block-solve timing readiness (static; isolation-safe). Dual PRIMARY/SECONDARY
+    and classic form remain non-regression contracts.
+    """
     from pims_admm_llm.models.excel_pipeline import (
         format_planner_honesty_package,
         planner_honesty_check_rows,
@@ -469,6 +474,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["index_row"]["block"] == "OFFLINE_TF"
     assert "NOT" in pkg["index_row"]["what"] and "FCC" in pkg["index_row"]["what"]
     assert "COKER" in pkg["index_row"]["what"] and "CDU" in pkg["index_row"]["what"]
+    what_l = pkg["index_row"]["what"].lower()
+    assert "priced" in what_l and "timing" in what_l
+    assert "readiness" in what_l
+    assert "not duals" in what_l or "prices not duals" in what_l
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
     assert pkg["meta"]["dual_gate"] == "online_lambda"
     assert pkg["meta"]["verdict_dual_gate"] == "online_only"
@@ -476,6 +485,24 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["tf_on_excel_case1_path"] is False
     assert "FCC" in pkg["meta"]["offline_tf_units"]
     assert "online_lambda" in str(pkg["meta"]["dual_recovery_path"])
+    assert pkg["meta"]["offline_tf_priced_ready"] is True
+    assert pkg["meta"]["offline_tf_timing_ready"] is True
+    assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
+    assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
+    assert "not" in str(pkg["meta"]["offline_tf_readiness_note"]).lower()
+    one_l = str(pkg["meta"]["planner_one_liner"]).lower()
+    assert "priced" in one_l and "timing" in one_l
+    assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
+    assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
+    summary_keys = {k for k, _ in pkg["summary_pairs"]}
+    assert {
+        "offline_tf_priced",
+        "offline_tf_timing",
+        "offline_tf_readiness_note",
+        "offline_tf_units",
+        "dual_gate",
+        "model_form",
+    } <= summary_keys
 
     rows = planner_honesty_check_rows(report)
     names = {r["check"] for r in rows}
@@ -483,6 +510,8 @@ def test_planner_honesty_glance_package(tmp_path):
         "form_classic_2block",
         "dual_gate_online_only",
         "offline_tf_not_on_case1",
+        "offline_tf_priced_not_duals",
+        "offline_tf_timing_not_case1",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -498,6 +527,16 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "FCC" in ph["offline_tf_units"] and "COKER" in ph["offline_tf_units"]
     assert "CDU" in ph["offline_tf_units"]
     assert "online_lambda" in str(ph["dual_recovery_path"])
+    assert ph["offline_tf_priced_ready"] is True
+    assert ph["offline_tf_timing_ready"] is True
+    assert "priced" in str(ph["offline_tf_priced"]).lower()
+    assert "timing" in str(ph["offline_tf_timing"]).lower()
+    assert "not duals" in str(ph["offline_tf_priced"]).lower() or "not admm" in str(
+        ph["offline_tf_priced"]
+    ).lower()
+    assert "not case 1" in str(ph["offline_tf_timing"]).lower() or "wall" in str(
+        ph["offline_tf_timing"]
+    ).lower()
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -513,6 +552,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "fcc" in ot and "coker" in ot and "cdu" in ot
     assert "not" in ot and ("case 1" in ot or "classic" in ot)
     assert "none" in ot or "dual_recovery_path" in ot
+    assert "priced" in ot and "timing" in ot
+    assert "readiness" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -536,6 +577,13 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "SECONDARY" in str(summary.get("dual_linf_recovered_role") or "")
     note = str(summary.get("offline_tf_note") or summary.get("index_offline_tf_note") or "")
     assert "not" in note.lower() and ("case 1" in note.lower() or "classic" in note.lower())
+    assert "priced" in note.lower() and "timing" in note.lower()
+    priced_s = str(summary.get("offline_tf_priced") or "").lower()
+    timing_s = str(summary.get("offline_tf_timing") or "").lower()
+    assert "priced" in priced_s
+    assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
+    assert "timing" in timing_s
+    assert "not" in timing_s and ("case 1" in timing_s or "wall" in timing_s or "dual" in timing_s)
 
     # --- Calc_Check honesty audit rows (all ok) ---
     chk_h = [c.value for c in wb["Calc_Check"][1]]
@@ -549,16 +597,20 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("form_classic_2block") is True
     assert checks.get("dual_gate_online_only") is True
     assert checks.get("offline_tf_not_on_case1") is True
+    assert checks.get("offline_tf_priced_not_duals") is True
+    assert checks.get("offline_tf_timing_not_case1") is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
-    # How_to offline + dual keys preserved
+    # How_to offline + dual keys preserved (units + priced + timing)
     how = {
         str(r[0].value): str(r[1].value or "")
         for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
         if r[0].value
     }
     assert how.get("tf_offline_units")
+    assert how.get("tf_offline_priced")
+    assert how.get("tf_offline_timing")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -577,13 +629,57 @@ def test_planner_honesty_check_rows_pure():
         },
         "admm": {"dual_recovery_path": "package-admm/qp_l2+online_lambda_shadows"},
     }
-    assert all(r["ok"] for r in planner_honesty_check_rows(good))
+    rows_good = planner_honesty_check_rows(good)
+    names = {r["check"] for r in rows_good}
+    assert {
+        "form_classic_2block",
+        "dual_gate_online_only",
+        "offline_tf_not_on_case1",
+        "offline_tf_priced_not_duals",
+        "offline_tf_timing_not_case1",
+    } <= names
+    assert all(r["ok"] for r in rows_good)
 
     bad_form = dict(good)
     bad_form["model"] = {"form": "wired_tf_path"}
     rows = {r["check"]: r["ok"] for r in planner_honesty_check_rows(bad_form)}
     assert rows["form_classic_2block"] is False
     assert rows["offline_tf_not_on_case1"] is True
+    assert rows["offline_tf_priced_not_duals"] is True
+    assert rows["offline_tf_timing_not_case1"] is True
+
+
+def test_format_planner_honesty_package_priced_timing_pure():
+    """Pure formatter exposes priced + timing readiness without TF or full solve."""
+    from pims_admm_llm.models.excel_pipeline import format_planner_honesty_package
+
+    fake = {
+        "model": {"form": "classic_2block_excel_path"},
+        "comparison": {
+            "dual_gate": "online_lambda",
+            "verdict_dual_gate": "online_only",
+            "dual_linf_online": 2.66,
+            "dual_linf_recovered": 112.0,
+            "dual_linf_online_role": "PRIMARY",
+            "dual_linf_recovered_role": "SECONDARY",
+        },
+        "admm": {"dual_recovery_path": "package-admm/qp_l2+online_lambda_shadows"},
+    }
+    pkg = format_planner_honesty_package(fake)
+    what = pkg["index_row"]["what"].lower()
+    assert "priced" in what and "timing" in what and "readiness" in what
+    assert "not" in what and "case 1" in what
+    meta = pkg["meta"]
+    assert meta["offline_tf_priced_ready"] is True
+    assert meta["offline_tf_timing_ready"] is True
+    assert meta["tf_dual_recovery_path"] is None
+    assert meta["form"] == "classic_2block_excel_path"
+    assert "priced" in meta["planner_one_liner"].lower()
+    assert "timing" in meta["planner_one_liner"].lower()
+    # anti-claim: must not claim wire shipped
+    readiness = str(meta["offline_tf_readiness_note"]).lower()
+    assert "not wire shipped" in readiness or "not on classic case 1" in readiness
+    assert "wire shipped" not in readiness.replace("not wire shipped", "")
 
 
 def test_load_pims_excel_has_crudes(tmp_path):

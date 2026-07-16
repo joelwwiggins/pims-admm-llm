@@ -1475,21 +1475,40 @@ def format_tf_offline_timing_howto() -> Dict[str, str]:
 
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
+# Index OFFLINE_TF one-liner: kernels + priced residual readiness + block-solve timing
+# readiness. Hard negatives: not Case 1; TF dual_recovery_path=None; prices ≠ duals;
+# timings ≠ Case 1 wall / ≠ online λ. Static only — never call live readiness reports.
 _OFFLINE_TF_INDEX_WHAT = (
-    "FCC+COKER+CDU exact-linear kernels offline — NOT on classic Case 1 solve; "
-    "dual_recovery_path=None on TF surface"
+    "FCC+COKER+CDU exact-linear kernels offline + priced residual readiness + "
+    "block-solve timing readiness — NOT on classic Case 1 solve; "
+    "dual_recovery_path=None on TF surface; prices not duals; timings not Case 1 wall / not online λ"
+)
+_OFFLINE_TF_PRICED_NOTE = (
+    "offline priced residual readiness (FCC+COKER+CDU) — synthetic prices not ADMM λ / not Case 1 shadows"
+)
+_OFFLINE_TF_TIMING_NOTE = (
+    "offline block-solve timing readiness (FCC+COKER+CDU) — not Case 1 wall time / not duals / not online λ"
+)
+_OFFLINE_TF_READINESS_NOTE = (
+    "offline TF readiness package: units + priced residual + block-solve timing — "
+    "not on classic Case 1; dual_recovery_path=None on TF surface; not wire shipped"
 )
 
 
 def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     """Pure composer for Index / Summary / Calc_Check / meta honesty glance.
 
-    Isolation-safe: reuses format_dual_honesty_summary + format_tf_offline_units_howto
-    and report fields only — never imports tensorflow / tf_linear_blocks.
+    Isolation-safe: reuses format_dual_honesty_summary + format_tf_offline_*_howto
+    helpers and report fields only — never imports tensorflow / tf_linear_blocks,
+    and never calls live multi_unit_* / offline_block_solve_readiness_report.
     Presentation packaging only; does not change VERDICT math.
+    Dual PRIMARY online-λ / SECONDARY recovered packaging is read-only preserve
+    (#12/#14); this wave only extends offline TF readiness glance (priced + timing).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
+    tf_priced = format_tf_offline_priced_howto()
+    tf_timing = format_tf_offline_timing_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -1517,6 +1536,11 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "dual_linf_online_role": dual["primary_role"],
         "dual_linf_recovered_role": dual["secondary_role"],
         "offline_tf_units": _OFFLINE_TF_UNITS,
+        "offline_tf_priced_ready": True,  # static harness-existence flag; not live report
+        "offline_tf_timing_ready": True,  # static harness-existence flag; not live report
+        "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
+        "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
+        "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
         "on_excel_case1_path": False,
         "tf_on_excel_case1_path": False,
         "dual_recovery_path": path_,
@@ -1525,7 +1549,8 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"form={form}; dual_gate={dual['dual_gate']} ({dual['verdict_dual_gate']}); "
             f"PRIMARY online L∞={dual['dual_linf_online']}; "
             f"SECONDARY recovered L∞={dual['dual_linf_recovered']}; "
-            f"offline_tf_units={_OFFLINE_TF_UNITS} not on Case 1; "
+            f"offline_tf_units={_OFFLINE_TF_UNITS} + priced residual readiness + "
+            f"block-solve timing readiness not on Case 1; "
             f"tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -1550,10 +1575,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         ("offline_tf_units", _OFFLINE_TF_UNITS),
         ("tf_on_excel_case1_path", False),
-        (
-            "offline_tf_note",
-            "FCC+COKER+CDU exact-linear offline — not on classic Case 1 solve",
-        ),
+        ("offline_tf_note", _OFFLINE_TF_READINESS_NOTE),
+        ("offline_tf_priced", _OFFLINE_TF_PRICED_NOTE),
+        ("offline_tf_timing", _OFFLINE_TF_TIMING_NOTE),
+        ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
     ]
     return {
         "index_row": index_row,
@@ -1561,6 +1586,8 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "meta": meta,
         "dual": dual,
         "tf_offline": tf_off,
+        "tf_offline_priced": tf_priced,
+        "tf_offline_timing": tf_timing,
     }
 
 
@@ -1569,6 +1596,7 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     Compatible with model_calc_check columns (check, predicted, actual, abs_err, ok).
     Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
+    Static only: never runs priced residual or timing harness (isolation + smoke latency).
     """
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -1611,6 +1639,26 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "actual": "not on classic Case 1 solve (static honesty)",
             "abs_err": 0.0,
             "ok": offline_ok,
+        },
+        {
+            "check": "offline_tf_priced_not_duals",
+            "predicted": (
+                "offline priced residual readiness exists; synthetic prices not ADMM λ / "
+                "not Case 1 shadows / not duals"
+            ),
+            "actual": "static honesty — prices not duals; dual_recovery_path=None on TF surface",
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_timing_not_case1",
+            "predicted": (
+                "offline block-solve timing readiness exists; timings not Case 1 wall time / "
+                "not duals / not online λ"
+            ),
+            "actual": "static honesty — timings readiness only; not on classic Case 1 solve",
+            "abs_err": 0.0,
+            "ok": True,
         },
     ]
 
