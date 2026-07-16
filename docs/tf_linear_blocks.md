@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + **offline multi-round ADMM coordination harness (subproblem → z → λ under synthetic λ,z,ρ)** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -40,6 +40,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | Block-solve timing (goal 5) | `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report` / `cached_offline_unit_coeffs` — microsecond-class readiness; **not** Case 1 wall time; **not** duals |
 | ADMM residual (goal 5 pre-wire) | `multi_unit_admm_residual_report` / `admm_residual_for_unit` — consensus `r=y−z` + L1 augmented local under synthetic λ,z,ρ; **not** dual recovery; **not** Case 1 |
 | ADMM block subproblem (goal 5 pre-wire) | `multi_unit_admm_block_subproblem_report` / `admm_block_subproblem_for_unit` — maximize L1-augmented local on **raw affine** under driver box + synthetic λ,z,ρ; **not** dual recovery; **not** Case 1; **not** wire |
+| ADMM multi-round coordination (goal 5 pre-wire) | `multi_unit_admm_coordination_report` / `admm_coordination_round_for_unit` — subproblem → raw z consensus → λ ascent under synthetic λ,z,ρ; per-unit synthetic loops; **not** plant linking; **not** dual recovery; **not** Case 1; **not** wire |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -284,6 +285,57 @@ Honesty table (ADMM block subproblem surface):
 | Wire | **Not shipped** |
 | Backend | Always-on numpy — **not** PuLP/CBC |
 
+## Offline multi-round ADMM coordination (goal 5 pre-wire loop)
+
+Always-on numpy surface. Runs a **small number of ADMM-style rounds** over
+FCC+COKER+CDU by **composing** the existing block subproblem maximizer:
+
+1. **x / y step** — `admm_block_subproblem_for_unit` under current synthetic λ, z, ρ, δ
+2. **residual** — `r = y_raw − z_pre` (pre-update; never after free `z←y`)
+3. **z consensus** — raw-space update `z ← (1−β)z + β y_raw` (default β=1 copy)
+4. **λ dual ascent** — `λ ← λ + α·ρ·r` (α=`dual_step`, default 1.0)
+
+Per-unit **independent** product-space loops (registry order). **Not** a plant
+linking-stream coordinator. Still offline, dual-ban, **not** Case 1, **not** wire,
+**not** pure-ADMM dual recovery. No absolute residual-must-converge hard-fail.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    admm_coordination_round_for_unit,
+    multi_unit_admm_coordination_report,
+)
+
+report = multi_unit_admm_coordination_report(
+    n_rounds=3, rho=1.0, delta=0.5, dual_step=1.0
+)
+assert report["ok"]
+assert report["kind"] == "offline_admm_coordination"
+assert report["dual_recovery_path"] is None
+assert report["on_excel_case1_path"] is False
+assert report["solver"] is False
+assert report["optimand_space"] == "raw_affine"
+assert report["z_update_space"] == "raw_affine"
+assert report["not_plant_linking_coordinator"] is True
+assert report["coordination_lambda_is_not_case1_online_lambda"] is True
+assert len(report["trajectory"]) == 3
+# trajectory residuals are finite; no residual-must-vanish SLA
+```
+
+Honesty table (ADMM coordination surface):
+
+| Field | Value |
+|-------|-------|
+| `kind` | `offline_admm_coordination` |
+| `solver` | `False` |
+| `dual_recovery_path` | `None` |
+| `on_excel_case1_path` | `False` |
+| `optimand_space` / `z_update_space` | `raw_affine` |
+| `coordination_scope` | `per_unit_synthetic_offline` (not plant linking) |
+| `price_source` / `lam_source` / `z_source` / `rho_source` | synthetic offline — **not** Case 1 PRIMARY online λ / **not** SECONDARY recovered |
+| Dual ascent residual | **z_pre** (`r = y_raw − z_pre`) — never post-z zero theater |
+| Wire | **Not shipped** |
+| Backend | Always-on numpy compose of subproblem maximizer — **not** PuLP/CBC |
+
 ## Per-unit affine API
 
 ```python
@@ -374,6 +426,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] Offline block-solve timing / readiness report green (cached affine; dual-ban intact; not Case 1 wall time) — `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report`
 - [x] `multi_unit_admm_residual_report()` ok (synthetic λ,z,ρ; dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped)
 - [x] `multi_unit_admm_block_subproblem_report()` ok (raw affine L1 maximizer under box; dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped; not PuLP)
+- [x] `multi_unit_admm_coordination_report()` ok (multi-round subproblem → raw z → λ under synthetic λ,z,ρ; dual-ban; per-unit synthetic scope; not plant linking; not Case 1; not pure-ADMM dual recovery; not wire shipped; no residual-must-vanish hard-fail)
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
@@ -403,3 +456,4 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `cached_offline_unit_coeffs` default-ref only; custom refs never silently reuse default cache
 - [ ] `multi_unit_admm_residual_report` ok without TF; honesty locks; L1 formula; Coker raw≠full residual honesty; synthetic λ ≠ Case 1 online λ
 - [ ] `multi_unit_admm_block_subproblem_report` ok without TF; raw optimand; maximizer ≥ ref; delta=0 ⇒ x_star≈x0; dual-ban; not wire; Coker raw≠full diagnostic
+- [ ] `multi_unit_admm_coordination_report` ok without TF; honesty locks; trajectory finite; z_pre dual ascent; per-unit synthetic scope; no residual-must-vanish SLA; not wire

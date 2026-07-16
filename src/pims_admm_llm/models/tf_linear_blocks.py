@@ -85,6 +85,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "block_solve_timing_available": True,
         "admm_residual_available": True,
         "admm_block_subproblem_available": True,
+        "admm_coordination_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -102,7 +103,11 @@ def honesty_metadata() -> Dict[str, Any]:
             "Offline multi-unit ADMM block subproblem maximizer available "
             "(multi_unit_admm_block_subproblem_report) on raw affine under synthetic "
             "λ,z,ρ + driver box — dual-ban; not Case 1; not pure-ADMM dual recovery; "
-            "not wire shipped; not PuLP."
+            "not wire shipped; not PuLP. "
+            "Offline multi-round ADMM coordination harness available "
+            "(multi_unit_admm_coordination_report): subproblem → z consensus → λ ascent "
+            "under synthetic λ,z,ρ (per-unit product spaces; not plant linking) — "
+            "dual-ban; not Case 1; not pure-ADMM dual recovery; not wire shipped."
         ),
     }
 
@@ -1415,15 +1420,17 @@ def offline_block_solve_readiness_report(
     include_box: bool = True,
     box_delta: float = 1.0,
     include_admm_residual: bool = True,
+    include_admm_block_subproblem: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
     One call answers \"ready for wire discussion?\" without re-implementing
     parity/priced math. Does **not** mean wire is shipped or duals are owned.
 
-    ``admm_residual_ok`` is **additive** pre-wire checklist info (does **not**
-    change ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings
-    ∧honesty). Never claims wire shipped when residual ok.
+    ``admm_residual_ok`` and ``admm_block_subproblem_ok`` are **additive**
+    pre-wire checklist info (does **not** change ``ready_for_wire_discussion``
+    semantics: still parity∧priced∧timings∧honesty). Never claims wire shipped
+    when residual/subproblem ok.
     """
     base = multi_unit_block_solve_timing_report(
         n_repeats=n_repeats,
@@ -1449,6 +1456,14 @@ def offline_block_solve_readiness_report(
         except Exception:  # pragma: no cover - defensive; harness should not raise
             admm_residual_ok = False
     base["admm_residual_ok"] = admm_residual_ok
+    admm_block_subproblem_ok: Optional[bool] = None
+    if include_admm_block_subproblem:
+        try:
+            sub_rep = multi_unit_admm_block_subproblem_report(rho=1.0, delta=0.5)
+            admm_block_subproblem_ok = bool(sub_rep.get("ok"))
+        except Exception:  # pragma: no cover - defensive
+            admm_block_subproblem_ok = False
+    base["admm_block_subproblem_ok"] = admm_block_subproblem_ok
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1457,8 +1472,9 @@ def offline_block_solve_readiness_report(
         "dual_recovery_path remains None; on_excel_case1_path=False; "
         "timings/prices/gradients/ADMM residuals are NOT ADMM λ / Case 1 shadows; "
         "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
-        "admm_residual_ok is an additive pre-wire checklist item (synthetic λ,z,ρ "
-        "consensus residual harness) and does not redefine ready_for_wire_discussion."
+        "admm_residual_ok and admm_block_subproblem_ok are additive pre-wire "
+        "checklist items (synthetic λ,z,ρ residual / block subproblem harnesses) "
+        "and do not redefine ready_for_wire_discussion."
     )
     return base
 
@@ -2320,6 +2336,394 @@ def multi_unit_admm_block_subproblem_report(
     }
 
 
+# ---------------------------------------------------------------------------
+# Offline multi-round ADMM coordination (goal 5 pre-wire loop harness)
+# ---------------------------------------------------------------------------
+
+ADMM_COORDINATION_KIND = "offline_admm_coordination"
+ADMM_COORDINATION_FORMULA = (
+    "round: x=argmax raw L1-aug under (λ,z,ρ,δ); r=y_raw-z_pre; "
+    "z←(1-β)z+β y_raw; λ←λ+α·ρ·r"
+)
+ADMM_COORDINATION_SCOPE = "per_unit_synthetic_offline"
+
+
+def _admm_coordination_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / synthetic-λ locks for multi-round coordination."""
+    return {
+        "kind": ADMM_COORDINATION_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "optimand_space": "raw_affine",
+        "z_update_space": "raw_affine",
+        "coordination_scope": ADMM_COORDINATION_SCOPE,
+        "not_plant_linking_coordinator": True,
+        "coordination_lambda_is_not_case1_online_lambda": True,
+        "not_a_solve": False,  # offline maximizer loop; not Case 1 solve
+        "not_case1_solve": True,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "formula": ADMM_COORDINATION_FORMULA,
+        "note": (
+            "Offline multi-round ADMM coordination harness: for each unit in "
+            "independent product spaces (FCC/COKER/CDU), run synthetic rounds of "
+            "block subproblem maximizer → raw-space z consensus → λ dual ascent "
+            "under synthetic λ,z,ρ. Not a plant linking-stream coordinator. "
+            "Not on classic_2block_excel_path; dual_recovery_path=None; solver=False. "
+            "Synthetic / coordination λ are NOT Case 1 PRIMARY online λ, NOT SECONDARY "
+            "recovered blender duals, NOT pure-ADMM dual recovery, NOT wire shipped. "
+            "Optimand + residual trajectory use raw_affine (z_pre residual for dual "
+            "ascent; first-round default z may be full postprocess@ref — labeled). "
+            "No PuLP/CBC; always-on numpy; no absolute residual-must-converge hard-fail."
+        ),
+    }
+
+
+def admm_coordination_round_for_unit(
+    unit: str,
+    *,
+    prices: Optional[Mapping[str, float]] = None,
+    z: Optional[Mapping[str, float]] = None,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float], np.ndarray] = 1.0,
+    dual_step: float = 1.0,
+    z_blend: float = 1.0,
+    max_passes: int = 32,
+) -> Dict[str, Any]:
+    """One offline ADMM coordination round for a unit (always-on numpy).
+
+    Structure (deterministic)::
+
+        1. x / y step: call ``admm_block_subproblem_for_unit`` under (λ,z,ρ,δ)
+        2. residual r = y_raw − z_pre  (pre-update; never after free z←y)
+        3. z ← (1−β)·z_pre + β·y_raw   (β=z_blend; default 1.0 = raw copy)
+        4. λ ← λ + α·ρ·r               (α=dual_step; product-ordered prices)
+
+    Reuses the block subproblem maximizer — does **not** reimplement coordinate
+    ascent. Honesty: dual_recovery_path=None; not Case 1; not wire; not dual recovery.
+    """
+    key = _normalize_unit_name(unit)
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if not np.isfinite(float(dual_step)):
+        raise ValueError(f"dual_step must be finite, got {dual_step}")
+    beta = float(z_blend)
+    if not np.isfinite(beta) or beta < 0.0 or beta > 1.0:
+        raise ValueError(f"z_blend must be in [0, 1], got {z_blend}")
+
+    # Resolve current λ and z for residual bookkeeping before subproblem.
+    price_dict, p_vec, coeffs = _resolve_prices(key, prices)
+    z_pre_dict, z_pre_vec, z_seed_source = _resolve_z_vector(coeffs, z)
+
+    sub = admm_block_subproblem_for_unit(
+        key,
+        prices=price_dict,
+        z=z_pre_dict,
+        rho=float(rho),
+        delta=delta,
+        max_passes=int(max_passes),
+    )
+    y_raw_dict = dict(sub["y_raw_star"])
+    y_raw_vec = np.array(
+        [float(y_raw_dict[p]) for p in coeffs.products], dtype=np.float64
+    )
+    # Pre-update residual in raw product space (drives dual ascent).
+    r_vec = y_raw_vec - z_pre_vec
+    r_l1 = float(np.sum(np.abs(r_vec)))
+    r_linf = float(np.max(np.abs(r_vec))) if r_vec.size else 0.0
+    r_l2 = float(np.sqrt(np.sum(r_vec * r_vec))) if r_vec.size else 0.0
+
+    # z consensus in raw space
+    z_new_vec = (1.0 - beta) * z_pre_vec + beta * y_raw_vec
+    z_new_dict = {
+        p: float(z_new_vec[i]) for i, p in enumerate(coeffs.products)
+    }
+
+    # λ dual ascent: λ ← λ + α ρ r  (product-ordered synthetic prices)
+    alpha = float(dual_step)
+    lam_new_vec = p_vec + alpha * float(rho) * r_vec
+    lam_new_dict = {
+        p: float(lam_new_vec[i]) for i, p in enumerate(coeffs.products)
+    }
+
+    finite_ok = bool(
+        np.all(np.isfinite(r_vec))
+        and np.all(np.isfinite(z_new_vec))
+        and np.all(np.isfinite(lam_new_vec))
+        and np.isfinite(r_l1)
+        and np.isfinite(r_linf)
+        and bool(sub.get("ok"))
+    )
+    honesty = _admm_coordination_honesty_fields()
+    return {
+        **{k: honesty[k] for k in (
+            "kind",
+            "solver",
+            "dual_recovery_path",
+            "on_excel_case1_path",
+            "price_source",
+            "lam_source",
+            "z_source",
+            "rho_source",
+            "optimand_space",
+            "z_update_space",
+            "coordination_scope",
+            "not_plant_linking_coordinator",
+            "coordination_lambda_is_not_case1_online_lambda",
+            "not_case1_solve",
+            "not_wire_shipped",
+            "not_pure_admm_dual_recovery",
+            "formula",
+        )},
+        "unit": key,
+        "ok": finite_ok,
+        "products": list(coeffs.products),
+        "rho": float(rho),
+        "dual_step": alpha,
+        "z_blend": beta,
+        "z_mode": "raw_copy" if abs(beta - 1.0) <= 1e-15 else "raw_blend",
+        "z_seed_source": z_seed_source,
+        "z_pre": dict(z_pre_dict),
+        "z_post": z_new_dict,
+        "lam_pre": dict(price_dict),
+        "lam_post": lam_new_dict,
+        "y_raw_star": y_raw_dict,
+        "x_star": list(sub["x_star"]),
+        "r_raw": {p: float(r_vec[i]) for i, p in enumerate(coeffs.products)},
+        "r_l1_raw": r_l1,
+        "r_linf_raw": r_linf,
+        "r_l2_raw": r_l2,
+        "augmented_local_raw": float(sub["augmented_local_raw"]),
+        "not_worse_than_ref": bool(sub.get("not_worse_than_ref")),
+        "subproblem_ok": bool(sub.get("ok")),
+        "subproblem_kind": sub.get("kind"),
+        "renorm_note": sub.get("renorm_note"),
+        "raw_vs_full_r_l1_gap_star": sub.get("raw_vs_full_r_l1_gap_star"),
+        "augmented_local_full_diagnostic": sub.get(
+            "augmented_local_full_diagnostic"
+        ),
+    }
+
+
+def multi_unit_admm_coordination_report(
+    *,
+    n_rounds: int = 3,
+    rho: float = 1.0,
+    delta: Union[float, Mapping[str, float]] = 1.0,
+    dual_step: float = 1.0,
+    z_blend: float = 1.0,
+    prices: Optional[Mapping[str, Mapping[str, float]]] = None,
+    z0: Optional[Mapping[str, Mapping[str, float]]] = None,
+    max_passes: int = 32,
+) -> Dict[str, Any]:
+    """Always-on multi-round offline ADMM coordination (FCC/COKER/CDU).
+
+    Per unit (independent synthetic product-space loops, registry order):
+    for t=1..n_rounds run subproblem → raw z consensus → λ ascent. Trajectory
+    residual norms use **pre-z-update** residual (z_pre). Aggregate ``ok`` =
+    finite trajectory + honesty locks + structure + per-unit subproblem ok.
+    **No** absolute residual-must-vanish hard-fail.
+
+    Not Case 1, not plant linking coordinator, not wire, not dual recovery.
+    """
+    if int(n_rounds) < 1:
+        raise ValueError(f"n_rounds must be >= 1, got {n_rounds}")
+    if float(rho) <= 0.0:
+        raise ValueError(f"rho must be > 0, got {rho}")
+    if not np.isfinite(float(dual_step)):
+        raise ValueError(f"dual_step must be finite, got {dual_step}")
+    beta = float(z_blend)
+    if not np.isfinite(beta) or beta < 0.0 or beta > 1.0:
+        raise ValueError(f"z_blend must be in [0, 1], got {z_blend}")
+
+    n_r = int(n_rounds)
+    honesty = _admm_coordination_honesty_fields()
+    units_out: Dict[str, Any] = {}
+    trajectory: List[Dict[str, Any]] = []
+    all_ok = True
+
+    # Per-unit mutable state (λ as prices dict, z as product dict)
+    state_lam: Dict[str, Dict[str, float]] = {}
+    state_z: Dict[str, Dict[str, float]] = {}
+    for desc in offline_unit_registry():
+        unit = desc.unit
+        unit_prices: Optional[Mapping[str, float]] = None
+        if prices is not None and unit in prices:
+            unit_prices = prices[unit]
+        price_dict, _, _ = _resolve_prices(unit, unit_prices)
+        state_lam[unit] = dict(price_dict)
+        unit_z0: Optional[Mapping[str, float]] = None
+        if z0 is not None and unit in z0:
+            unit_z0 = z0[unit]
+        coeffs = cached_offline_unit_coeffs(unit)
+        z_dict, _, z_src = _resolve_z_vector(coeffs, unit_z0)
+        state_z[unit] = dict(z_dict)
+        units_out[unit] = {
+            "unit": unit,
+            "ok": True,
+            "z0_source": z_src,
+            "rounds": [],
+            "final_lam": dict(price_dict),
+            "final_z": dict(z_dict),
+            "renorm_note": desc.renorm_note,
+            "solver": False,
+            "dual_recovery_path": None,
+            "on_excel_case1_path": False,
+            "kind": ADMM_COORDINATION_KIND,
+            "optimand_space": "raw_affine",
+            "z_update_space": "raw_affine",
+            "coordination_scope": ADMM_COORDINATION_SCOPE,
+            "not_plant_linking_coordinator": True,
+        }
+
+    for t in range(1, n_r + 1):
+        round_units: Dict[str, Any] = {}
+        sum_r_l1 = 0.0
+        max_r_linf = 0.0
+        sum_aug = 0.0
+        round_ok = True
+        for unit in UNITS:
+            row = admm_coordination_round_for_unit(
+                unit,
+                prices=state_lam[unit],
+                z=state_z[unit],
+                rho=float(rho),
+                delta=delta,
+                dual_step=float(dual_step),
+                z_blend=beta,
+                max_passes=int(max_passes),
+            )
+            state_lam[unit] = dict(row["lam_post"])
+            state_z[unit] = dict(row["z_post"])
+            compact = {
+                "round": t,
+                "ok": bool(row["ok"]),
+                "r_l1_raw": float(row["r_l1_raw"]),
+                "r_linf_raw": float(row["r_linf_raw"]),
+                "r_l2_raw": float(row["r_l2_raw"]),
+                "augmented_local_raw": float(row["augmented_local_raw"]),
+                "not_worse_than_ref": bool(row["not_worse_than_ref"]),
+                "subproblem_ok": bool(row["subproblem_ok"]),
+                "z_mode": row["z_mode"],
+                "z_seed_source": row["z_seed_source"] if t == 1 else "raw_previous_y",
+            }
+            units_out[unit]["rounds"].append(compact)
+            units_out[unit]["final_lam"] = dict(row["lam_post"])
+            units_out[unit]["final_z"] = dict(row["z_post"])
+            units_out[unit]["last_x_star"] = list(row["x_star"])
+            units_out[unit]["last_y_raw_star"] = dict(row["y_raw_star"])
+            if row.get("renorm_note"):
+                units_out[unit]["renorm_note"] = row["renorm_note"]
+            if row.get("raw_vs_full_r_l1_gap_star") is not None:
+                units_out[unit]["raw_vs_full_r_l1_gap_star"] = row[
+                    "raw_vs_full_r_l1_gap_star"
+                ]
+            if not row["ok"]:
+                units_out[unit]["ok"] = False
+                round_ok = False
+                all_ok = False
+            sum_r_l1 += float(row["r_l1_raw"])
+            max_r_linf = max(max_r_linf, float(row["r_linf_raw"]))
+            sum_aug += float(row["augmented_local_raw"])
+            round_units[unit] = compact
+
+        traj_row = {
+            "round": t,
+            "ok": round_ok and all(
+                np.isfinite(sum_r_l1) and np.isfinite(max_r_linf) and np.isfinite(sum_aug)
+                for _ in (0,)
+            ),
+            "sum_r_l1_raw": float(sum_r_l1),
+            "max_r_linf_raw": float(max_r_linf),
+            "sum_augmented_local_raw": float(sum_aug),
+            "units_ok": {u: bool(round_units[u]["ok"]) for u in UNITS},
+        }
+        if not traj_row["ok"]:
+            all_ok = False
+        trajectory.append(traj_row)
+
+    # Soft residual trend diagnostic only (never hard-fail)
+    residual_trend = "n/a"
+    if len(trajectory) >= 2:
+        vals = [float(tr["sum_r_l1_raw"]) for tr in trajectory]
+        if all(np.isfinite(v) for v in vals):
+            diffs = [vals[i + 1] - vals[i] for i in range(len(vals) - 1)]
+            if all(d <= 1e-12 for d in diffs):
+                residual_trend = "nonincreasing"
+            elif all(d >= -1e-12 for d in diffs):
+                residual_trend = "nondecreasing"
+            else:
+                residual_trend = "mixed"
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == ADMM_COORDINATION_KIND
+        and honesty.get("optimand_space") == "raw_affine"
+        and honesty.get("z_update_space") == "raw_affine"
+        and honesty.get("not_plant_linking_coordinator") is True
+        and honesty.get("coordination_lambda_is_not_case1_online_lambda") is True
+        and set(units_out.keys()) == set(UNITS)
+        and len(trajectory) == n_r
+    )
+    if not honesty_ok:
+        all_ok = False
+    for unit in UNITS:
+        if not units_out[unit].get("ok"):
+            all_ok = False
+
+    finite_traj = all(
+        np.isfinite(tr["sum_r_l1_raw"])
+        and np.isfinite(tr["max_r_linf_raw"])
+        and np.isfinite(tr["sum_augmented_local_raw"])
+        for tr in trajectory
+    )
+    if not finite_traj:
+        all_ok = False
+
+    return {
+        "ok": bool(all_ok and honesty_ok and finite_traj),
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "trajectory": trajectory,
+        "n_rounds": n_r,
+        "rho": float(rho),
+        "dual_step": float(dual_step),
+        "z_blend": beta,
+        "delta": delta if not isinstance(delta, Mapping) else dict(delta),
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": ADMM_COORDINATION_KIND,
+        "price_source": PRICE_SOURCE,
+        "lam_source": PRICE_SOURCE,
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "optimand_space": "raw_affine",
+        "z_update_space": "raw_affine",
+        "coordination_scope": ADMM_COORDINATION_SCOPE,
+        "not_plant_linking_coordinator": True,
+        "coordination_lambda_is_not_case1_online_lambda": True,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "formula": ADMM_COORDINATION_FORMULA,
+        "residual_trend": residual_trend,
+        "honesty_ok": honesty_ok,
+        "tf_available": tf_available(),
+        "note": honesty["note"],
+    }
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -2469,6 +2873,11 @@ __all__ = [
     "ADMM_SUBPROBLEM_FORMULA_L1_RAW",
     "admm_block_subproblem_for_unit",
     "multi_unit_admm_block_subproblem_report",
+    "ADMM_COORDINATION_KIND",
+    "ADMM_COORDINATION_FORMULA",
+    "ADMM_COORDINATION_SCOPE",
+    "admm_coordination_round_for_unit",
+    "multi_unit_admm_coordination_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]

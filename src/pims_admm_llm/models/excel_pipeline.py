@@ -1544,6 +1544,48 @@ def format_tf_offline_admm_block_subproblem_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_admm_coordination_howto() -> Dict[str, str]:
+    """Static offline multi-round ADMM coordination How_to (isolation-safe).
+
+    Planner-facing note that multi-unit offline ADMM **multi-round coordination**
+    harness exists for FCC+COKER+CDU under synthetic λ,z,ρ (subproblem → raw z
+    consensus → λ ascent; per-unit synthetic loops). Does **not** load
+    tf_linear_blocks or tensorflow. dual_recovery_path=None; coordination λ ≠
+    Case 1 online λ; not plant linking coordinator; not wire shipped.
+    """
+    one_liner = (
+        "Offline multi-round ADMM coordination harness exists for FCC+COKER+CDU "
+        "under synthetic λ,z,ρ (per-unit product spaces): each round reuses block "
+        "subproblem maximizer (raw affine) → raw-space z consensus → λ dual ascent "
+        "(r=y_raw−z_pre). Not a plant linking-stream coordinator. "
+        "Still not on this Case 1 solve (classic_2block_excel_path). "
+        "Coordination dual_recovery_path=None; synthetic / coordination λ are not "
+        "Case 1 PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM "
+        "dual recovery; not wire shipped. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender."
+    )
+    return {
+        "topic": "tf_offline_admm_coordination",
+        "units": "FCC+COKER+CDU",
+        "on_case1_solve": "false",
+        "form": "classic_2block_excel_path",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "optimand_space": "raw_affine",
+        "z_update_space": "raw_affine",
+        "coordination_scope": "per_unit_synthetic_offline",
+        "price_source": "synthetic_offline_demo",
+        "lam_source": "synthetic_offline_demo",
+        "z_source": "synthetic_offline_demo",
+        "rho_source": "synthetic_offline_demo",
+        "formula": (
+            "round: x=argmax raw L1-aug; r=y_raw-z_pre; z←(1-β)z+β y_raw; λ←λ+α·ρ·r"
+        ),
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Index OFFLINE_TF one-liner: kernels + priced residual readiness + block-solve timing
@@ -1600,6 +1642,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_timing = format_tf_offline_timing_howto()
     tf_admm = format_tf_offline_admm_residual_howto()
     tf_sub = format_tf_offline_admm_block_subproblem_howto()
+    tf_coord = format_tf_offline_admm_coordination_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -1689,6 +1732,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_timing": tf_timing,
         "tf_offline_admm_residual": tf_admm,
         "tf_offline_admm_block_subproblem": tf_sub,
+        "tf_offline_admm_coordination": tf_coord,
     }
 
 
@@ -1809,6 +1853,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_timing = format_tf_offline_timing_howto()
     tf_admm = format_tf_offline_admm_residual_howto()
     tf_sub = format_tf_offline_admm_block_subproblem_howto()
+    tf_coord = format_tf_offline_admm_coordination_howto()
     return [
         (
             "goal",
@@ -1867,6 +1912,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_admm_block_subproblem",
             tf_sub["planner_one_liner"],
+        ),
+        (
+            "tf_offline_admm_coordination",
+            tf_coord["planner_one_liner"],
         ),
         (
             "solve_boundary",
