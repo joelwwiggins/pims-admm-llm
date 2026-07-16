@@ -36,18 +36,18 @@ Target **≤15 sheets**, one planner tab per unit. Source of truth: `tests/test_
 
 | Sheet | Role |
 |-------|------|
-| How_to_read | Planner guide (three-path + dual PRIMARY/SECONDARY + `tf_offline_units` / `tf_offline_priced` / `tf_offline_timing` / `tf_offline_admm_residual`) |
-| Submodel_Index | Unit map + **OFFLINE_TF** readiness row (FCC+COKER+CDU kernels + **priced residual readiness** + **block-solve timing readiness** + **ADMM residual readiness (synthetic λ,z,ρ)** — **not** classic Case 1 solve; prices ≠ duals; timings ≠ Case 1 wall; synthetic residual ≠ duals / ≠ pure-ADMM dual recovery) |
+| How_to_read | Planner guide (three-path + dual PRIMARY/SECONDARY + `tf_offline_units` / `tf_offline_priced` / `tf_offline_timing` / `tf_offline_admm_residual` / `tf_offline_admm_block_subproblem`) |
+| Submodel_Index | Unit map + **OFFLINE_TF** readiness row (FCC+COKER+CDU kernels + **priced residual readiness** + **block-solve timing readiness** + **ADMM residual readiness** + **ADMM block subproblem readiness (synthetic λ,z,ρ; raw affine under box)** — **not** classic Case 1 solve; prices ≠ duals; timings ≠ Case 1 wall; synthetic residual/subproblem ≠ duals / ≠ pure-ADMM dual recovery) |
 | Calc_Yields / Calc_Blend | Editable coefficients |
 | Submodel_CDU / Submodel_Blender | Classic **live** 2-block solve tables |
 | Submodel_FCC / Submodel_Coker | PIMS BASE/DELTA **export** matrices (not live ADMM blocks on this path) |
 | Submodel_Linking | prod−use balances → duals |
-| Calc_Check | Identity / feasibility checks + **honesty audits** (`form_classic_2block`, `dual_gate_online_only`, `offline_tf_not_on_case1`, `offline_tf_priced_not_duals`, `offline_tf_timing_not_case1`, `offline_tf_admm_residual_not_duals`) |
-| Summary / Rates / Shadows | Verdict, rates, mono vs online-λ vs recovered duals; Summary honesty strip includes form + dual_gate + offline_tf units/priced/timing/ADMM residual readiness notes |
+| Calc_Check | Identity / feasibility checks + **honesty audits** (`form_classic_2block`, `dual_gate_online_only`, `offline_tf_not_on_case1`, `offline_tf_priced_not_duals`, `offline_tf_timing_not_case1`, `offline_tf_admm_residual_not_duals`, `offline_tf_admm_block_subproblem_not_duals`) |
+| Summary / Rates / Shadows | Verdict, rates, mono vs online-λ vs recovered duals; Summary honesty strip includes form + dual_gate + offline_tf units/priced/timing/ADMM residual/block subproblem readiness notes |
 
-`model.form == classic_2block_excel_path` — Excel solve remains CDU+Blender only; FCC/Coker tabs are teaching/export from `base_delta`. Offline TF kernels (FCC+COKER+CDU) plus priced residual + block-solve timing + ADMM residual harnesses are readiness-only; not on Case 1 solve; `dual_recovery_path=None` on TF surface; not wire shipped.
+`model.form == classic_2block_excel_path` — Excel solve remains CDU+Blender only; FCC/Coker tabs are teaching/export from `base_delta`. Offline TF kernels (FCC+COKER+CDU) plus priced residual + block-solve timing + ADMM residual + ADMM block subproblem harnesses are readiness-only; not on Case 1 solve; `dual_recovery_path=None` on TF surface; not wire shipped.
 
-After dual-honesty packaging, TF offline multi-unit registry, priced residual, timing readiness, and ADMM residual harness: Index / Summary / Calc_Check **glance-lock** offline TF readiness package (units + priced + timing + ADMM residual) + dual PRIMARY gate + classic form via static pure formatters (see `meta.planner_honesty` and `format_planner_honesty_package`). Still isolation-safe: no TF import on Excel path.
+After dual-honesty packaging, TF offline multi-unit registry, priced residual, timing readiness, ADMM residual harness, and ADMM block subproblem maximizer: Index / Summary / Calc_Check **glance-lock** offline TF readiness package (units + priced + timing + ADMM residual + **block subproblem**) + dual PRIMARY gate + classic form via static pure formatters (see `meta.planner_honesty` and `format_planner_honesty_package`). Still isolation-safe: no TF import on Excel path; still not wire.
 
 ## Honesty
 
