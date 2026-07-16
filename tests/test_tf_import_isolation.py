@@ -140,3 +140,24 @@ def test_tf_available_does_not_raise_when_missing():
     else:
         # Missing TF or broken wheel → some exception recorded after probe.
         assert err is not None
+
+
+def test_coker_kernel_symbols_exist_without_tf_and_stay_offline():
+    """E15: Coker factory/postprocess surface is importable offline; not wired to Case 1."""
+    from pims_admm_llm.models import tf_linear_blocks as tlb
+
+    assert callable(tlb.tf_linear_coker)
+    assert callable(tlb.apply_coker_postprocess)
+    assert "COKER" in tlb.UNITS and "FCC" in tlb.UNITS
+    meta = tlb.honesty_metadata()
+    assert meta["solver"] is False
+    assert meta["dual_recovery_path"] is None
+    assert meta["on_excel_case1_path"] is False
+    # excel_pipeline still must not import the coker kernel module
+    src = EXCEL_PIPELINE_SRC.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(EXCEL_PIPELINE_SRC))
+    imported = _import_names_from_ast(tree)
+    assert "tf_linear_blocks" not in imported
+    assert "tf_linear_coker" not in imported
+    assert "tensorflow" not in imported
+    # How_to may mention the name as text (allowed); import graph must not.

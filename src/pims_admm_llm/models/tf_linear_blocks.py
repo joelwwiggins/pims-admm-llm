@@ -32,7 +32,10 @@ SOURCE = "base_delta"  # single source of truth for coefficients
 SOLVER = False
 DUAL_RECOVERY_PATH: Optional[str] = None
 ON_EXCEL_CASE1_PATH = False
-POSTPROCESS = "numpy_fcc"
+# Multi-unit offline surface: FCC + Coker shells share this module; postprocess
+# stays numpy/Python outside any TF graph (never dual recovery).
+POSTPROCESS = "numpy_outside_tf"
+UNITS = ("FCC", "COKER")
 
 _TF_IMPORT_ERROR: Optional[BaseException] = None
 _TF_CHECKED = False
@@ -76,12 +79,15 @@ def honesty_metadata() -> Dict[str, Any]:
         "dual_recovery_path": DUAL_RECOVERY_PATH,
         "on_excel_case1_path": ON_EXCEL_CASE1_PATH,
         "postprocess": POSTPROCESS,
+        "units": list(UNITS),
         "tf_available": tf_available(),
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
-            "Optional exact-linear surface only. Not Excel Case 1 solver; "
-            "not ADMM dual recovery; not a learned model. "
-            "Full FCC evaluate() = affine + numpy postprocess (coke clamp/renorm)."
+            "Optional exact-linear surface only (FCC + COKER offline kernels). "
+            "Not Excel Case 1 solver; not ADMM dual recovery; not a learned model. "
+            "Full evaluate() = affine + numpy postprocess (coke clamp/renorm) "
+            "outside TF. Coker renorm always engages → raw affine ≠ evaluate even "
+            "at reference."
         ),
     }
 
@@ -234,11 +240,27 @@ def apply_fcc_postprocess(
     return postprocess_fcc_yields(y_dict)
 
 
+def apply_coker_postprocess(
+    y_raw: Union[Mapping[str, float], np.ndarray],
+    products: Optional[Sequence[str]] = None,
+) -> Dict[str, float]:
+    """Numpy/Python Coker postprocess (coke clamp + liquid renorm). Not TF."""
+    from .base_delta import postprocess_coker_yields
+
+    if isinstance(y_raw, Mapping):
+        return postprocess_coker_yields(y_raw)
+    if products is None:
+        raise ValueError("products required when y_raw is a vector")
+    y_dict = {p: float(y_raw[i]) for i, p in enumerate(products)}
+    return postprocess_coker_yields(y_dict)
+
+
 class TFLinearBlock:
     """Exact-linear block: y_raw = y0 + D @ (x - x0) with float64 TF constants.
 
     Postprocess is intentionally **not** in the graph. Call
-    ``apply_fcc_postprocess`` separately for full evaluate parity.
+    ``apply_fcc_postprocess`` / ``apply_coker_postprocess`` separately for full
+    evaluate parity.
     """
 
     def __init__(self, coeffs: AffineCoeffs):
@@ -316,6 +338,25 @@ def tf_linear_fcc(
     from .base_delta import build_fcc_base_delta
 
     model = build_fcc_base_delta(
+        reference_feed=reference_feed,
+        reference_conditions=reference_conditions,
+    )
+    coeffs = affine_coeffs_from_base_delta(model)
+    return TFLinearBlock(coeffs)
+
+
+def tf_linear_coker(
+    reference_feed: Optional[Mapping[str, float]] = None,
+    reference_conditions: Optional[Mapping[str, Any]] = None,
+) -> TFLinearBlock:
+    """Factory: Coker exact-linear block from ``build_coker_base_delta()`` coeffs only.
+
+    Lazy TF import via ``TFLinearBlock``; raises ``ImportError`` when TF is missing.
+    Affine only — call ``apply_coker_postprocess`` for full evaluate parity.
+    """
+    from .base_delta import build_coker_base_delta
+
+    model = build_coker_base_delta(
         reference_feed=reference_feed,
         reference_conditions=reference_conditions,
     )
@@ -432,6 +473,7 @@ __all__ = [
     "DUAL_RECOVERY_PATH",
     "ON_EXCEL_CASE1_PATH",
     "POSTPROCESS",
+    "UNITS",
     "AffineCoeffs",
     "tf_available",
     "tf_import_error",
@@ -441,8 +483,10 @@ __all__ = [
     "numpy_affine_forward",
     "y_raw_dict",
     "apply_fcc_postprocess",
+    "apply_coker_postprocess",
     "TFLinearBlock",
     "tf_linear_fcc",
+    "tf_linear_coker",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]

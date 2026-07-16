@@ -938,6 +938,34 @@ def build_coker_base_delta(
     )
 
 
+def postprocess_coker_yields(y: Mapping[str, float]) -> Dict[str, float]:
+    """Coker non-linear shell: coke clamp + liquid renorm (outside any TF graph).
+
+    Matches historic ``_CokerModel._postprocess_yields`` math. Conditions are unused
+    for the yield shell (kept on evaluate() for API parity).
+
+    Policy (frozen product property — renorm **always** engages at reference):
+      coke = clamp(coker_coke, 0.12, 0.40)
+      liquid_vol = clamp(0.96 - coke, 0.50, 0.80)
+      scale liquids so sum(liquids) == liquid_vol
+
+    Honesty: raw affine y0+D@(x−x0) ≠ full evaluate() even at x=x0 because base
+    liquid sum (0.70) is renormalized to liquid_vol (0.74 at coke=0.22).
+    """
+    out = {str(k): float(v) for k, v in y.items()}
+    coke = _clamp(float(out.get("coker_coke", 0.22)), 0.12, 0.40)
+    liquids = ["coker_dry_gas", "coker_lpg", "coker_naphtha", "coker_gasoil"]
+    # Planning: liquids + coke ≈ 0.95–1.0 of feed (small unaccounted loss)
+    liquid_vol = _clamp(0.96 - coke, 0.50, 0.80)
+    s = sum(max(0.0, float(out.get(p, 0.0))) for p in liquids)
+    if s > 1e-12:
+        sc = liquid_vol / s
+        for p in liquids:
+            out[p] = max(0.0, float(out.get(p, 0.0))) * sc
+    out["coker_coke"] = coke
+    return out
+
+
 class _CokerModel(BaseDeltaModel):
     def evaluate(
         self,
@@ -973,17 +1001,9 @@ class _CokerModel(BaseDeltaModel):
     def _postprocess_yields(
         self, y: Dict[str, float], cond: Mapping[str, Any]
     ) -> Dict[str, float]:
-        coke = _clamp(y.get("coker_coke", 0.22), 0.12, 0.40)
-        liquids = ["coker_dry_gas", "coker_lpg", "coker_naphtha", "coker_gasoil"]
-        # Planning: liquids + coke ≈ 0.95–1.0 of feed (small unaccounted loss)
-        liquid_vol = _clamp(0.96 - coke, 0.50, 0.80)
-        s = sum(max(0.0, y[p]) for p in liquids)
-        if s > 1e-12:
-            sc = liquid_vol / s
-            for p in liquids:
-                y[p] = max(0.0, y[p]) * sc
-        y["coker_coke"] = coke
-        return y
+        # cond unused by Coker shell (kept for BaseDeltaModel signature)
+        _ = cond
+        return postprocess_coker_yields(y)
 
     def _adjust_composition(
         self,

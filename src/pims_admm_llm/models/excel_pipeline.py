@@ -1372,6 +1372,13 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
             "Case 1 mono/ADMM remains classic_2block_excel_path (CDU+Blender); duals are not TF-owned.",
         ),
         (
+            "coker_three_path",
+            "Submodel_Coker BASE/D_* = base_delta export (pre-postprocess MB_* coeffs). "
+            "Optional offline TF/numpy affine (tf_linear_coker) = exact linear copy of same y0/D — not this solve. "
+            "Case 1 mono/ADMM remains classic_2block_excel_path (CDU+Blender duals, not TF-owned). "
+            "Coker postprocess renorm is outside affine export: raw BASE/D_* ≠ full evaluate() even at reference.",
+        ),
+        (
             "solve_boundary",
             f"Mono+ADMM still CDU+Blender only. Cascade FCC/Coker = solve_cdu_fcc. "
             f"This run: mono={mono.get('objective')}, admm={admm.get('objective')}, "

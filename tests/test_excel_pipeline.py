@@ -185,6 +185,14 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "classic_2block" in three
     dual_note = how.get("duals_online_lambda", "")
     assert "online" in dual_note.lower()
+    # E1/E2: Coker three-path + renorm-outside-affine honesty
+    coker = how.get("coker_three_path", "")
+    assert coker, "How_to_read must include coker_three_path"
+    assert "BASE/D_*" in coker or "base_delta export" in coker
+    assert "tf_linear_coker" in coker or "offline TF" in coker
+    assert "classic_2block" in coker
+    assert "renorm" in coker.lower() or "postprocess" in coker.lower()
+    assert "evaluate" in coker.lower() or "reference" in coker.lower()
 
 
 def test_excel_fcc_export_matches_affine_coeffs():
