@@ -223,6 +223,18 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "dual" in plow and ("none" in plow or "primary" in plow)
     assert "not" in plow and ("shadow" in plow or "λ" in plow or "lambda" in plow or "admm" in plow)
 
+    # Optional secondary: offline block-solve timing readiness (static How_to)
+    tf_timing = how.get("tf_offline_timing", "")
+    assert tf_timing, "How_to_read must include tf_offline_timing"
+    tlow = tf_timing.lower()
+    assert "timing" in tlow or "block-solve" in tlow or "block solve" in tlow
+    assert "fcc" in tlow and "coker" in tlow and "cdu" in tlow
+    assert "not on" in tlow or "classic_2block" in tlow
+    assert "dual" in tlow and ("none" in tlow or "primary" in tlow)
+    assert "not" in tlow and (
+        "shadow" in tlow or "λ" in tlow or "lambda" in tlow or "wall" in tlow
+    )
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -258,6 +270,25 @@ def test_format_tf_offline_priced_howto_pure():
     assert "primary" in one
     assert "dual" in one
     assert "not" in one
+
+
+def test_format_tf_offline_timing_howto_pure():
+    """Static timing readiness How_to: isolation-safe; no TF import."""
+    from pims_admm_llm.models.excel_pipeline import format_tf_offline_timing_howto
+
+    d = format_tf_offline_timing_howto()
+    assert d["topic"] == "tf_offline_timing"
+    assert "FCC" in d["units"] and "COKER" in d["units"] and "CDU" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["form"] == "classic_2block_excel_path"
+    assert d["dual_recovery_path"] == "None"
+    one = d["planner_one_liner"].lower()
+    assert "timing" in one or "block-solve" in one
+    assert "classic_2block" in one or "not on" in one
+    assert "primary" in one
+    assert "dual" in one
+    assert "not" in one
+
 
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""

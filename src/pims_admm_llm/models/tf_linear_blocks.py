@@ -21,8 +21,9 @@ Case 1 Excel smoke must remain green.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
 
@@ -81,6 +82,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "postprocess": POSTPROCESS,
         "units": list(UNITS),
         "tf_available": tf_available(),
+        "block_solve_timing_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -88,7 +90,10 @@ def honesty_metadata() -> Dict[str, Any]:
             "Full evaluate() = affine + numpy postprocess (clamp/renorm) outside TF. "
             "Coker renorm always engages → raw ≠ evaluate even at reference. "
             "CDU has nested cut_points_f.* drivers in x0; Submodel_CDU is classic "
-            "TECH+A export (not a PIMS MB_* matrix twin like FCC/Coker)."
+            "TECH+A export (not a PIMS MB_* matrix twin like FCC/Coker). "
+            "Offline cached block-solve timing / readiness harness available "
+            "(multi_unit_block_solve_timing_report); timings are readiness only, "
+            "not Case 1 wall time and not ADMM duals."
         ),
     }
 
@@ -537,6 +542,32 @@ def offline_unit_coeffs(
         reference_conditions=reference_conditions,
     )
     return affine_coeffs_from_base_delta(model)
+
+
+# Process-local cache for **default-reference** coeffs only (offline readiness /
+# microbench). Custom reference_feed/conditions never use this cache.
+_DEFAULT_UNIT_COEFFS_CACHE: Dict[str, AffineCoeffs] = {}
+
+
+def clear_offline_unit_coeffs_cache() -> None:
+    """Clear default-ref AffineCoeffs cache (tests / process reset)."""
+    _DEFAULT_UNIT_COEFFS_CACHE.clear()
+
+
+def cached_offline_unit_coeffs(unit: str) -> AffineCoeffs:
+    """Default-reference AffineCoeffs with process-local memoization (no TF).
+
+    Cache is for offline readiness / timing harness only — not a solver state
+    store. Custom refs must still call ``offline_unit_coeffs(unit, feed, cond)``
+    so wrong-key caching cannot silently reuse default coeffs.
+    """
+    key = _normalize_unit_name(unit)
+    hit = _DEFAULT_UNIT_COEFFS_CACHE.get(key)
+    if hit is not None:
+        return hit
+    coeffs = offline_unit_coeffs(key)
+    _DEFAULT_UNIT_COEFFS_CACHE[key] = coeffs
+    return coeffs
 
 
 def build_offline_unit(
@@ -1121,6 +1152,293 @@ def local_box_direction(
     }
 
 
+def _timing_stats_us(samples_ns: Sequence[int]) -> Dict[str, Any]:
+    """Convert nanosecond samples to µs summary stats (median/mean/min/max)."""
+    if not samples_ns:
+        return {
+            "median_us": 0.0,
+            "mean_us": 0.0,
+            "min_us": 0.0,
+            "max_us": 0.0,
+            "n": 0,
+        }
+    arr = np.asarray(samples_ns, dtype=np.float64) / 1000.0  # ns → µs
+    return {
+        "median_us": float(np.median(arr)),
+        "mean_us": float(np.mean(arr)),
+        "min_us": float(np.min(arr)),
+        "max_us": float(np.max(arr)),
+        "n": int(arr.shape[0]),
+    }
+
+
+def _bench_callable(
+    fn: Callable[[], Any],
+    *,
+    n_repeats: int,
+    warmup: int,
+) -> Dict[str, Any]:
+    """Warmup then time ``fn`` with ``time.perf_counter_ns``; return µs stats."""
+    for _ in range(max(0, int(warmup))):
+        fn()
+    samples: List[int] = []
+    for _ in range(int(n_repeats)):
+        t0 = time.perf_counter_ns()
+        fn()
+        samples.append(time.perf_counter_ns() - t0)
+    return _timing_stats_us(samples)
+
+
+def _local_box_step_raw(
+    coeffs: AffineCoeffs,
+    p_vec: np.ndarray,
+    delta: float = 1.0,
+) -> np.ndarray:
+    """Thin closed-form box step using prebuilt coeffs (timing hot path).
+
+    Same corner maximizer as ``local_box_direction`` for independent box ±delta.
+    """
+    g = coeffs.D.T @ p_vec
+    d = float(delta)
+    x_star = np.array(coeffs.x0, dtype=np.float64, copy=True)
+    for j in range(int(coeffs.x0.shape[0])):
+        gj = float(g[j])
+        if abs(gj) < 1e-15 or d == 0.0:
+            continue
+        x_star[j] = float(coeffs.x0[j]) + d * float(np.sign(gj))
+    return x_star
+
+
+def multi_unit_block_solve_timing_report(
+    *,
+    n_repeats: int = 500,
+    warmup: int = 5,
+    include_box: bool = True,
+    include_composition: bool = False,
+    box_delta: float = 1.0,
+) -> Dict[str, Any]:
+    """Always-on cached multi-unit block-solve timing (FCC/COKER/CDU).
+
+    Builds / caches default-ref ``AffineCoeffs`` **once per unit**, then times
+    pure ``numpy_affine_forward`` (and optionally the closed-form local box
+    step) over ``n_repeats``. Optional TF raw-forward arm when installed.
+
+    Honesty locks: ``solver=False``, ``dual_recovery_path=None``,
+    ``on_excel_case1_path=False``. Timings are **offline readiness**, not Case 1
+    wall time and not ADMM duals / shadows. Aggregate ``ok`` is structural +
+    honesty + finite positive timings — **not** a hard microsecond SLA.
+    """
+    if int(n_repeats) < 1:
+        raise ValueError("n_repeats must be >= 1")
+    n_repeats = int(n_repeats)
+    warmup = max(0, int(warmup))
+
+    units_out: Dict[str, Any] = {}
+    timings_ok = True
+
+    for unit in UNITS:
+        t_build0 = time.perf_counter_ns()
+        coeffs = cached_offline_unit_coeffs(unit)
+        coeffs_build_us = (time.perf_counter_ns() - t_build0) / 1000.0
+
+        x_probe = np.array(coeffs.x0, dtype=np.float64, copy=True)
+
+        def _affine_once(
+            _c: AffineCoeffs = coeffs, _x: np.ndarray = x_probe
+        ) -> np.ndarray:
+            return numpy_affine_forward(_c, _x, clamp_products=True)
+
+        aff_stats = _bench_callable(
+            _affine_once, n_repeats=n_repeats, warmup=warmup
+        )
+        aff_stats["shape"] = [
+            int(coeffs.y0.shape[0]),
+            int(coeffs.x0.shape[0]),
+        ]
+
+        box_stats: Optional[Dict[str, Any]] = None
+        if include_box:
+            price_dict = default_offline_prices(unit)
+            p_vec = pack_price_vector(coeffs, price_dict)
+
+            def _box_once(
+                _c: AffineCoeffs = coeffs,
+                _p: np.ndarray = p_vec,
+                _d: float = float(box_delta),
+            ) -> np.ndarray:
+                x_star = _local_box_step_raw(_c, _p, delta=_d)
+                return numpy_affine_forward(_c, x_star, clamp_products=True)
+
+            box_stats = _bench_callable(
+                _box_once, n_repeats=n_repeats, warmup=warmup
+            )
+
+        tf_section: Dict[str, Any] = {
+            "skipped": True,
+            "reason": "tf_unavailable",
+            "median_us": None,
+            "mean_us": None,
+            "n": 0,
+        }
+        if tf_available():
+            try:
+                block = build_offline_unit(unit)
+                x_tf = np.array(coeffs.x0, dtype=np.float64, copy=True)
+
+                def _tf_once(_b=block, _x=x_tf) -> Any:
+                    return _b.forward(_x, clamp_products=True, as_dict=False)
+
+                tf_stats = _bench_callable(
+                    _tf_once, n_repeats=n_repeats, warmup=warmup
+                )
+                tf_section = {
+                    "skipped": False,
+                    "reason": None,
+                    "median_us": tf_stats["median_us"],
+                    "mean_us": tf_stats["mean_us"],
+                    "min_us": tf_stats["min_us"],
+                    "max_us": tf_stats["max_us"],
+                    "n": tf_stats["n"],
+                }
+            except Exception as exc:  # pragma: no cover - env dependent
+                tf_section = {
+                    "skipped": False,
+                    "reason": f"{type(exc).__name__}: {exc}",
+                    "median_us": None,
+                    "mean_us": None,
+                    "n": 0,
+                }
+
+        unit_ok = bool(
+            aff_stats["median_us"] > 0.0
+            and aff_stats["mean_us"] > 0.0
+            and np.isfinite(aff_stats["median_us"])
+            and np.isfinite(aff_stats["mean_us"])
+        )
+        if include_box and box_stats is not None:
+            unit_ok = unit_ok and bool(
+                box_stats["median_us"] > 0.0
+                and box_stats["mean_us"] > 0.0
+                and np.isfinite(box_stats["median_us"])
+            )
+        if not unit_ok:
+            timings_ok = False
+
+        units_out[unit] = {
+            "unit": unit,
+            "ok": bool(unit_ok),
+            "solver": False,
+            "dual_recovery_path": None,
+            "on_excel_case1_path": False,
+            "coeffs_build_us": float(coeffs_build_us),
+            "affine": aff_stats,
+            "box": box_stats,
+            "box_skipped": not include_box,
+            "tf": tf_section,
+            "n_products": int(coeffs.y0.shape[0]),
+            "n_drivers": int(coeffs.x0.shape[0]),
+        }
+
+    honesty_ok = (
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+    )
+
+    parity_ok: Optional[bool] = None
+    priced_ok: Optional[bool] = None
+    if include_composition:
+        try:
+            parity_ok = bool(multi_unit_parity_report()["ok"])
+        except Exception:  # pragma: no cover
+            parity_ok = False
+        try:
+            priced_ok = bool(multi_unit_priced_residual_report()["ok"])
+        except Exception:  # pragma: no cover
+            priced_ok = False
+
+    all_ok = bool(honesty_ok and timings_ok)
+    if include_composition:
+        all_ok = all_ok and bool(parity_ok) and bool(priced_ok)
+
+    note = (
+        "Offline cached multi-unit block-solve timing harness (FCC+COKER+CDU). "
+        "AffineCoeffs built once per unit (default-ref cache); pure numpy "
+        "affine forward (+ optional closed-form local box step) timed over "
+        f"n_repeats={n_repeats}. Timings are offline readiness only — NOT Case 1 "
+        "solve wall time, NOT ADMM duals, NOT pure-ADMM dual recovery, NOT "
+        "Case 1 shadows / online λ. solver=False; dual_recovery_path=None; "
+        "on_excel_case1_path=False; not on classic_2block_excel_path. "
+        "No hard microsecond SLA — report numbers; aggregate ok is structure + "
+        "honesty + finite positive timings."
+    )
+
+    out: Dict[str, Any] = {
+        "ok": all_ok,
+        "units": units_out,
+        "unit_order": list(UNITS),
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "kind": "offline_block_solve_timing",
+        "honesty_ok": honesty_ok,
+        "timings_ok": timings_ok,
+        "n_repeats": n_repeats,
+        "warmup": warmup,
+        "include_box": include_box,
+        "include_composition": include_composition,
+        "cached_coeffs": True,
+        "tf_available": tf_available(),
+        "readiness_only": True,
+        "note": note,
+    }
+    if include_composition:
+        out["parity_ok"] = parity_ok
+        out["priced_ok"] = priced_ok
+    return out
+
+
+def offline_block_solve_readiness_report(
+    *,
+    n_repeats: int = 200,
+    warmup: int = 3,
+    include_box: bool = True,
+    box_delta: float = 1.0,
+) -> Dict[str, Any]:
+    """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
+
+    One call answers \"ready for wire discussion?\" without re-implementing
+    parity/priced math. Does **not** mean wire is shipped or duals are owned.
+    """
+    base = multi_unit_block_solve_timing_report(
+        n_repeats=n_repeats,
+        warmup=warmup,
+        include_box=include_box,
+        include_composition=True,
+        box_delta=box_delta,
+    )
+    parity_ok = bool(base.get("parity_ok"))
+    priced_ok = bool(base.get("priced_ok"))
+    timings_ok = bool(base.get("timings_ok"))
+    honesty_ok = bool(base.get("honesty_ok"))
+    ready = bool(parity_ok and priced_ok and timings_ok and honesty_ok)
+    base = dict(base)
+    base["kind"] = "offline_block_solve_readiness"
+    base["ready_for_wire_discussion"] = ready
+    base["ok"] = ready
+    base["note"] = (
+        "Offline block-solve readiness report: cached multi-unit timing + "
+        "parity_ok + priced_ok under dual-ban honesty. "
+        "ready_for_wire_discussion is structural readiness only — wire is a "
+        "separate checklist + form label change; dual_recovery_path remains "
+        "None; on_excel_case1_path=False; timings/prices/gradients are NOT "
+        "ADMM λ / Case 1 shadows; not Case 1 solve wall time; not a solve. "
+        "Not pure-ADMM dual recovery."
+    )
+    return base
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -1249,6 +1567,8 @@ __all__ = [
     "tf_linear_cdu",
     "offline_unit_registry",
     "offline_unit_coeffs",
+    "cached_offline_unit_coeffs",
+    "clear_offline_unit_coeffs_cache",
     "build_offline_unit",
     "offline_units_status",
     "multi_unit_parity_report",
@@ -1258,6 +1578,8 @@ __all__ = [
     "priced_residual_for_unit",
     "multi_unit_priced_residual_report",
     "local_box_direction",
+    "multi_unit_block_solve_timing_report",
+    "offline_block_solve_readiness_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]

@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -37,6 +37,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | CDU nested drivers | `cut_points_f.*` flattened into x0 (same as pack/evaluate) |
 | Multi-unit registry | `offline_unit_registry` / `offline_units_status` / `multi_unit_parity_report` — readiness only |
 | Priced residual (goal 5) | `multi_unit_priced_residual_report` / `default_offline_prices` / `local_box_direction` — economics readiness; prices **not** duals |
+| Block-solve timing (goal 5) | `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report` / `cached_offline_unit_coeffs` — microsecond-class readiness; **not** Case 1 wall time; **not** duals |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -110,6 +111,54 @@ Honesty table (priced surface):
 | `on_excel_case1_path` | `False` |
 | `price_source` | `synthetic_offline_demo` (not Case 1 blender / not online λ) |
 | Local box gradients | **Not** ADMM λ / **not** Case 1 shadows |
+
+## Offline cached block-solve timing / readiness (goal 5 residual)
+
+Always-on numpy surface. Proves **microsecond-class** affine block direction under
+a default-ref coeff cache, with optional local-box step timing and optional
+composition of parity + priced `ok` flags. Still offline, still dual-ban, still
+not on Case 1. **No hard µs SLA** — report structure + honesty + finite positive
+timings; host load may vary.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    cached_offline_unit_coeffs,
+    clear_offline_unit_coeffs_cache,
+    multi_unit_block_solve_timing_report,
+    offline_block_solve_readiness_report,
+)
+
+# Default-ref coeffs memoized once per unit (custom refs use offline_unit_coeffs)
+c = cached_offline_unit_coeffs("FCC")
+assert cached_offline_unit_coeffs("FCC") is c
+
+timing = multi_unit_block_solve_timing_report(
+    n_repeats=500, warmup=5, include_box=True, include_composition=False
+)
+assert timing["ok"]
+assert timing["kind"] == "offline_block_solve_timing"
+assert timing["dual_recovery_path"] is None
+assert timing["on_excel_case1_path"] is False
+assert timing["cached_coeffs"] is True
+# per-unit: affine.median_us / mean_us; optional box.*; optional tf arm (skipped if no TF)
+
+ready = offline_block_solve_readiness_report(n_repeats=200)
+assert ready["kind"] == "offline_block_solve_readiness"
+assert ready["parity_ok"] and ready["priced_ok"] and ready["timings_ok"]
+assert ready["ready_for_wire_discussion"] is True  # structural only — wire still deferred
+assert ready["dual_recovery_path"] is None
+```
+
+Honesty table (timing / readiness surface):
+
+| Field | Value |
+|-------|-------|
+| `kind` | `offline_block_solve_timing` / `offline_block_solve_readiness` |
+| `solver` | `False` |
+| `dual_recovery_path` | `None` |
+| `on_excel_case1_path` | `False` |
+| Timings | **Offline readiness** — not Case 1 wall time; not ADMM duals / shadows |
+| `ready_for_wire_discussion` | Structural only (parity + priced + timing + honesty); **not** wire shipped |
 
 Planner-facing How_to key `tf_offline_units` (static text in `excel_pipeline`,
 **no** import of this module) states the same honesty: FCC+COKER+CDU offline
@@ -203,6 +252,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 
 - [ ] `multi_unit_parity_report()` aggregate `ok` (always-on numpy; TF arm green if installed)
 - [ ] `multi_unit_priced_residual_report()` aggregate `ok` (always-on economics residual; dual_recovery_path=None; prices not duals)
+- [ ] Offline block-solve timing / readiness report green (cached affine; dual-ban intact; not Case 1 wall time) — `multi_unit_block_solve_timing_report` / `offline_block_solve_readiness_report`
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
@@ -210,6 +260,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] Excel lean ≤15 sheets preserved; no EMRPS on hot path; no reformer/HDT kernel as wire side-effect
 - [ ] Case 1 demo VERDICT still PASS (gap ≤0.5%, dual L∞ online ≤15) with or without TF installed
 - [ ] Local box direction (if used) never treated as Case 1 shadows / online λ
+- [ ] Timings / local box gradients never treated as Case 1 shadows / online λ / pure-ADMM duals
 
 ## Critics checklist (before claiming “done”)
 
@@ -225,3 +276,5 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `multi_unit_priced_residual_report` ok without TF; Coker raw≠full priced honesty preserved
 - [ ] Pre-wire dual-L∞ proof checklist present (this doc); wire not claimed as shipped
 - [ ] Priced residual pre-wire gate present; local box gradients not claimed as duals
+- [ ] Timing / readiness report honesty: dual_recovery_path=None; on_excel_case1_path=False; no flaky absolute µs hard-fail; timings not duals / not Case 1 wall time
+- [ ] `cached_offline_unit_coeffs` default-ref only; custom refs never silently reuse default cache
