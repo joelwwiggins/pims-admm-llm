@@ -1444,6 +1444,35 @@ def format_tf_offline_priced_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_timing_howto() -> Dict[str, str]:
+    """Static offline block-solve timing How_to strings (isolation-safe; no TF import).
+
+    Planner-facing note that cached multi-unit block-solve timing / readiness
+    harness exists for FCC+COKER+CDU. Does **not** import tf_linear_blocks /
+    tensorflow. Timings are readiness only — not Case 1 wall time; duals still
+    PRIMARY online-λ / SECONDARY recovered.
+    """
+    one_liner = (
+        "Offline cached multi-unit block-solve timing harness exists for "
+        "FCC+COKER+CDU exact-linear shells (cached AffineCoeffs + numpy affine "
+        "forward / optional local box step; readiness compose with parity+priced). "
+        "Still not on this Case 1 solve (classic_2block_excel_path). "
+        "TF/offline surface dual_recovery_path=None; timings are readiness not "
+        "shadows / not online λ / not Case 1 wall time. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender."
+    )
+    return {
+        "topic": "tf_offline_timing",
+        "units": "FCC+COKER+CDU",
+        "on_case1_solve": "false",
+        "form": "classic_2block_excel_path",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 _OFFLINE_TF_INDEX_WHAT = (
@@ -1599,6 +1628,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     path_ = dual["dual_recovery_path"]
     tf_off = format_tf_offline_units_howto()
     tf_priced = format_tf_offline_priced_howto()
+    tf_timing = format_tf_offline_timing_howto()
     return [
         (
             "goal",
@@ -1645,6 +1675,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_priced",
             tf_priced["planner_one_liner"],
+        ),
+        (
+            "tf_offline_timing",
+            tf_timing["planner_one_liner"],
         ),
         (
             "solve_boundary",
