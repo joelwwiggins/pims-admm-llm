@@ -1,6 +1,6 @@
 # TensorFlow linear blocks (optional, offline)
 
-**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + **offline multi-round ADMM coordination harness (subproblem → z → λ under synthetic λ,z,ρ)** + **offline multi-block plant-linking ADMM harness (synthetic linking topology + shared λ/z + incidence)** + **offline dual-honest wire-preflight report (compose gates + machine-readable wire_blockers; wire_shipped=False)** + **offline Case-1-shaped CDU↔Blender linking skeleton (dual-ban; wire_shipped=False; linear_quality_pooling)** + Excel coeff honesty (FCC/Coker only).  
+**Status:** exact-linear **FCC + Coker + CDU** offline kernels + multi-unit registry + wiring-readiness parity harness + **offline priced residual / local box direction harness** + **cached multi-unit block-solve timing / readiness harness** + **offline multi-unit ADMM-style consensus residual harness** + **offline multi-unit ADMM block subproblem maximizer (raw affine under box)** + **offline multi-round ADMM coordination harness (subproblem → z → λ under synthetic λ,z,ρ)** + **offline multi-block plant-linking ADMM harness (synthetic linking topology + shared λ/z + incidence)** + **offline dual-honest wire-preflight report (compose gates + machine-readable wire_blockers; wire_shipped=False)** + **offline Case-1-shaped CDU↔Blender linking skeleton (dual-ban; wire_shipped=False; linear_quality_pooling)** + **offline Case-1 dual-space / form-label contract (planned form registry without flip; stream map; dual_linf unproven checklist)** + Excel coeff honesty (FCC/Coker only).  
 **Not** on the Excel Case 1 / PuLP ADMM solve path.
 
 ## Install
@@ -44,6 +44,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | ADMM plant-linking multi-block (goal 5 pre-wire) | `multi_block_plant_linking_admm_report` / `plant_linking_admm_round` / `offline_plant_linking_topology` — shared λ/z on synthetic (default) **or plant-named** linking streams + per-unit incidence; compose subproblem; **not** full plant mass balance; **not** dual recovery; **not** Case 1; **not** wire |
 | Wire preflight (goal 5 honesty residual) | `offline_wire_preflight_report` / `offline_wire_blocker_catalog` — compose readiness + additive ADMM gates + machine-readable `wire_blockers`; `wire_shipped=False`; **not** dual recovery; **not** Case 1; **not** wire shipped; does **not** redefine `ready_for_wire_discussion` |
 | Case-1-shaped CDU↔Blender skeleton (goal 5 residual) | `offline_case1_shaped_cdu_blender_linking_report` — CDU affine + blender `linear_quality_pooling` residual under synthetic λ,z,ρ on Case 1 intermediates; dual-ban; `wire_shipped=False`; skeleton ≠ wire; **not** form flip; does **not** clear `DEFAULT_WIRE_BLOCKERS` |
+| Case-1 dual-space / form-label contract (goal 5+3 residual) | `offline_case1_dual_space_form_contract_report` — planned TF-aware form registry **without** flipping Case 1; dual-space stream map (Case 1 intermediates ↔ skeleton λ); `dual_linf_under_wire=unproven` + open checklist; dual-ban; `wire_shipped=False`; does **not** clear blockers; does **not** redefine ready |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -644,6 +645,54 @@ redefine `ready_for_wire_discussion`.
 SECONDARY recovered blender on the Excel path. This skeleton has
 `dual_recovery_path=None` and `linking_lambda_is_not_case1_online_lambda=True`.
 
+## Offline Case-1 dual-space / form-label contract (goal 5 + goal 3 residual)
+
+Always-on numpy surface that makes the softest pre-wire blockers
+(`form_label_change_required`, `dual_linf_under_wire_unproven`) machine-checkable
+**prep** without shipping wire or flipping Case 1 form.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    offline_case1_dual_space_form_contract_report,
+    multi_unit_case1_dual_space_form_contract_report,  # alias
+    CASE1_FORM_CURRENT,
+    CASE1_PLANNED_TF_AWARE_FORM,
+    CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+)
+
+rep = offline_case1_dual_space_form_contract_report()
+assert rep["kind"] == "offline_case1_dual_space_form_contract"
+assert rep["ok"] is True
+assert rep["form_current"] == CASE1_FORM_CURRENT == "classic_2block_excel_path"
+assert rep["form_planned"] == CASE1_PLANNED_TF_AWARE_FORM
+assert rep["form_planned"] != rep["form_current"]
+assert rep["form_unchanged"] is True
+assert rep["stream_alignment_ok"] is True
+assert set(rep["streams"]) == {"naphtha", "distillate", "gasoil", "residue"}
+assert rep["dual_linf_under_wire_status"] == CASE1_DUAL_LINF_UNDER_WIRE_STATUS == "unproven"
+assert rep["dual_recovery_path"] is None
+assert rep["wire_shipped"] is False
+assert rep["blockers_still_documented"] is True
+```
+
+| Field | Meaning |
+|-------|---------|
+| `form_current` / `form_planned` | Classic Case 1 form vs registered TF-aware future label (distinct; no flip) |
+| `stream_alignment_ok` | Case 1 intermediates name-set equals Case-1-shaped skeleton λ slots |
+| `package_dual_gate` | `online_lambda` (PRIMARY VERDICT gate) |
+| `package_dual_secondary` | `recovered_blender` (SECONDARY; not gate) |
+| `dual_linf_under_wire_status` | Always `unproven` at HEAD; open checklist items remain open |
+| `wire_shipped` | Always `False`; contract does **not** clear `DEFAULT_WIRE_BLOCKERS` |
+| `ok` | Honesty ∧ form contract ∧ stream alignment ∧ dual_linf unproven ∧ blockers documented — **not** wire |
+
+Additive readiness flag `admm_case1_dual_space_form_contract_ok` does **not**
+redefine `ready_for_wire_discussion` (still parity∧priced∧timings∧honesty only).
+
+**Dual honesty cross-link:** Case 1 duals remain PRIMARY free online λ /
+SECONDARY recovered blender on the Excel path. This contract surface has
+`dual_recovery_path=None`; skeleton λ ≠ Case 1 PRIMARY/SECONDARY duals;
+registering a planned form is **not** form flip and **not** dual L∞ proof under wire.
+
 ## Before wiring TF into ADMM / Case 1 (pre-wire checklist)
 
 This is a **gate list only** — do **not** implement the wire from this doc alone.
@@ -659,8 +708,9 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [x] Excel static packaging mentions plant-named mode (`tf_offline_admm_plant_named_linking` How_to + Index/Summary/meta/Calc_Check/demo; dual_recovery_path=None; not full plant MB; not wire; synthetic plant-linking packaging still present; no live excel→tf plant-named call)
 - [x] `offline_wire_preflight_report()` documents machine-readable `wire_blockers` (isolation rewrite, form label change, dual L∞ under wire unproven, Case 1 CDU+Blender shape, no blender affine kernel, wire_not_shipped, …); `wire_shipped=False`; dual-ban; does **not** redefine `ready_for_wire_discussion`; preflight ≠ wire shipped
 - [x] `offline_case1_shaped_cdu_blender_linking_report()` ok (Case-1-shaped CDU↔Blender offline skeleton; dual-ban; wire_shipped=False; blender linear_quality_pooling ≠ affine kernel; skeleton λ ≠ Case 1 duals; not form flip; does **not** clear wire_blockers; no residual-must-vanish; not full plant MB) — **still not wire**
+- [x] `offline_case1_dual_space_form_contract_report()` ok (planned TF-aware form registered and **distinct** from classic; form_unchanged; stream map naphtha/distillate/gasoil/residue ↔ skeleton λ; dual_linf_under_wire=unproven + open checklist; dual-ban; wire_shipped=False; blockers still documented; does **not** redefine ready; does **not** clear blockers) — **still not wire / not form flip / not dual L∞ proven**
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
-- [ ] Explicit form label change plan: `classic_2block_excel_path` → a named TF-aware form when wire lands (never silent form reuse)
+- [ ] Explicit form label change **shipped** (not merely registered): `classic_2block_excel_path` → `tf_affine_cdu_blender_shaped_excel_path` when wire lands (never silent form reuse). Planned form is **registered** by the dual-space/form contract above.
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
 - [ ] TF never claims dual recovery without an online-λ proof path (`dual_recovery_path` must stay labeled honestly)
 - [ ] Excel lean ≤15 sheets preserved; no EMRPS on hot path; no reformer/HDT kernel as wire side-effect
@@ -682,7 +732,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] How_to includes `fcc_three_path` + `coker_three_path` + `cdu_three_path` + `tf_offline_units`
 - [ ] `offline_unit_registry` lists exactly FCC/COKER/CDU; `multi_unit_parity_report` ok without TF
 - [ ] `multi_unit_priced_residual_report` ok without TF; Coker raw≠full priced honesty preserved
-- [ ] Pre-wire dual-L∞ proof checklist present (this doc); wire not claimed as shipped
+- [ ] Pre-wire dual-L∞ proof checklist present (this doc + `offline_case1_dual_space_form_contract_report`); wire not claimed as shipped
 - [ ] Priced residual pre-wire gate present; local box gradients not claimed as duals
 - [ ] Timing / readiness report honesty: dual_recovery_path=None; on_excel_case1_path=False; no flaky absolute µs hard-fail; timings not duals / not Case 1 wall time
 - [ ] `cached_offline_unit_coeffs` default-ref only; custom refs never silently reuse default cache
@@ -692,3 +742,4 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [ ] `multi_block_plant_linking_admm_report` ok without TF; synthetic topology (default) + plant-named mode; shared linking λ/z; pre-z linking residual dual ascent; compose subproblem; not full plant MB; plant-linking λ ≠ Case 1 duals; dual_recovery_path=None; no residual-must-vanish SLA; existing coordination still `not_plant_linking_coordinator=True`; additive `admm_plant_named_linking_ok` does not redefine `ready_for_wire_discussion`
 - [ ] `offline_wire_preflight_report` ok without TF; wire_blockers non-empty with critical honesty ids; wire_shipped=False; dual_recovery_path=None; ready_for_wire_discussion meaning unchanged; preflight_ok/blockers_documented separate from ready; not full plant MB; not wire shipped
 - [ ] `offline_case1_shaped_cdu_blender_linking_report` ok without TF; dual-ban; wire_shipped=False; blender_surface=linear_quality_pooling; Case 1 intermediate streams; UNITS still FCC/COKER/CDU; blockers still true; additive `admm_case1_shaped_linking_ok` does not redefine ready; not residual-must-vanish; not full plant MB; not wire
+- [ ] `offline_case1_dual_space_form_contract_report` ok without TF; form current classic + planned distinct; stream_alignment_ok; dual_linf unproven + open checklist; dual_recovery_path=None; wire_shipped=False; blockers still documented; additive `admm_case1_dual_space_form_contract_ok` does not redefine ready; not form flip; not dual L∞ proven; not wire
