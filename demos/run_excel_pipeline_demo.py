@@ -91,7 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     # plant-named, wire-preflight, Case-1-shaped skeleton, dual-space/form
     # contract, dual-space L∞ probe, dual-space L∞ live-λ bridge, dual-space
     # L∞ live-λ-seeded warm-start, honest blender pooling path, online_linf_gate
-    # flip-criteria contract, or isolation-rewrite design contract reports.
+    # flip-criteria contract, isolation-rewrite design, form_label ship criteria,
+    # or isolation-rewrite ship criteria contract reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -133,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_honest_tf_aware_path_present_criteria_contract")
     if ph.get("offline_tf_case1_form_label_change_shipped_criteria_contract_ready"):
         readiness_bits.append("case1_form_label_change_shipped_criteria_contract")
+    if ph.get("offline_tf_case1_isolation_rewrite_shipped_criteria_contract_ready"):
+        readiness_bits.append("case1_isolation_rewrite_shipped_criteria_contract")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -216,6 +219,15 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_form_label_change_shipped_criteria_contract_ready")
         else "no case1_form_label_change_shipped_criteria_contract packaging flag"
     )
+    isolation_ship_criteria_note = (
+        "isolation ship criteria packaged (criteria_present; "
+        "isolation_ship_allowed=false; isolation_rewrite_shipped=false; checklist open; "
+        "rewrite-not-delete; form=classic; path_shipped=false; ship-met=false; wire=false; "
+        "dual-ban; not VERDICT; not isolation rewrite ship / not form flip / not path ship / "
+        "not ship allow)"
+        if ph.get("offline_tf_case1_isolation_rewrite_shipped_criteria_contract_ready")
+        else "no case1_isolation_rewrite_shipped_criteria_contract packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -227,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{linf_probe_note}; {live_bridge_note}; {live_warmstart_note}; "
         f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note}; "
         f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
-        f"{form_label_criteria_note})"
+        f"{form_label_criteria_note}; {isolation_ship_criteria_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
