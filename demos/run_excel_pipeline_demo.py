@@ -143,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract")
     if ph.get("offline_tf_case1_dual_honest_tf_aware_path_execution_scaffold_ready"):
         readiness_bits.append("case1_dual_honest_tf_aware_path_execution_scaffold")
+    if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_rehearsal_ready"):
+        readiness_bits.append("case1_dual_honest_multi_blocker_wire_rehearsal")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -262,6 +264,15 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_dual_honest_tf_aware_path_execution_scaffold_ready")
         else "no case1_dual_honest_tf_aware_path_execution_scaffold packaging flag"
     )
+    rehearsal_note = (
+        "dual-honest multi-blocker wire rehearsal packaged (rehearsal_present; "
+        "wire_rehearsal_present; scaffold linked; path_shipped=false; ship-met=false; "
+        "wire=false; bundle_shipped=false; form=classic; co-req dry-run static; "
+        "dual-ban; not VERDICT; not path ship / not wire ship / not bundle ship / "
+        "not isolation rewrite ship / not form flip / not ship allow)"
+        if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_rehearsal_ready")
+        else "no case1_dual_honest_multi_blocker_wire_rehearsal packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -274,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note}; "
         f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
         f"{form_label_criteria_note}; {isolation_ship_criteria_note}; "
-        f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note})"
+        f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note}; {rehearsal_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
