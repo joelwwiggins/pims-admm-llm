@@ -88,7 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     offline_units = ph.get("offline_tf_units") or "FCC,COKER,CDU"
     # Static readiness flags from meta only — never import tf_linear_blocks /
     # live residual, block subproblem, multi-round coordination, plant-linking,
-    # plant-named, wire-preflight, or Case-1-shaped skeleton reports.
+    # plant-named, wire-preflight, Case-1-shaped skeleton, or dual-space/form
+    # contract reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -108,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("wire_preflight")
     if ph.get("offline_tf_case1_shaped_linking_ready"):
         readiness_bits.append("case1_shaped_linking")
+    if ph.get("offline_tf_case1_dual_space_form_contract_ready"):
+        readiness_bits.append("case1_dual_space_form_contract")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -120,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_shaped_linking_ready")
         else "no case1_shaped packaging flag"
     )
+    dual_space_note = (
+        "dual-space/form contract packaged (planned≠classic form registered; "
+        "streams aligned; dual_linf_under_wire=unproven; dual-ban; not wire)"
+        if ph.get("offline_tf_case1_dual_space_form_contract_ready")
+        else "no dual_space_form_contract packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -127,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         f"synthetic residual/subproblem/coordination/plant-linking/plant-named λ ≠ duals; "
         f"per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
         f"plant-named offline demo ≠ full plant MB / ≠ live cascade; "
-        f"preflight λ ≠ duals; {wire_note}; {case1_shaped_note})"
+        f"preflight λ ≠ duals; {wire_note}; {case1_shaped_note}; {dual_space_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
