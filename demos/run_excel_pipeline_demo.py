@@ -189,8 +189,28 @@ def main(argv: list[str] | None = None) -> int:
             f"wire_shipped={bridge.get('wire_shipped')}  "
             f"[NOT VERDICT gate; NOT dual L∞ under wire proof]"
         )
+        warm = _tlb.offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report(
+            case1_package=report,
+            n_rounds=1,
+            include_secondary_recovered=True,
+        )
+        print(
+            f"Offline TF live-λ-seeded warm-start (diagnostic only): "
+            f"source={warm.get('live_lambda_source')}  "
+            f"seed_policy={warm.get('seed_policy')}  "
+            f"z0_policy={warm.get('z0_policy')}  "
+            f"L∞_post={warm.get('linf_post_rounds')}  "
+            f"L∞_seed={warm.get('linf_at_seed')}  "
+            f"warmstart_ok={warm.get('warmstart_ok')}  "
+            f"dual_linf_under_wire={warm.get('dual_linf_under_wire_status')}  "
+            f"online_linf_gate={warm.get('online_linf_gate_under_tf_path')}  "
+            f"dual_recovery_path={warm.get('dual_recovery_path')}  "
+            f"wire_shipped={warm.get('wire_shipped')}  "
+            f"[NOT VERDICT gate; NOT dual L∞ under wire proof; "
+            f"seed identity L∞ ≠ proof]"
+        )
     except Exception as exc:  # pragma: no cover - demo soft-skip
-        print(f"Offline TF live-λ bridge: skipped ({exc})")
+        print(f"Offline TF live-λ bridge/warm-start: skipped ({exc})")
 
     return 0 if report["verdict"].startswith("PASS") else 1
 
