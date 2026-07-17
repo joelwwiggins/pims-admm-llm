@@ -3890,6 +3890,110 @@ def format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_bluepr
     }
 
 
+
+def format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto() -> Dict[str, str]:
+    """Static offline Case-1 isolation first-blocker *operational prep* How_to.
+
+    Planner-facing dual-ban packaging twin of TF operational prep residual:
+    prep_present=true; first_blocking_coreq=isolation_rewrite_with_wire;
+    isolation_rewrite_shipped=false; rewrite-not-delete; suite_path pinned;
+    dual_linf_under_wire=unproven; dual_recovery_path=None; ship flags hard false;
+    packaging alone / this_prep alone ≠ isolation rewrite shipped ≠ wire ≠ VERDICT
+    ≠ dual L∞ under wire proof. Does **not** load tf_linear_blocks or tensorflow;
+    does **not** call offline_case1_isolation_rewrite_first_blocker_operational_prep_report.
+    No Index growth.
+    """
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    anti = ",".join(_CASE1_FIRST_BLOCKER_PREP_ANTI_CRITERIA)
+    suite = _CASE1_ISOLATION_SUITE_PATH
+    first_blocking = _CASE1_FIRST_BLOCKING_COREQ
+    one_liner = (
+        "Offline Case-1 isolation first-blocker *operational prep* readiness exists "
+        "(static packaging): prep_present=true; first_blocker_prep_present=true; "
+        f"first_blocking_coreq={first_blocking}; "
+        "isolation_rewrite_shipped=false; isolation_tests_rewritten_with_wire=false; "
+        f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+        f"suite_path={suite}; rewrite_not_delete=true; "
+        "companion_matrix_is_inventory_only=true; "
+        "path_shipped=false; wire_shipped=false; bundle_shipped=false; "
+        "form_label_change_shipped=false; form=classic; "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+        "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+        "dual_recovery_path=None today; "
+        f"dual_recovery_path_planned_when_shipped="
+        f"{_CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED} (not pure-ADMM); "
+        "prep_is_not_isolation_rewrite_shipped=true; prep_is_not_wire=true; "
+        "prep_is_not_verdict_gate=true; prep_is_not_dual_linf_under_wire_proof=true; "
+        "this_prep_alone_is_not_ship=true; packaging_alone_is_not_ship=true; "
+        "order_hint_is_not_executor=true; no_auto_wire=true; "
+        f"open checklist ({open_ids}); "
+        f"units_affine_unchanged={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+        f"anti_criteria_today={anti}; does not clear wire_blockers; "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender; "
+        "this packaging is not isolation rewrite shipped / not wire / not form flip / "
+        "not VERDICT dual gate / not dual L∞ under wire proof."
+    )
+    return {
+        "topic": "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "dual_recovery_path_planned_when_shipped": _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        "on_excel_case1_path": "false",
+        "prep_present": "true",
+        "first_blocker_prep_present": "true",
+        "first_blocking_coreq": first_blocking,
+        "isolation_rewrite_shipped": "false",
+        "isolation_tests_rewritten_with_wire": "false",
+        "isolation_rewrite_with_wire": _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        "rewrite_not_delete": "true",
+        "rewrite_with_wire_not_delete": "true",
+        "suite_path": suite,
+        "companion_matrix_is_inventory_only": "true",
+        "wire_shipped": "false",
+        "path_shipped": "false",
+        "bundle_shipped": "false",
+        "form_label_change_shipped": "false",
+        "wire_ship_allowed_today": "false",
+        "isolation_ship_allowed_today": "false",
+        "criteria_met_today": "false",
+        "online_linf_gate_under_tf_path": "open",
+        "gate_flip_allowed_today": "false",
+        "feature_flag_enabled_today": "false",
+        "prep_is_not_isolation_rewrite_shipped": "true",
+        "prep_is_not_wire": "true",
+        "prep_is_not_form_label_change_shipped": "true",
+        "prep_is_not_path_shipped": "true",
+        "prep_is_not_bundle_shipped": "true",
+        "prep_is_not_verdict_gate": "true",
+        "prep_is_not_dual_linf_under_wire_proof": "true",
+        "this_prep_alone_is_not_ship": "true",
+        "packaging_alone_is_not_ship": "true",
+        "packaging_is_not_isolation_rewrite_shipped": "true",
+        "packaging_is_not_wire_shipped": "true",
+        "packaging_is_not_path_shipped": "true",
+        "order_hint_is_not_executor": "true",
+        "no_auto_wire": "true",
+        "units_affine_unchanged": _OFFLINE_TF_UNITS,
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "anti_criteria_today": anti,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 def format_tf_offline_ladder_toc_howto() -> Dict[str, str]:
     """Static How_to TOC / navigator for the offline TF honesty ladder (E7).
 
@@ -3965,6 +4069,10 @@ def format_tf_offline_ladder_toc_howto() -> Dict[str, str]:
             "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint",
             "implementation blueprint / go-board (1st=iso; not ship)",
         ),
+        (
+            "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep",
+            "isolation first-blocker operational prep (prep≠ship)",
+        ),
     ]
     dual_ban = (
         "ship=false; wire_shipped=false; path_shipped=false; bundle_shipped=false; "
@@ -3988,6 +4096,7 @@ def format_tf_offline_ladder_toc_howto() -> Dict[str, str]:
         "topic_ids": topic_ids,
         "topic_count": str(len(ladder)),
         "includes_blueprint": "true",
+        "includes_first_blocker_operational_prep": "true",
         "ship_false_dual_ban": "true",
         "wire_shipped": "false",
         "path_shipped": "false",
@@ -4486,6 +4595,31 @@ _CASE1_BLUEPRINT_ANTI_CRITERIA = (
     "diagnostic_linf_alone",
 )
 
+_CASE1_ISOLATION_SUITE_PATH = "tests/test_tf_import_isolation.py"
+_CASE1_FIRST_BLOCKER_PREP_KIND = (
+    "offline_case1_isolation_rewrite_first_blocker_operational_prep"
+)
+_CASE1_FIRST_BLOCKER_PREP_ANTI_CRITERIA = (
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "packaging_alone",
+    "design_contracts_alone",
+    "this_prep_alone",
+    "go_board_alone",
+    "design_alone",
+    "ship_criteria_alone",
+    "blueprint_alone",
+    "rehearsal_alone",
+    "scaffold_alone",
+    "this_prep_packaging_alone",
+    "diagnostic_linf_alone",
+)
+
 # Open dual-L∞-under-wire checklist ids remaining after #40 pooling formalization.
 # blender_affine_or_honest_pooling is NO LONGER open (TF status honest_pooling_path_present).
 # dual_linf_under_wire remains unproven; online_linf_gate_under_tf_path stays open
@@ -4942,6 +5076,12 @@ _OFFLINE_TF_CASE1_DUAL_HONEST_MULTI_BLOCKER_WIRE_IMPLEMENTATION_BLUEPRINT_NOTE =
     "blueprint_present ≠ first_blocking_as_ship ≠ path_shipped ≠ wire_shipped "
     "≠ bundle_shipped ≠ order_hint executor"
 )
+_OFFLINE_TF_CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_OPERATIONAL_PREP_NOTE = (
+    "isolation first-blocker operational prep packaging present (prep_present=true; "
+    f"first_blocking={_CASE1_FIRST_BLOCKING_COREQ}; isolation_rewrite_shipped=false; "
+    "rewrite-not-delete; dual_linf=unproven; dual_recovery_path=None; prep≠ship; "
+    "not VERDICT; not wire; not dual L∞ under wire proof)"
+)
 
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
@@ -5134,6 +5274,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_blueprint = (
         format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto()
     )
+    tf_first_blocker_prep = (
+        format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto()
+    )
     tf_ladder_toc = format_tf_offline_ladder_toc_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -5200,6 +5343,8 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_rehearsal_present": True,  # static packaging existence only
         "offline_tf_wire_rehearsal_present": True,  # static packaging existence only
         "offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ready": True,  # static; not live blueprint report
+        "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready": True,  # static; not live prep report
+        "offline_tf_first_blocker_prep_present": True,  # static packaging existence only
         "offline_tf_blueprint_present": True,  # static packaging existence only
         "offline_tf_implementation_blueprint_present": True,  # static packaging existence only
         "offline_tf_wire_go_board_present": True,  # static packaging existence only
@@ -5282,6 +5427,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint": (
             _OFFLINE_TF_CASE1_DUAL_HONEST_MULTI_BLOCKER_WIRE_IMPLEMENTATION_BLUEPRINT_NOTE
         ),
+        "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep": (
+            _OFFLINE_TF_CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_OPERATIONAL_PREP_NOTE
+        ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
         "on_excel_case1_path": False,
@@ -5344,7 +5492,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"path/wire/bundle ship=false; dual-ban; not VERDICT) + "
             f"dual-honest multi-blocker wire implementation blueprint readiness "
             f"(blueprint_present; first_blocking={_CASE1_FIRST_BLOCKING_COREQ}; "
-            f"rehearsal+scaffold linked; path/wire/bundle ship=false; dual-ban; not VERDICT) "
+            f"rehearsal+scaffold linked; path/wire/bundle ship=false; dual-ban; not VERDICT) + "
+            f"isolation first-blocker operational prep readiness "
+            f"(prep_present; first_blocking={_CASE1_FIRST_BLOCKING_COREQ}; "
+            f"isolation_rewrite_shipped=false; rewrite-not-delete; dual-ban; not VERDICT) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -5481,6 +5632,12 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ("offline_tf_wire_go_board_present", True),
         ("offline_tf_first_blocking_coreq", _CASE1_FIRST_BLOCKING_COREQ),
         ("offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ready", True),
+        (
+            "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep",
+            _OFFLINE_TF_CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_OPERATIONAL_PREP_NOTE,
+        ),
+        ("offline_tf_first_blocker_prep_present", True),
+        ("offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready", True),
         ("offline_tf_bundle_shipped", False),
         ("offline_tf_bundle_ship_allowed_today", False),
         ("offline_tf_bundle_criteria_met_today", False),
@@ -5537,6 +5694,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_dual_honest_tf_aware_path_execution_scaffold": tf_scaffold,
         "tf_offline_case1_dual_honest_multi_blocker_wire_rehearsal": tf_rehearsal,
         "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint": tf_blueprint,
+        "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep": tf_first_blocker_prep,
         "tf_offline_ladder_toc": tf_ladder_toc,
     }
 
@@ -7428,6 +7586,60 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_duals",
+            "predicted": (
+                "prep_present=true; first_blocker_prep_present=true; "
+                f"first_blocking={_CASE1_FIRST_BLOCKING_COREQ}; "
+                "isolation_rewrite_shipped=false; rewrite-not-delete; "
+                "dual_recovery_path=None on packaging surface; not dual recovery"
+            ),
+            "actual": (
+                "static honesty — isolation first-blocker operational prep packaging; "
+                "dual_recovery_path=None; prep≠ship; not dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_ship",
+            "predicted": (
+                "this packaging alone ≠ isolation_rewrite_shipped ≠ wire ≠ path ship ≠ "
+                "bundle ship ≠ form_label ship; prep_present≠ship"
+            ),
+            "actual": (
+                "static honesty — prep packaging only; isolation_rewrite_shipped=false; "
+                "wire_shipped=false; path_shipped=false; form_label_change_shipped=false"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_verdict_gate",
+            "predicted": (
+                "prep packaging ≠ Case 1 VERDICT dual gate; PRIMARY online λ remains gate; "
+                "tol≤15; dual_linf under wire unproven"
+            ),
+            "actual": (
+                "static honesty — operational prep packaging is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY; dual_linf unproven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_dual_linf_under_wire_proof",
+            "predicted": (
+                "prep alone / packaging alone / blueprint alone never prove dual L∞ under wire; "
+                f"status={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}"
+            ),
+            "actual": (
+                "static honesty — first-blocker operational prep packaging is not dual L∞ "
+                "under wire proof"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -7484,6 +7696,9 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     )
     tf_blueprint = (
         format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto()
+    )
+    tf_first_blocker_prep = (
+        format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto()
     )
     tf_ladder_toc = format_tf_offline_ladder_toc_howto()
     return [
@@ -7640,6 +7855,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint",
             tf_blueprint["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep",
+            tf_first_blocker_prep["planner_one_liner"],
         ),
         (
             "solve_boundary",
