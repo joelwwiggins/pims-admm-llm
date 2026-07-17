@@ -855,8 +855,11 @@ assert warm["seed_identity_linf_is_not_proof"] is True
 Additive readiness flag
 `admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok` does **not**
 redefine `ready_for_wire_discussion`. Excel static packaging of warm-start
-readiness is deferred (optional twin). Demo may print a post-VERDICT diagnostic
-line only — never gates VERDICT, never writes live warm-start L∞ into the workbook.
+readiness is present (isolation-safe How_to/Index/Summary/meta/Calc_Check twin;
+dual_linf still unproven; not VERDICT; not wire; seed identity ≠ proof; source +
+seed_policy labeled; no live excel→tf warm-start call). Demo may print a
+post-VERDICT diagnostic line only — never gates VERDICT, never writes live
+warm-start L∞ into the workbook.
 
 **Dual honesty:** Case 1 duals still owned by Excel PRIMARY online λ path.
 Seeded / post-round skeleton λ are **probe inputs only** (`dual_recovery_path=None`).
@@ -885,6 +888,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [x] `offline_case1_dual_space_linf_live_lambda_bridge_report()` ok (pure extract/normalize this-run Case 1 PRIMARY online λ → existing probe; `live_lambda_source` labeled; dual-ban; dual_linf unproven; online_linf_gate open; bridge_ok ≠ linf≤15; bridge ≠ VERDICT; bridge ≠ wire proof; dual_recovery_path=None; wire_shipped=False; blockers still documented; does **not** redefine ready; no excel_pipeline on TF hot path) — **still not dual L∞ proven under wire / not form flip / not wire**
 - [x] Excel static packaging of dual-space L∞ live-λ bridge readiness (`tf_offline_case1_dual_space_linf_live_lambda_bridge` How_to + Index/Summary/meta/Calc_Check/demo; `offline_tf_case1_dual_space_linf_live_lambda_bridge_ready`; live_lambda_source must be labeled; dual_linf unproven; online_linf_gate open; bridge ≠ VERDICT; bridge ≠ wire proof; dual_recovery_path=None; wire_shipped=False; blockers non-empty; no live excel→tf bridge call) — **still not dual L∞ proven under wire / not form flip / not wire**
 - [x] `offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report()` ok (seed Case-1-shaped skeleton λ0 from live/caller PRIMARY; source labeled; seed_policy + z0_policy documented; N skeleton rounds; post-round stream L∞ + linf_at_seed seed-identity-not-proof; dual-ban; dual_linf unproven **always** even if L∞ 0 or ≤15; online_linf_gate open; warmstart_ok ≠ linf≤15; warm-start ≠ VERDICT; warm-start ≠ wire proof; dual_recovery_path=None; wire_shipped=False; blockers still documented; does **not** redefine ready; no excel_pipeline on TF hot path) — **still not dual L∞ proven under wire / not form flip / not wire**
+- [x] Excel static packaging of dual-space L∞ live-λ-seeded warm-start readiness (`tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart` How_to + Index/Summary/meta/Calc_Check/demo; `offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready`; seed_policy + z0_policy; live_lambda_source must be labeled; seed identity ≠ proof; dual_linf unproven; online_linf_gate open; warm-start ≠ VERDICT; warm-start ≠ wire proof; dual_recovery_path=None; wire_shipped=False; blockers non-empty; no live excel→tf warm-start call) — **still not dual L∞ proven under wire / not form flip / not wire**
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change **shipped** (not merely registered): `classic_2block_excel_path` → `tf_affine_cdu_blender_shaped_excel_path` when wire lands (never silent form reuse). Planned form is **registered** by the dual-space/form contract above.
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
