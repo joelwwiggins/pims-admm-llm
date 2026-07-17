@@ -2061,6 +2061,81 @@ def format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
     }
 
 
+def format_tf_offline_case1_honest_blender_pooling_path_howto() -> Dict[str, str]:
+    """Static offline Case-1 honest blender pooling path How_to (isolation-safe #40 packaging).
+
+    Planner-facing note that offline Case-1 honest blender pooling path readiness exists:
+    blender_surface=linear_quality_pooling; checklist status honest_pooling_path_present
+    (not bare open; not closed_via_affine_kernel); pooling ≠ affine kernel / ≠ wire /
+    ≠ VERDICT / ≠ dual L∞ under wire proof; dual_recovery_path=None; wire_shipped=False;
+    dual_linf_under_wire=unproven with remaining open checklist (no blender open-id);
+    no_blender_offline_affine_kernel still true; UNITS FCC/COKER/CDU (no silent BLENDER);
+    excel_*_matrix_matches_affine absent/None (not invented); form remains
+    classic_2block_excel_path. Does **not** load tf_linear_blocks or tensorflow; does
+    **not** call offline_case1_honest_blender_pooling_path_report.
+    """
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    one_liner = (
+        "Offline Case-1 honest blender pooling path readiness exists (static packaging "
+        f"of #40 harness): form_current={_CASE1_FORM_CURRENT}; "
+        f"form_planned={_CASE1_FORM_PLANNED} (registered only; not flip); "
+        f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+        f"blender_is_base_delta_affine_unit=false; "
+        f"pooling_path_is_not_affine_kernel=true; pooling_path_is_not_wire=true; "
+        "pooling_path_is_not_verdict_gate=true; "
+        "pooling_path_is_not_dual_linf_under_wire_proof=true; "
+        f"blender_pooling_checklist_status={_CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS}; "
+        f"no_blender_offline_affine_kernel_blocker_still_true=true; "
+        f"units_affine_unchanged={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+        "excel_cdu_matrix_matches_affine=None; excel_blender_matrix_matches_affine=None "
+        f"(absent; not invented); dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+        f"open checklist ({open_ids}); dual_recovery_path=None; wire_shipped=False; "
+        "does not clear wire_blockers; not form flip; not dual L∞ proven under wire; "
+        "not full plant mass balance. Case 1 duals remain PRIMARY free online λ / "
+        "SECONDARY recovered blender; pooling path is not the Case 1 VERDICT dual gate "
+        "and is not an affine BLENDER UNITS entry."
+    )
+    return {
+        "topic": "tf_offline_case1_honest_blender_pooling_path",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "blender_surface": _CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_is_base_delta_affine_unit": "false",
+        "pooling_path_is_not_affine_kernel": "true",
+        "pooling_path_is_not_wire": "true",
+        "pooling_path_is_not_verdict_gate": "true",
+        "pooling_path_is_not_dual_linf_under_wire_proof": "true",
+        "no_blender_offline_affine_kernel_blocker_still_true": "true",
+        "excel_cdu_matrix_matches_affine": "None",
+        "excel_blender_matrix_matches_affine": "None",
+        "units_affine_unchanged": _OFFLINE_TF_UNITS,
+        "blender_pooling_checklist_status": (
+            _CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS
+        ),
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -2084,12 +2159,18 @@ _LIVE_LAMBDA_SOURCE_ALLOWED = ("caller_supplied", "package_extract", "fixture")
 # never import tf_linear_blocks enums. Align when TF seed/z0 policy strings change.
 _WARMSTART_SEED_POLICY = "lambda0_from_live_primary_online"
 _WARMSTART_Z0_POLICY = "unchanged_default_skeleton_z"
+# Excel-local mirror of CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS (#40). Static
+# only — never import tf_linear_blocks. Align when TF checklist status string changes.
+# Status is honest_pooling_path_present (not bare open; not closed_via_affine_kernel).
+_CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS = "honest_pooling_path_present"
+# Open dual-L∞-under-wire checklist ids remaining after #40 pooling formalization.
+# blender_affine_or_honest_pooling is NO LONGER open (TF status honest_pooling_path_present).
+# dual_linf_under_wire remains unproven; no claim affine kernel shipped.
 _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS = (
     "isolation_rewrite_with_wire",
     "form_label_change_shipped",
     "online_linf_gate_under_tf_path",
     "wire_shipped_false_today",
-    "blender_affine_or_honest_pooling",
 )
 # Excel-local mirror of DEFAULT_WIRE_BLOCKERS honesty ids (#28). Static strings only —
 # do not import tf_linear_blocks (isolation). Align when preflight catalog changes.
@@ -2102,38 +2183,39 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
     "wire_not_shipped",
     "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp",
 )
-# Index OFFLINE_TF one-liner: offline ladder through dual-space L∞ live-λ-seeded warm-start
-# readiness. Prefer short Index clause — full honesty in How_to / Summary / meta.
+# Index OFFLINE_TF one-liner: offline ladder through honest blender pooling path readiness.
+# Prefer short Index clause — full honesty in How_to / Summary / meta.
 # Hard negatives: not Case 1; dual_recovery_path=None on TF surface; synthetic λ ≠ duals;
 # preflight ≠ wire; skeleton λ ≠ duals; contract ≠ form flip / ≠ dual L∞ proven;
-# probe/bridge/warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire;
-# seed identity L∞ ≠ proof; seed_policy + source labeled.
+# probe/bridge/warm-start/pooling ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire;
+# pooling ≠ affine kernel; seed identity L∞ ≠ proof; seed_policy + source labeled.
 # Static only — never call live residual / subproblem / coordination / plant-linking /
 # plant-named / wire-preflight / case1-shaped / form-contract / linf-probe / bridge /
-# warm-start reports. Trim-first ≤1439 hard test when adding warm-start language.
+# warm-start / pooling-path reports. Trim-first ≤1439 hard test when adding pooling language.
 _OFFLINE_TF_INDEX_WHAT = (
     "FCC+COKER+CDU offline kernels + priced residual readiness + timing readiness + "
     "ADMM residual readiness + block subproblem readiness (raw affine) + multi-round "
-    "ADMM coordination readiness (synthetic λ,z,ρ; per-unit synthetic) + multi-block "
-    "plant-linking readiness (synthetic linking topology; not full plant MB) + "
-    "plant-named linking readiness "
-    "(plant product streams; plant_named_offline_demo; not full plant MB) + "
+    "ADMM coordination readiness (synthetic λ,z,ρ) + multi-block plant-linking readiness "
+    "(synthetic linking topology; not full plant MB) + plant-named linking readiness "
+    "(plant product streams; plant_named_offline_demo) + "
     "wire-preflight readiness (blockers; wire_shipped=False) + "
     "Case-1-shaped skeleton readiness "
     "(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False) + "
     "dual-space/form contract readiness "
-    "(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) + "
-    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) + "
-    "dual-space L∞ live-λ bridge readiness "
+    "(planned≠classic; dual_linf_under_wire=unproven; wire_shipped=False) + "
+    "L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) + "
+    "L∞ live-λ bridge readiness "
     "(source-labeled; unproven; not VERDICT; not wire; dual-ban) + "
-    "dual-space L∞ live-λ-seeded warm-start readiness "
-    "(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) — "
+    "L∞ live-λ-seeded warm-start readiness "
+    "(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) + "
+    "honest blender pooling path readiness "
+    "(linear_quality_pooling; not affine; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
-    "prices/timings/synthetic residual/subproblem/coord/plant-linking/plant-named λ "
-    "not duals; per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
+    "synthetic residual/subproblem/coord/plant-linking/plant-named λ not duals; "
+    "per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
     "preflight ≠ wire shipped; skeleton λ not duals / not wire; "
     "contract ≠ form flip / ≠ dual L∞ proven; "
-    "probe/bridge/warm-start ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
+    "probe/bridge/warm-start/pooling ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
     "live_lambda_source must be labeled"
 )
 _OFFLINE_TF_PRICED_NOTE = (
@@ -2232,6 +2314,19 @@ _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_NOTE = (
     "dual recovery; wire_shipped=False; does not clear wire_blockers; not form flip; "
     "not dual L∞ proven under wire"
 )
+_OFFLINE_TF_CASE1_HONEST_BLENDER_POOLING_PATH_NOTE = (
+    "offline Case-1 honest blender pooling path readiness — "
+    f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+    f"checklist_status={_CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS}; "
+    "not affine kernel; not wire; not VERDICT; dual-ban; "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    "no_blender_offline_affine_kernel still true; "
+    f"UNITS={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+    "excel_*_matrix_matches_affine=None (not invented); dual_recovery_path=None; "
+    "wire_shipped=False; does not clear wire_blockers; not form flip; "
+    "not dual L∞ proven under wire"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -2244,7 +2339,9 @@ _OFFLINE_TF_READINESS_NOTE = (
     "dual-space L∞ live-λ bridge readiness "
     "(source-labeled; unproven; not VERDICT; not wire; dual-ban) + "
     "dual-space L∞ live-λ-seeded warm-start readiness "
-    "(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) — "
+    "(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) + "
+    "honest blender pooling path readiness "
+    "(linear_quality_pooling; honest_pooling_path_present; not affine; dual-ban) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
@@ -2252,6 +2349,7 @@ _OFFLINE_TF_READINESS_NOTE = (
     "probe ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
     "bridge ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
     "warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof; seed identity ≠ proof; "
+    "pooling ≠ affine kernel / ≠ VERDICT / ≠ dual L∞ under wire proof; "
     "live_lambda_source must be labeled; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
@@ -2270,7 +2368,8 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     offline_case1_dual_space_form_contract_report /
     offline_case1_dual_space_linf_probe_report /
     offline_case1_dual_space_linf_live_lambda_bridge_report /
-    offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report.
+    offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report /
+    offline_case1_honest_blender_pooling_path_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
@@ -2278,10 +2377,12 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     plant-linking (synthetic) + multi-block plant-named linking + wire-preflight
     + Case-1-shaped CDU↔Blender skeleton + dual-space/form contract + dual-space
     L∞ probe + dual-space L∞ live-λ bridge + dual-space L∞ live-λ-seeded warm-start
-    (static harness-existence flags only; wire_shipped=False; blockers honesty;
-    blender linear_quality_pooling; dual_linf_under_wire=unproven; probe/bridge/
-    warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof; seed identity ≠ proof;
-    seed_policy/z0_policy documented; live_lambda_source must be labeled).
+    + honest blender pooling path (static harness-existence flags only;
+    wire_shipped=False; blockers honesty; blender linear_quality_pooling;
+    checklist honest_pooling_path_present; dual_linf_under_wire=unproven;
+    probe/bridge/warm-start/pooling ≠ VERDICT gate / ≠ dual L∞ under wire proof;
+    pooling ≠ affine kernel; seed identity ≠ proof; seed_policy/z0_policy
+    documented; live_lambda_source must be labeled).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
@@ -2298,6 +2399,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
     tf_live_bridge = format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto()
     tf_warmstart = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
+    tf_pooling = format_tf_offline_case1_honest_blender_pooling_path_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -2338,6 +2440,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_dual_space_linf_probe_ready": True,  # static; not live probe report
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_ready": True,  # static; not live bridge
         "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready": True,  # static; not live warm-start
+        "offline_tf_case1_honest_blender_pooling_path_ready": True,  # static; not live pooling report
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -2359,6 +2462,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart": (
             _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_NOTE
+        ),
+        "offline_tf_case1_honest_blender_pooling_path": (
+            _OFFLINE_TF_CASE1_HONEST_BLENDER_POOLING_PATH_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -2389,7 +2495,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"dual-space L∞ live-λ bridge readiness "
             f"(source-labeled; unproven; not VERDICT; not wire; dual-ban) + "
             f"dual-space L∞ live-λ-seeded warm-start readiness "
-            f"(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) "
+            f"(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) + "
+            f"honest blender pooling path readiness "
+            f"(linear_quality_pooling; honest_pooling_path_present; not affine; dual-ban) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -2440,6 +2548,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart",
             _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_NOTE,
         ),
+        (
+            "offline_tf_case1_honest_blender_pooling_path",
+            _OFFLINE_TF_CASE1_HONEST_BLENDER_POOLING_PATH_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -2463,6 +2575,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_dual_space_linf_probe": tf_linf_probe,
         "tf_offline_case1_dual_space_linf_live_lambda_bridge": tf_live_bridge,
         "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart": tf_warmstart,
+        "tf_offline_case1_honest_blender_pooling_path": tf_pooling,
     }
 
 
@@ -2929,6 +3042,95 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_honest_blender_pooling_path_not_duals",
+            "predicted": (
+                "offline Case-1 honest blender pooling path readiness packaging exists "
+                "(static); "
+                f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+                f"checklist_status={_CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS}; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "dual_recovery_path=None on pooling surface; package dual gate remains "
+                "online_lambda; pooling path is not dual recovery"
+            ),
+            "actual": (
+                "static honesty — honest blender pooling path dual_recovery_path=None; "
+                "linear_quality_pooling ≠ dual recovery; dual_linf under wire unproven; "
+                "not pure-ADMM dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_honest_blender_pooling_path_not_wire",
+            "predicted": (
+                "wire_shipped=False; form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                "no_blender_offline_affine_kernel remains; dual_linf_under_wire_unproven + "
+                "wire_not_shipped remain"
+            ),
+            "actual": (
+                "static honesty — honest blender pooling path packaging only; "
+                "wire not shipped; blockers still true (incl. no_blender_offline_affine_kernel); "
+                "form classic_2block_excel_path unchanged; dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_honest_blender_pooling_path_not_verdict_gate",
+            "predicted": (
+                "pooling path ≠ Case 1 VERDICT dual gate; online L∞ ≤15 gate unchanged; "
+                "pooling_path_ok / ready flag means honesty/surface only (not L∞≤15 under wire); "
+                f"checklist open includes online_linf_gate_under_tf_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}"
+            ),
+            "actual": (
+                "static honesty — honest blender pooling path is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY gate; checklist online_linf_gate_under_tf_path "
+                "open; pooling packaging is not Case 1 dual PASS/FAIL"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_honest_blender_pooling_path_not_affine_kernel",
+            "predicted": (
+                f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+                "blender_is_base_delta_affine_unit=false; "
+                "pooling_path_is_not_affine_kernel=true; "
+                f"UNITS={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+                "excel_cdu_matrix_matches_affine=None; "
+                "excel_blender_matrix_matches_affine=None (not invented); "
+                "no_blender_offline_affine_kernel still true"
+            ),
+            "actual": (
+                "static honesty — pooling path is linear_quality_pooling not affine BLENDER "
+                "UNITS; no_blender_offline_affine_kernel blocker remains; "
+                "excel_*_matrix_matches_affine not invented"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_honest_blender_pooling_path_checklist_honest_pooling_path_present",
+            "predicted": (
+                f"blender_pooling_checklist_status="
+                f"{_CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS}; "
+                "not bare open; not closed_via_affine_kernel; "
+                "open checklist no longer lists blender_affine_or_honest_pooling; "
+                f"remaining open_ids={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}"
+            ),
+            "actual": (
+                "static honesty — checklist status honest_pooling_path_present after #40; "
+                "Excel open-ids realigned (blender pooling no longer listed as open); "
+                "dual_linf under wire still unproven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -2957,6 +3159,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
     tf_live_bridge = format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto()
     tf_warmstart = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
+    tf_pooling = format_tf_offline_case1_honest_blender_pooling_path_howto()
     return [
         (
             "goal",
@@ -3051,6 +3254,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart",
             tf_warmstart["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_honest_blender_pooling_path",
+            tf_pooling["planner_one_liner"],
         ),
         (
             "solve_boundary",
