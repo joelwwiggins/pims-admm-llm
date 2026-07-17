@@ -1631,6 +1631,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint: bool = True,
     include_admm_case1_isolation_rewrite_first_blocker_operational_prep: bool = True,
     include_admm_case1_dual_linf_under_wire_criteria_contract: bool = True,
+    include_admm_case1_form_label_second_coreq_operational_prep: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1658,7 +1659,8 @@ def offline_block_solve_readiness_report(
     ``admm_case1_dual_honest_multi_blocker_wire_rehearsal_ok``, and
     ``admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok``, and
     ``admm_case1_isolation_rewrite_first_blocker_operational_prep_ok``, and
-    ``admm_case1_dual_linf_under_wire_criteria_contract_ok`` are
+    ``admm_case1_dual_linf_under_wire_criteria_contract_ok``, and
+    ``admm_case1_form_label_second_coreq_operational_prep_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -2094,6 +2096,27 @@ def offline_block_solve_readiness_report(
     base["admm_case1_dual_linf_under_wire_criteria_contract_ok"] = (
         admm_case1_dual_linf_under_wire_criteria_contract_ok
     )
+
+    admm_case1_form_label_second_coreq_operational_prep_ok: Optional[bool] = None
+    if include_admm_case1_form_label_second_coreq_operational_prep:
+        try:
+            # Additive readiness: form_label second-coreq operational prep
+            # (prep_present; form classic; form_label_change_shipped hard False;
+            # dual_recovery_path=None; not VERDICT; not form flip).
+            fl_prep_rep = (
+                offline_case1_form_label_second_coreq_operational_prep_report()
+            )
+            admm_case1_form_label_second_coreq_operational_prep_ok = bool(
+                fl_prep_rep.get(
+                    "prep_ok",
+                    fl_prep_rep.get("contract_ok", fl_prep_rep.get("ok")),
+                )
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_form_label_second_coreq_operational_prep_ok = False
+    base["admm_case1_form_label_second_coreq_operational_prep_ok"] = (
+        admm_case1_form_label_second_coreq_operational_prep_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -2204,7 +2227,7 @@ def offline_block_solve_readiness_report(
         "isolation rewrite shipped ≠ form ship ≠ VERDICT; order_hint is not an executor; "
         "blueprint_present is not wire_shipped) — and does not redefine "
         "ready_for_wire_discussion. "
-        "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok, admm_case1_isolation_rewrite_first_blocker_operational_prep_ok and admm_case1_dual_linf_under_wire_criteria_contract_ok are additive only."
+        "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok, admm_case1_isolation_rewrite_first_blocker_operational_prep_ok, admm_case1_dual_linf_under_wire_criteria_contract_ok and admm_case1_form_label_second_coreq_operational_prep_ok are additive only."
     )
     return base
 
@@ -4449,6 +4472,7 @@ def offline_wire_preflight_report(
     include_admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint: bool = True,
     include_admm_case1_isolation_rewrite_first_blocker_operational_prep: bool = True,
     include_admm_case1_dual_linf_under_wire_criteria_contract: bool = True,
+    include_admm_case1_form_label_second_coreq_operational_prep: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -4535,6 +4559,12 @@ def offline_wire_preflight_report(
         include_admm_case1_isolation_rewrite_first_blocker_operational_prep=(
             include_admm_case1_isolation_rewrite_first_blocker_operational_prep
         ),
+        include_admm_case1_dual_linf_under_wire_criteria_contract=(
+            include_admm_case1_dual_linf_under_wire_criteria_contract
+        ),
+        include_admm_case1_form_label_second_coreq_operational_prep=(
+            include_admm_case1_form_label_second_coreq_operational_prep
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -4608,6 +4638,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_dual_linf_under_wire_criteria_contract_ok = readiness.get(
         "admm_case1_dual_linf_under_wire_criteria_contract_ok"
+    )
+    admm_case1_form_label_second_coreq_operational_prep_ok = readiness.get(
+        "admm_case1_form_label_second_coreq_operational_prep_ok"
     )
 
     blockers_documented = (
@@ -4710,6 +4743,10 @@ def offline_wire_preflight_report(
         (
             admm_case1_dual_linf_under_wire_criteria_contract_ok,
             include_admm_case1_dual_linf_under_wire_criteria_contract,
+        ),
+        (
+            admm_case1_form_label_second_coreq_operational_prep_ok,
+            include_admm_case1_form_label_second_coreq_operational_prep,
         ),
     ):
         if included and flag is False:
@@ -4828,6 +4865,9 @@ def offline_wire_preflight_report(
         ),
         "admm_case1_dual_linf_under_wire_criteria_contract_ok": (
             admm_case1_dual_linf_under_wire_criteria_contract_ok
+        ),
+        "admm_case1_form_label_second_coreq_operational_prep_ok": (
+            admm_case1_form_label_second_coreq_operational_prep_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -15856,13 +15896,14 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
                 "CASE1_FORM_CURRENT / CASE1_PLANNED_TF_AWARE_FORM constants",
                 "offline_case1_form_label_change_shipped_criteria_contract_report",
                 "case1_form_label_contract (form classic registration)",
+                "offline_case1_form_label_second_coreq_operational_prep_report (prep_present; form classic; form_label_change_shipped false; second coreq; not first_blocking)",
             ],
             "test_surface": (
-                "tests/test_tf_offline_case1_form_label_change_shipped_criteria_contract.py"
+                "tests/test_tf_offline_case1_form_label_second_coreq_operational_prep.py"
             ),
             "prep_note": (
                 "Form flip touch points registered; form remains classic_2block_excel_path; "
-                "form_label_change_shipped still False."
+                "form_label_change_shipped still False; operational prep present ≠ form ship."
             ),
         },
         {
@@ -17775,6 +17816,634 @@ def multi_unit_case1_dual_linf_under_wire_criteria_contract_report(
     return offline_case1_dual_linf_under_wire_criteria_contract_report(**kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Offline Case-1 form_label second-coreq *operational prep* (goal 5+3 honesty)
+# ---------------------------------------------------------------------------
+# Always-on pure compose. Formalizes *how form second-coreq prep lands without
+# ship* for order_hint[1] form_label_change_shipped. Distinct from form_label
+# ship criteria contract (that formalizes *when shipped*). Pattern mirror of
+# isolation first-blocker operational prep (#67). Hard: form remains
+# classic_2block_excel_path; form_label_change_shipped=False;
+# form_label_ship_allowed_today=False; criteria_met_today=False (do not claim
+# form ship criteria met via prep); form_mutation_path_executed_today=False;
+# first_blocking_coreq remains isolation_rewrite_with_wire (form is second);
+# dual_recovery_path=None; dual_linf unproven; ship flags hard false.
+# Does NOT clear DEFAULT_WIRE_BLOCKERS. Does NOT redefine ready_for_wire_discussion.
+# No TF / no PuLP / no excel_pipeline.
+
+CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_KIND = (
+    "offline_case1_form_label_second_coreq_operational_prep"
+)
+CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANNOTATION = "present"
+CASE1_FORM_LABEL_SECOND_COREQ_ORDER_HINT_INDEX = 1
+CASE1_FORM_LABEL_SECOND_COREQ_ORDER_HINT_COREQ = "form_label_change_shipped"
+
+CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANTI_CRITERIA_TODAY: tuple = (
+    "this_prep_alone",
+    "form_label_criteria_alone",
+    "form_label_change_shipped_criteria_contract_alone",
+    "form_registration_alone",
+    "dual_space_form_alone",
+    "packaging_alone",
+    "this_prep_packaging_alone",
+    "blueprint_alone",
+    "scaffold_alone",
+    "rehearsal_alone",
+    "path_design_alone",
+    "path_present_criteria_alone",
+    "go_board_alone",
+    "design_alone",
+    "ship_criteria_alone",
+    "isolation_first_blocker_prep_alone",
+    "isolation_design_alone",
+    "isolation_ship_criteria_alone",
+    "diagnostic_linf_alone",
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "gate_criteria_alone",
+    "bundle_design_alone",
+    "bundle_ship_met_criteria_alone",
+    "wire_ship_acceptance_alone",
+)
+
+
+CASE1_FORM_LABEL_SECOND_COREQ_COMPANION_ARTIFACTS: Dict[str, Any] = {
+    "companion_artifacts_are_inventory_only": True,
+    "form_registration_constants": [
+        "CASE1_FORM_CURRENT",
+        "CASE1_PLANNED_TF_AWARE_FORM",
+    ],
+    "form_label_ship_criteria_report": (
+        "offline_case1_form_label_change_shipped_criteria_contract_report"
+    ),
+    "dual_space_form_contract": "offline_case1_dual_space_form_contract_report",
+    "mutation_path_name": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+    "mutation_path_executed_today": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_EXECUTED_TODAY,
+}
+
+
+def case1_form_label_second_coreq_companion_artifacts() -> Dict[str, Any]:
+    """Static companion artifact inventory (inventory only — not form flip)."""
+    return {
+        "companion_artifacts_are_inventory_only": True,
+        "form_registration_constants": list(
+            CASE1_FORM_LABEL_SECOND_COREQ_COMPANION_ARTIFACTS[
+                "form_registration_constants"
+            ]
+        ),
+        "form_label_ship_criteria_report": (
+            CASE1_FORM_LABEL_SECOND_COREQ_COMPANION_ARTIFACTS[
+                "form_label_ship_criteria_report"
+            ]
+        ),
+        "dual_space_form_contract": (
+            CASE1_FORM_LABEL_SECOND_COREQ_COMPANION_ARTIFACTS[
+                "dual_space_form_contract"
+            ]
+        ),
+        "mutation_path_name": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+        "form_mutation_path_name": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+        "form_mutation_path_executed_today": (
+            CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_EXECUTED_TODAY
+        ),
+        "note": (
+            "Inventory of form second-coreq companion artifacts. Registration + "
+            "form_label ship criteria + dual-space form contract are listed only — "
+            "not re-executed; mutation path named not executed. Prep inventory ≠ "
+            "form_label_change_shipped."
+        ),
+    }
+
+
+def case1_form_label_second_coreq_prep_steps() -> List[Dict[str, Any]]:
+    """Machine-readable prep steps for form second-coreq (no form flip)."""
+    dual_planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    return [
+        {
+            "step_id": "form_registration_present",
+            "artifact": "CASE1_FORM_CURRENT / CASE1_PLANNED_TF_AWARE_FORM",
+            "status": "present",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": "Form registration formalizes *what*; form remains classic.",
+        },
+        {
+            "step_id": "form_ship_criteria_present",
+            "artifact": (
+                "offline_case1_form_label_change_shipped_criteria_contract_report"
+            ),
+            "status": "present_ship_false",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": (
+                "Form ship criteria formalize *when*; form_label_change_shipped "
+                "still False; criteria_met_today False."
+            ),
+        },
+        {
+            "step_id": "mutation_path_named_not_executed",
+            "artifact": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+            "status": "named_not_executed",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": (
+                "Mutation path named for future wire; "
+                f"executed_today="
+                f"{CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_EXECUTED_TODAY}."
+            ),
+        },
+        {
+            "step_id": "dual_space_form_companion_inventory",
+            "artifact": "offline_case1_dual_space_form_contract_report",
+            "status": "inventory_only",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": "Dual-space form contract companion inventory only.",
+        },
+        {
+            "step_id": "dual_ban_locks",
+            "artifact": "prep_dual_ban_tokens",
+            "status": "locked",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": (
+                "prep≠ship; form classic; dual_linf unproven; dual_recovery_path=None "
+                f"today; planned under wire={dual_planned} (not pure-ADMM); "
+                "first_blocking still isolation."
+            ),
+        },
+        {
+            "step_id": "first_blocking_still_isolation",
+            "artifact": "order_hint",
+            "status": "locked",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": (
+                "order_hint_index=1 form_label_change_shipped is second coreq; "
+                "first_blocking_coreq remains isolation_rewrite_with_wire."
+            ),
+        },
+        {
+            "step_id": "steps_complete_is_not_ship",
+            "artifact": "anti_criteria",
+            "status": "locked",
+            "executes_form_flip": False,
+            "ships": False,
+            "note": (
+                "Prep steps complete ≠ form_label_change_shipped ≠ form flip ≠ "
+                "wire ≠ VERDICT."
+            ),
+        },
+    ]
+
+
+def _case1_form_label_second_coreq_operational_prep_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / prep-is-not-ship locks for form second coreq."""
+    return {
+        "kind": CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "prep_present": True,
+        "form_label_second_coreq_prep_present": True,
+        "operational_prep_present": True,
+        "path_shipped": False,
+        "dual_honest_tf_aware_path_present": False,
+        "wire_shipped": False,
+        "bundle_shipped": False,
+        "bundle_ship_allowed_today": False,
+        "criteria_met_today": False,
+        "not_wire_shipped": True,
+        "not_path_shipped": True,
+        "not_bundle_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "prep_is_not_form_label_change_shipped": True,
+        "prep_is_not_form_flip": True,
+        "prep_is_not_wire": True,
+        "prep_is_not_path_shipped": True,
+        "prep_is_not_bundle_shipped": True,
+        "prep_is_not_verdict_gate": True,
+        "prep_is_not_dual_linf_under_wire_proof": True,
+        "prep_is_not_ship_allow": True,
+        "prep_is_not_ship_met": True,
+        "prep_is_not_gate_flip": True,
+        "prep_is_not_ship_criteria": True,
+        "prep_is_not_isolation_rewrite_shipped": True,
+        "this_prep_alone_is_not_ship_criterion": True,
+        "form_label_criteria_alone_is_anti_criterion": True,
+        "this_prep_alone_is_anti_criterion_for_form_ship": True,
+        "go_board_alone_is_not_ship_criterion": True,
+        "design_alone_is_not_ship_criterion": True,
+        "ship_criteria_alone_is_not_ship_criterion": True,
+        "blueprint_alone_is_not_ship_criterion": True,
+        "rehearsal_alone_is_not_ship_criterion": True,
+        "scaffold_alone_is_not_ship_criterion": True,
+        "packaging_alone_is_not_ship_criterion": True,
+        "order_hint_is_not_executor": True,
+        "no_auto_wire": True,
+        "does_not_rewrite_isolation_suite": True,
+        "suite_delete_forbidden": True,
+        "isolation_rewrite_shipped": False,
+        "isolation_tests_rewritten_with_wire": False,
+        "form_label_change_shipped": False,
+        "feature_flag_enabled_today": False,
+        "form_mutation_path_executed_today": False,
+        "distinct_from_form_label_change_shipped_criteria_contract": True,
+        "criteria_contract_formalizes_when_shipped": True,
+        "this_prep_formalizes_how_prep_lands_without_ship": True,
+        "order_hint_index": CASE1_FORM_LABEL_SECOND_COREQ_ORDER_HINT_INDEX,
+        "order_hint_coreq": CASE1_FORM_LABEL_SECOND_COREQ_ORDER_HINT_COREQ,
+        "is_first_blocking_coreq": False,
+        "probe_linf_is_not_ship_criterion_today": True,
+        "bridge_linf_is_not_ship_criterion_today": True,
+        "warmstart_linf_is_not_ship_criterion_today": True,
+        "pooling_linf_is_not_ship_criterion_today": True,
+        "seed_identity_linf_is_not_ship_criterion": True,
+        "recovered_blender_linf_is_not_ship_criterion_today": True,
+        "residual_must_vanish_is_not_ship_criterion": True,
+        "diagnostic_linf_is_not_dual_linf_under_wire_proof": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "scope": "case1_form_label_second_coreq_operational_prep_offline",
+        "note": (
+            "Offline Case-1 form_label second-coreq *operational prep*: machine-readable "
+            "*how prep lands without ship* for order_hint[1] form_label_change_shipped. "
+            "prep_present=True / form_label_second_coreq_prep_present=True; "
+            "form remains classic_2block_excel_path; form_label_change_shipped=False; "
+            "form_label_ship_allowed_today=False; criteria_met_today=False (does not claim "
+            "form ship criteria met); form_mutation_path_executed_today=False with path "
+            f"named {CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME}; path/wire/bundle/"
+            "isolation ship flags hard false; dual_linf unproven; dual_recovery_path=None "
+            f"today; planned under wire={CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED} "
+            "(not pure-ADMM); first_blocking_coreq remains isolation_rewrite_with_wire "
+            "(form is second, not first). Distinct from form_label ship criteria contract "
+            "(*when shipped*). Prep alone / form criteria alone / dual_space_form alone / "
+            "packaging alone / blueprint alone / scaffold alone / rehearsal alone / path "
+            "design alone / diagnostic L∞ ≠ form_label_change_shipped ≠ form flip ≠ wire ≠ "
+            "VERDICT. Does not redefine ready_for_wire_discussion; does not clear "
+            "DEFAULT_WIRE_BLOCKERS; does not enable Case 1 TF feature flag; isolation suite "
+            "behavior unchanged. SUGGESTED_NEXT_WAVE still full multi-blocker wire "
+            "*execution* long-term."
+        ),
+    }
+
+
+def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Always-on form_label second-coreq operational prep (prep without ship).
+
+    No TF, no PuLP, no excel_pipeline, no Case 1 solve routing. Aggregate
+    ``ok`` / ``contract_ok`` / ``prep_ok`` = prep formalized ∧ honesty locks ∧
+    prep_present ∧ first_blocking_coreq=isolation_rewrite_with_wire ∧ form
+    classic ∧ form_label_change_shipped False ∧ ship flags hard false ∧
+    dual_linf unproven ∧ dual_recovery_path is None ∧ UNITS FCC/COKER/CDU.
+    **Not** form_label_change_shipped. **Not** form flip. **Not** wire.
+    **Not** VERDICT. **Not** dual L∞ under wire proof. **Not** form ship
+    criteria contract (related but distinct).
+    """
+    honesty = _case1_form_label_second_coreq_operational_prep_honesty_fields()
+    dual_linf = case1_dual_linf_proof_checklist()
+    first_blocking = (
+        case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq(
+            dual_linf=dual_linf
+        )
+    )
+    go_board = case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
+        first_blocking=first_blocking, dual_linf=dual_linf
+    )
+    companion = case1_form_label_second_coreq_companion_artifacts()
+    prep_steps = case1_form_label_second_coreq_prep_steps()
+    form = case1_form_label_contract()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    checklist = dual_linf["dual_linf_proof_checklist"]
+    open_ids = dual_linf["dual_linf_proof_checklist_open_ids"]
+    isolation_status = checklist.get(CASE1_ISOLATION_REWRITE_CHECKLIST_KEY)
+    isolation_still_open = isolation_status == "open"
+    gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY)
+    gate_still_open = gate_status == "open"
+
+    isolation_met_map = case1_isolation_rewrite_shipped_criteria_met_today_map()
+    isolation_ship_allowed_today = case1_isolation_ship_allowed_today(isolation_met_map)
+    wire_criteria_met_map = case1_wire_ship_acceptance_criteria_met_today_map()
+    wire_ship_allowed_today = case1_wire_ship_allowed_today(wire_criteria_met_map)
+    gate_met_map = case1_online_linf_gate_criteria_met_today_map()
+    gate_flip_allowed_today = case1_online_linf_gate_flip_allowed_today(gate_met_map)
+    form_label_met_map = case1_form_label_change_shipped_criteria_met_today_map()
+    form_label_ship_allowed_today = case1_form_label_ship_allowed_today(
+        form_label_met_map
+    )
+    path_present_met_map = case1_dual_honest_tf_aware_path_present_criteria_met_today_map()
+    ship_met_allowed_today = case1_dual_honest_tf_aware_path_present_ship_met_allowed_today(
+        path_present_met_map
+    )
+    bundle_met_map = (
+        case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_met_today_map()
+    )
+    bundle_ship_allowed_today = (
+        case1_dual_honest_multi_blocker_wire_bundle_ship_allowed_today(bundle_met_map)
+    )
+    criteria_met_today = (
+        case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_met_today_aggregate(
+            bundle_met_map
+        )
+    )
+    form_criteria_met_today = case1_form_label_change_shipped_criteria_met_today_aggregate(
+        form_label_met_map
+    )
+
+    isolation_rewrite_shipped = False
+    isolation_tests_rewritten_with_wire = False
+    path_shipped = False
+    dual_honest_tf_aware_path_present = False
+    form_label_change_shipped = False
+    wire_shipped = False
+    bundle_shipped = False
+    feature_flag_enabled_today = bool(
+        CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY
+    )
+    form_mutation_path_executed_today = bool(
+        CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_EXECUTED_TODAY
+    )
+    prep_present = True
+    form_label_second_coreq_prep_present = True
+    operational_prep_present = True
+
+    units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
+    critical_blockers_present = {
+        "isolation_rewrite_required",
+        "form_label_change_required",
+        "dual_linf_under_wire_unproven",
+        "case1_is_cdu_blender_package_admm",
+        "no_blender_offline_affine_kernel",
+        "wire_not_shipped",
+    }.issubset(set(blockers))
+    affine_blocker_present = (
+        "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp" in blockers
+    )
+    blocker_ok = critical_blockers_present and affine_blocker_present
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["bundle_shipped"] is False
+        and honesty["path_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["form_label_change_shipped"] is False
+        and honesty["feature_flag_enabled_today"] is False
+        and honesty["form_mutation_path_executed_today"] is False
+        and honesty["prep_is_not_form_label_change_shipped"] is True
+        and honesty["prep_is_not_form_flip"] is True
+        and honesty["prep_is_not_wire"] is True
+        and honesty["prep_is_not_verdict_gate"] is True
+        and honesty["prep_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["this_prep_alone_is_not_ship_criterion"] is True
+        and honesty["distinct_from_form_label_change_shipped_criteria_contract"] is True
+        and honesty["order_hint_is_not_executor"] is True
+        and honesty["no_auto_wire"] is True
+        and honesty["is_first_blocking_coreq"] is False
+    )
+    dual_linf_unproven_ok = bool(
+        dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and dual_linf["dual_linf_under_wire_unproven_still_true"] is True
+    )
+    form_ok = bool(
+        form["form_contract_ok"]
+        and form["form_current"] == CASE1_FORM_CURRENT
+        and form["form_unchanged"] is True
+        and honesty["case1_form_unchanged"] is True
+        and form_label_change_shipped is False
+        and form_label_ship_allowed_today is False
+        and form_criteria_met_today is False
+    )
+    ship_permission_ok = (
+        isolation_ship_allowed_today is False
+        and wire_ship_allowed_today is False
+        and form_label_ship_allowed_today is False
+        and ship_met_allowed_today is False
+        and bundle_ship_allowed_today is False
+        and criteria_met_today is False
+        and gate_flip_allowed_today is False
+        and form_criteria_met_today is False
+    )
+    first_blocking_ok = bool(
+        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        and first_blocking.get("matches_expected_today") is True
+        and honesty["is_first_blocking_coreq"] is False
+    )
+    go_board_link_ok = bool(
+        go_board.get("order_hint_is_not_executor") is True
+        and any(
+            "operational_prep" in str(a) or "form_label_second_coreq" in str(a)
+            for a in (go_board.get("file_level_prep_map") or {}).get(
+                "form_label_change_shipped", []
+            )
+        )
+    )
+    companion_ok = bool(
+        companion["companion_artifacts_are_inventory_only"] is True
+        and companion["form_mutation_path_name"]
+        == CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
+        and companion["form_mutation_path_executed_today"] is False
+    )
+    prep_steps_ok = bool(
+        len(prep_steps) >= 5
+        and all(s.get("executes_form_flip") is False for s in prep_steps)
+        and all(s.get("ships") is False for s in prep_steps)
+        and prep_steps[0]["step_id"] == "form_registration_present"
+    )
+    anti = CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANTI_CRITERIA_TODAY
+    anti_ok = (
+        "this_prep_alone" in anti
+        and "form_label_criteria_alone" in anti
+        and "form_registration_alone" in anti
+        and "packaging_alone" in anti
+        and "blueprint_alone" in anti
+        and "scaffold_alone" in anti
+        and "rehearsal_alone" in anti
+        and "path_design_alone" in anti
+        and "diagnostic_linf_alone" in anti
+        and "dual_space_form_alone" in anti
+    )
+    prep_formalized = bool(
+        prep_present
+        and form_label_second_coreq_prep_present
+        and operational_prep_present
+        and first_blocking_ok
+        and companion_ok
+        and prep_steps_ok
+        and anti_ok
+        and CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANNOTATION == "present"
+        and form_mutation_path_executed_today is False
+    )
+    honesty_ok = bool(
+        dual_ban_ok
+        and units_ok
+        and blocker_ok
+        and dual_linf_unproven_ok
+        and form_ok
+        and ship_permission_ok
+        and isolation_still_open
+        and gate_still_open
+        and prep_formalized
+        and blockers_still_documented
+        and go_board_link_ok
+    )
+    prep_ok = honesty_ok
+    contract_ok = prep_ok
+    ok = (
+        prep_ok
+        and prep_present is True
+        and form_label_change_shipped is False
+        and form_label_ship_allowed_today is False
+        and form_mutation_path_executed_today is False
+        and wire_shipped is False
+        and path_shipped is False
+        and isolation_rewrite_shipped is False
+        and honesty["dual_recovery_path"] is None
+    )
+    ok_criteria = (
+        "prep formalized ∧ honesty locks ∧ prep_present=True ∧ "
+        "form_label_second_coreq_prep_present=True ∧ form classic ∧ "
+        "form_label_change_shipped=False ∧ form_label_ship_allowed_today=False ∧ "
+        "form_mutation_path_executed_today=False ∧ "
+        "first_blocking_coreq=isolation_rewrite_with_wire (form second) ∧ "
+        "path/wire/bundle/isolation ship flags false ∧ dual_linf unproven ∧ "
+        "dual_recovery_path=None ∧ blockers non-empty ∧ UNITS FCC/COKER/CDU — "
+        "NOT form_label_change_shipped; NOT form flip; NOT wire; NOT VERDICT; "
+        "NOT dual L∞ under wire proof; NOT form ship criteria met"
+    )
+    dual_recovery_planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    form_prep_artifacts = (go_board.get("file_level_prep_map") or {}).get(
+        "form_label_change_shipped", []
+    )
+    return {
+        **honesty,
+        "ok": ok,
+        "prep_ok": prep_ok,
+        "contract_ok": contract_ok,
+        "design_contract_ok": prep_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "units_ok": units_ok,
+        "blocker_ok": blocker_ok,
+        "form_ok": form_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "ship_permission_ok": ship_permission_ok,
+        "first_blocking_ok": first_blocking_ok,
+        "go_board_link_ok": go_board_link_ok,
+        "companion_ok": companion_ok,
+        "prep_steps_ok": prep_steps_ok,
+        "prep_formalized": prep_formalized,
+        "ok_criteria": ok_criteria,
+        "prep_present": prep_present,
+        "form_label_second_coreq_prep_present": form_label_second_coreq_prep_present,
+        "operational_prep_present": operational_prep_present,
+        "prep_annotation": CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANNOTATION,
+        "first_blocking_coreq": first_blocking.get("first_blocking_coreq"),
+        "first_blocking_coreq_status": first_blocking.get("first_blocking_coreq_status"),
+        "first_blocking": first_blocking,
+        "go_board_form_label_prep_artifacts": form_prep_artifacts,
+        "companion_artifacts": companion,
+        "prep_steps": prep_steps,
+        "n_prep_steps": len(prep_steps),
+        "anti_criteria_today": list(anti),
+        "form_mutation_path_name": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+        "form_mutation_path_executed_today": form_mutation_path_executed_today,
+        "form_label_ship_criteria_present": True,
+        "form_registration_present": True,
+        "isolation_rewrite_shipped": isolation_rewrite_shipped,
+        "isolation_tests_rewritten_with_wire": isolation_tests_rewritten_with_wire,
+        "isolation_rewrite_with_wire": isolation_status,
+        "isolation_rewrite_still_open": isolation_still_open,
+        "isolation_ship_allowed_today": isolation_ship_allowed_today,
+        "path_design_present": True,
+        "path_shipped": path_shipped,
+        "dual_honest_tf_aware_path_present": dual_honest_tf_aware_path_present,
+        "form_label_change_shipped": form_label_change_shipped,
+        "bundle_shipped": bundle_shipped,
+        "bundle_ship_allowed_today": bundle_ship_allowed_today,
+        "criteria_met_today": False,
+        "form_criteria_met_today": form_criteria_met_today,
+        "wire_ship_allowed_today": wire_ship_allowed_today,
+        "wire_shipped": wire_shipped,
+        "ship_met_allowed_today": ship_met_allowed_today,
+        "form_label_ship_allowed_today": form_label_ship_allowed_today,
+        "online_linf_gate_under_tf_path": gate_status,
+        "online_linf_gate_still_open": gate_still_open,
+        "gate_flip_allowed_today": gate_flip_allowed_today,
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_unchanged": form["form_unchanged"],
+        "dual_recovery_path_today_on_tf_surface": None,
+        "dual_recovery_path_planned_when_shipped": dual_recovery_planned,
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": feature_flag_enabled_today,
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "units_affine_unchanged": list(UNITS),
+        "wire_blockers": blockers,
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "form_label_change_required_in_default_wire_blockers": (
+            "form_label_change_required" in blockers
+        ),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "suggested_next_wave_after_preflight": SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT,
+        "suggested_next_wave_still_full_wire": (
+            SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT
+            == "dual_honest_tf_case1_wire_with_isolation_rewrite_and_form_label_change"
+        ),
+        "tf_available": tf_available(),
+        "form_label_second_coreq_operational_prep_available": True,
+        "excel_packaging_twin_present": True,
+        "excel_packaging_twin_deferred": False,
+        "any_ship_allowed_today": False,
+        "all_ship_flags_false": True,
+        "dual_linf_proof_allowed_today": False,
+    }
+
+
+def case1_form_label_second_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Alias for ``offline_case1_form_label_second_coreq_operational_prep_report``."""
+    return offline_case1_form_label_second_coreq_operational_prep_report()
+
+
+def multi_unit_case1_form_label_second_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Alias for multi-unit registry symmetry."""
+    return offline_case1_form_label_second_coreq_operational_prep_report()
+
+
+
+
 
 
 __all__ = [
@@ -18060,6 +18729,17 @@ __all__ = [
     "offline_case1_dual_linf_under_wire_criteria_contract_report",
     "case1_dual_linf_under_wire_criteria_contract_report",
     "multi_unit_case1_dual_linf_under_wire_criteria_contract_report",
+    "CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_KIND",
+    "CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANNOTATION",
+    "CASE1_FORM_LABEL_SECOND_COREQ_ORDER_HINT_INDEX",
+    "CASE1_FORM_LABEL_SECOND_COREQ_ORDER_HINT_COREQ",
+    "CASE1_FORM_LABEL_SECOND_COREQ_OPERATIONAL_PREP_ANTI_CRITERIA_TODAY",
+    "CASE1_FORM_LABEL_SECOND_COREQ_COMPANION_ARTIFACTS",
+    "case1_form_label_second_coreq_companion_artifacts",
+    "case1_form_label_second_coreq_prep_steps",
+    "offline_case1_form_label_second_coreq_operational_prep_report",
+    "case1_form_label_second_coreq_operational_prep_report",
+    "multi_unit_case1_form_label_second_coreq_operational_prep_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]

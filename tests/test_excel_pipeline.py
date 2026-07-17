@@ -3375,6 +3375,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d["offline_tf_ladder_toc_ready"] == "true"
     assert d["includes_blueprint"] == "true"
     assert d["includes_first_blocker_operational_prep"] == "true"
+    assert d.get("includes_form_label_second_coreq_operational_prep") == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -3390,6 +3391,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert "tf_offline_units" in ids
     assert "implementation_blueprint" in ids
     assert "isolation_rewrite_first_blocker_operational_prep" in ids
+    assert "form_label_second_coreq_operational_prep" in ids
     assert "wire_preflight" in ids
     assert "isolation_rewrite" in ids
     one = d["planner_one_liner"].lower()
@@ -6340,3 +6342,92 @@ def test_excel_dual_linf_under_wire_criteria_contract_packaging_surfaces(tmp_pat
             assert "criteria" in r["predicted"].lower()
             assert "unproven" in r["predicted"].lower() or "unproven" in r["actual"].lower()
 
+
+
+def test_format_tf_offline_case1_form_label_second_coreq_operational_prep_howto_pure():
+    """E1/E2 Excel: form_label second-coreq operational prep How_to dual-ban (static)."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_case1_form_label_second_coreq_operational_prep_howto,
+        _CASE1_FORM_LABEL_SECOND_COREQ_PREP_ANTI_CRITERIA,
+        _CASE1_FORM_LABEL_MUTATION_PATH_NAME,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+    )
+    import inspect
+    import pims_admm_llm.models.excel_pipeline as ep
+
+    d = format_tf_offline_case1_form_label_second_coreq_operational_prep_howto()
+    assert d["topic"] == "tf_offline_case1_form_label_second_coreq_operational_prep"
+    assert d["prep_present"] == "true"
+    assert d["form_label_second_coreq_prep_present"] == "true"
+    assert d["operational_prep_present"] == "true"
+    assert d["form_current"] == "classic_2block_excel_path"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["form_label_ship_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["form_mutation_path_executed_today"] == "false"
+    assert d["form_mutation_path_name"] == _CASE1_FORM_LABEL_MUTATION_PATH_NAME
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["is_first_blocking_coreq"] == "false"
+    assert d["order_hint_index"] == "1"
+    assert d["dual_recovery_path"] == "None"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["prep_is_not_form_label_change_shipped"] == "true"
+    assert d["prep_is_not_form_flip"] == "true"
+    assert d["distinct_from_form_label_change_shipped_criteria_contract"] == "true"
+    assert d["this_prep_alone_is_not_ship"] == "true"
+    assert d["packaging_alone_is_not_ship"] == "true"
+    assert d["form_label_change_required_still_true"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "prep_present" in one
+    assert "form_label_change_shipped=false" in one
+    assert "form flip" in one or "not form flip" in one
+    assert "isolation_rewrite_with_wire" in one
+    assert "this_prep_alone" in _CASE1_FORM_LABEL_SECOND_COREQ_PREP_ANTI_CRITERIA
+    assert "form_label_change_required" in _OFFLINE_WIRE_BLOCKER_IDS
+    src = inspect.getsource(
+        format_tf_offline_case1_form_label_second_coreq_operational_prep_howto
+    )
+    # Ban live imports / live report calls on packaging hot path (docstring may name them).
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    assert "offline_case1_form_label_second_coreq_operational_prep_report(" not in src
+    assert "format_tf_offline_case1_form_label_second_coreq_operational_prep_howto" in open(
+        ep.__file__, encoding="utf-8"
+    ).read()
+
+
+def test_form_label_second_coreq_prep_package_surfaces(tmp_path):
+    """E1/E2: form second-coreq prep meta/How_to/Calc_Check dual-ban surfaces."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_form_label_second_coreq_operational_prep_ready"] is True
+    assert pkg["meta"]["offline_tf_form_label_second_coreq_prep_present"] is True
+    assert pkg["meta"]["offline_tf_form_label_change_shipped"] is False
+    assert pkg["meta"]["offline_tf_form_label_ship_allowed_today"] is False
+    note = str(pkg["meta"].get("offline_tf_case1_form_label_second_coreq_operational_prep", "")).lower()
+    assert "prep" in note
+    assert "form_label_change_shipped=false" in note or "form_label_change_shipped" in note
+    fl = pkg.get("tf_offline_case1_form_label_second_coreq_operational_prep")
+    assert fl is not None
+    assert fl["form_label_change_shipped"] == "false"
+    assert fl["prep_present"] == "true"
+    assert fl["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert fl["is_first_blocking_coreq"] == "false"
+    rows = planner_honesty_check_rows(report)
+    checks = {r["check"]: r for r in rows}
+    assert "offline_tf_form_label_second_coreq_prep_not_form_ship" in checks
+    assert checks["offline_tf_form_label_second_coreq_prep_not_form_ship"]["ok"] is True
+    # No Index growth for this residual
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
