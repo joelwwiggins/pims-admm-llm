@@ -92,8 +92,8 @@ def main(argv: list[str] | None = None) -> int:
     # contract, dual-space L∞ probe, dual-space L∞ live-λ bridge, dual-space
     # L∞ live-λ-seeded warm-start, honest blender pooling path, online_linf_gate
     # flip-criteria contract, isolation-rewrite design, form_label ship criteria,
-    # isolation-rewrite ship criteria, multi-blocker bundle design, or multi-blocker
-    # bundle ship-met criteria contract reports.
+    # isolation-rewrite ship criteria, multi-blocker bundle design, multi-blocker
+    # bundle ship-met criteria, or dual-honest path execution scaffold reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -141,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_honest_multi_blocker_wire_bundle_design_contract")
     if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract_ready"):
         readiness_bits.append("case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract")
+    if ph.get("offline_tf_case1_dual_honest_tf_aware_path_execution_scaffold_ready"):
+        readiness_bits.append("case1_dual_honest_tf_aware_path_execution_scaffold")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -251,6 +253,15 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract_ready")
         else "no case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract packaging flag"
     )
+    scaffold_note = (
+        "dual-honest TF-aware path execution scaffold packaged (scaffold_present; "
+        "execution_scaffold_present; path_shipped=false; ship-met=false; "
+        "wire=false; bundle_shipped=false; form=classic; dual-ban; not VERDICT; "
+        "not path ship / not wire ship / not bundle ship / not isolation rewrite ship / "
+        "not form flip / not ship allow)"
+        if ph.get("offline_tf_case1_dual_honest_tf_aware_path_execution_scaffold_ready")
+        else "no case1_dual_honest_tf_aware_path_execution_scaffold packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -263,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note}; "
         f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
         f"{form_label_criteria_note}; {isolation_ship_criteria_note}; "
-        f"{bundle_design_note}; {bundle_criteria_note})"
+        f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
