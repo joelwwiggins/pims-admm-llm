@@ -92,4 +92,5 @@ Excel Case 1 (`classic_2block_excel_path`) packages duals for planners as:
 - VERDICT dual check uses **online L∞ only** + objective gap ≤ 0.5%. Recovered L∞ is **not** a PASS requirement.
 - Path string includes `online_lambda`; this is **not** pure-ADMM dual ownership and **not** TF dual recovery.
 - Optional TF linear blocks (FCC/Coker/CDU offline kernels) keep `dual_recovery_path=None` and never own Case 1 duals. See `docs/tf_linear_blocks.md`.
+- Offline dual-space L∞ **live-λ bridge** (`offline_case1_dual_space_linf_live_lambda_bridge_report`) is diagnostic only: accepts this-run PRIMARY online λ into the dual-ban probe with source labeled; dual_linf_under_wire stays unproven; never a VERDICT gate; never wire proof.
 - Shadows footer and How_to `duals_primary_secondary` print this-run online vs recovered L∞ for audit.

@@ -159,6 +159,31 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Results JSON:  {json_out}")
     print("=" * 72)
     print(f"VERDICT: {report['verdict']}")
+
+    # Post-solve diagnostic only (never gates VERDICT; never writes Excel).
+    # Demo is allowed to import tf_linear_blocks; excel write path is not.
+    try:
+        from pims_admm_llm.models import tf_linear_blocks as _tlb
+
+        bridge = _tlb.offline_case1_dual_space_linf_live_lambda_bridge_report(
+            case1_package=report,
+            skeleton_n_rounds=1,
+            include_secondary_recovered=True,
+        )
+        print(
+            f"Offline TF live-λ bridge (diagnostic only): "
+            f"source={bridge.get('live_lambda_source')}  "
+            f"L∞={bridge.get('linf')}  "
+            f"bridge_ok={bridge.get('bridge_ok')}  "
+            f"dual_linf_under_wire={bridge.get('dual_linf_under_wire_status')}  "
+            f"online_linf_gate={bridge.get('online_linf_gate_under_tf_path')}  "
+            f"dual_recovery_path={bridge.get('dual_recovery_path')}  "
+            f"wire_shipped={bridge.get('wire_shipped')}  "
+            f"[NOT VERDICT gate; NOT dual L∞ under wire proof]"
+        )
+    except Exception as exc:  # pragma: no cover - demo soft-skip
+        print(f"Offline TF live-λ bridge: skipped ({exc})")
+
     return 0 if report["verdict"].startswith("PASS") else 1
 
 

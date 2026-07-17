@@ -46,6 +46,7 @@ smoke (`python -m demos.run_excel_pipeline_demo`) must stay green.
 | Case-1-shaped CDU↔Blender skeleton (goal 5 residual) | `offline_case1_shaped_cdu_blender_linking_report` — CDU affine + blender `linear_quality_pooling` residual under synthetic λ,z,ρ on Case 1 intermediates; dual-ban; `wire_shipped=False`; skeleton ≠ wire; **not** form flip; does **not** clear `DEFAULT_WIRE_BLOCKERS` |
 | Case-1 dual-space / form-label contract (goal 5+3 residual) | `offline_case1_dual_space_form_contract_report` — planned TF-aware form registry **without** flipping Case 1; dual-space stream map (Case 1 intermediates ↔ skeleton λ); `dual_linf_under_wire=unproven` + open checklist; dual-ban; `wire_shipped=False`; does **not** clear blockers; does **not** redefine ready |
 | Case-1 dual-space L∞ probe (goal 5+3 residual) | `offline_case1_dual_space_linf_probe_report` — stream-aligned numeric L∞ between fixture/supplied Case 1 PRIMARY online λ and Case-1-shaped skeleton λ; dual_linf_under_wire stays **unproven**; checklist `online_linf_gate_under_tf_path` open; probe ≠ wire proof; probe ≠ VERDICT gate; dual-ban; `wire_shipped=False`; does **not** clear blockers; does **not** redefine ready |
+| Case-1 dual-space L∞ live-λ bridge (goal 5+3 residual) | `offline_case1_dual_space_linf_live_lambda_bridge_report` — pure extract/normalize this-run Case 1 PRIMARY online λ (+ optional SECONDARY) into existing probe; `live_lambda_source` labeled; dual-ban; dual_linf unproven; bridge ≠ VERDICT; bridge ≠ wire proof; no excel_pipeline on TF hot path |
 | EMRPS / pure research floor | Validation-only elsewhere; not this module |
 
 ## Multi-unit offline registry API
@@ -758,6 +759,56 @@ blender on the Excel path. This probe surface has `dual_recovery_path=None`;
 skeleton λ ≠ Case 1 PRIMARY/SECONDARY duals as dual recovery; numeric L∞ prep is
 **not** dual L∞ under wire proof and **not** a VERDICT gate change.
 
+## Offline Case-1 dual-space L∞ live-λ bridge (goal 5 + goal 3 residual)
+
+Always-on numpy capture/bridge so dual-L∞ prep can consume **this-run** Case 1
+PRIMARY online λ (and optional SECONDARY recovered diagnostic) instead of
+fixture-only defaults. Composes the existing probe — does **not** re-implement
+L∞ math. Does **not** import `excel_pipeline` on the TF hot path.
+
+```python
+from pims_admm_llm.models.tf_linear_blocks import (
+    offline_case1_dual_space_linf_live_lambda_bridge_report,
+    extract_case1_primary_online_lambda,
+    case1_primary_online_lambda_from_mapping,
+)
+
+# From a Case 1 comparison package (e.g. demo report / results JSON shape):
+bridge = offline_case1_dual_space_linf_live_lambda_bridge_report(
+    case1_package=report,  # has report["admm"]["online_duals"]
+    skeleton_n_rounds=1,
+)
+assert bridge["kind"] == "offline_case1_dual_space_linf_live_lambda_bridge"
+assert bridge["live_lambda_source"] in (
+    "caller_supplied", "package_extract", "fixture"
+)
+assert bridge["dual_recovery_path"] is None
+assert bridge["dual_linf_under_wire_status"] == "unproven"
+assert bridge["online_linf_gate_under_tf_path"] == "open"
+assert bridge["wire_shipped"] is False
+assert bridge["bridge_is_not_verdict_gate"] is True
+# bridge_ok never requires linf<=15; never VERDICT:
+assert "NOT linf<=15" in bridge["ok_criteria"] or "not" in bridge["ok_criteria"].lower()
+```
+
+| Field | Meaning |
+|-------|---------|
+| `live_lambda_source` | `caller_supplied` \| `package_extract` \| `fixture` — always labeled |
+| `bridge_ok` | extract ∧ source documented ∧ probe honesty — **not** `linf≤15` |
+| `dual_linf_under_wire_status` | Always `unproven` — bridge ≠ proof under wire |
+| `online_linf_gate_under_tf_path` | Remains `open` |
+| `fixture_is_not_live` | Fixture fallback never claimed as this-run live duals |
+| `secondary_recovered_is_not_gate` | Optional SECONDARY face is diagnostic only |
+
+Additive readiness flag `admm_case1_dual_space_linf_live_lambda_bridge_ok` does
+**not** redefine `ready_for_wire_discussion`. Excel packaging of the live-λ
+bridge is deferred (twin cycle); demo may print a post-solve diagnostic line
+only — never gates VERDICT, never writes live L∞ into the workbook.
+
+**Dual honesty:** Case 1 duals still owned by Excel PRIMARY online λ path.
+Extracted vectors are **probe inputs only** (`dual_recovery_path=None` on TF
+surface). Bridge L∞ is diagnostic prep, not dual L∞ under wire proof.
+
 ## Before wiring TF into ADMM / Case 1 (pre-wire checklist)
 
 This is a **gate list only** — do **not** implement the wire from this doc alone.
@@ -777,6 +828,7 @@ This is a **gate list only** — do **not** implement the wire from this doc alo
 - [x] Excel static packaging of dual-space/form contract (`tf_offline_case1_dual_space_form_contract` How_to + Index/Summary/meta/Calc_Check/demo; form_current classic vs form_planned registered; dual_linf unproven; dual_recovery_path=None; wire_shipped=False; blockers non-empty; no live excel→tf contract call) — **still not wire / not form flip**
 - [x] `offline_case1_dual_space_linf_probe_report()` ok (stream-aligned numeric L∞ fixture/supplied Case 1 PRIMARY online λ vs skeleton final_lam; dual_linf_under_wire stays unproven; checklist online_linf_gate_under_tf_path open; probe ≠ wire proof; probe ≠ VERDICT; dual-ban; wire_shipped=False; blockers still documented; does **not** redefine ready) — **still not dual L∞ proven under wire / not form flip / not wire**
 - [x] Excel static packaging of dual-space L∞ probe readiness (`tf_offline_case1_dual_space_linf_probe` How_to + Index/Summary/meta/Calc_Check/demo; `offline_tf_case1_dual_space_linf_probe_ready`; dual_linf unproven; online_linf_gate open; probe ≠ VERDICT; probe ≠ wire proof; dual_recovery_path=None; wire_shipped=False; blockers non-empty; no live excel→tf probe call) — **still not dual L∞ proven under wire / not form flip / not wire**
+- [x] `offline_case1_dual_space_linf_live_lambda_bridge_report()` ok (pure extract/normalize this-run Case 1 PRIMARY online λ → existing probe; `live_lambda_source` labeled; dual-ban; dual_linf unproven; online_linf_gate open; bridge_ok ≠ linf≤15; bridge ≠ VERDICT; bridge ≠ wire proof; dual_recovery_path=None; wire_shipped=False; blockers still documented; does **not** redefine ready; no excel_pipeline on TF hot path) — **still not dual L∞ proven under wire / not form flip / not wire**
 - [ ] Dual honesty PRIMARY online λ still gates VERDICT (online L∞ ≤15); do not retune ρ solely to shrink recovered dual L∞
 - [ ] Explicit form label change **shipped** (not merely registered): `classic_2block_excel_path` → `tf_affine_cdu_blender_shaped_excel_path` when wire lands (never silent form reuse). Planned form is **registered** by the dual-space/form contract above.
 - [ ] Isolation tests (`test_tf_import_isolation.py`) must be **rewritten with** the wire — not silently broken or deleted
