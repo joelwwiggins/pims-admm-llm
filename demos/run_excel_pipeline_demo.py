@@ -240,8 +240,21 @@ def main(argv: list[str] | None = None) -> int:
             f"wire_shipped={pool.get('wire_shipped')}  "
             f"[NOT VERDICT gate; NOT affine kernel; NOT wire proof]"
         )
+        crit = _tlb.offline_case1_online_linf_gate_criteria_contract_report()
+        print(
+            f"Offline TF online_linf_gate criteria contract (diagnostic only): "
+            f"gate={crit.get('online_linf_gate_under_tf_path')}  "
+            f"flip_allowed={crit.get('gate_flip_allowed_today')}  "
+            f"criteria_met={crit.get('criteria_met_today')}  "
+            f"contract_ok={crit.get('contract_ok')}  "
+            f"n_flip_criteria={len(crit.get('flip_criteria') or {})}  "
+            f"dual_linf_under_wire={crit.get('dual_linf_under_wire_status')}  "
+            f"dual_recovery_path={crit.get('dual_recovery_path')}  "
+            f"wire_shipped={crit.get('wire_shipped')}  "
+            f"[NOT VERDICT gate; NOT gate flip; NOT dual L∞ under wire proof]"
+        )
     except Exception as exc:  # pragma: no cover - demo soft-skip
-        print(f"Offline TF live-λ bridge/warm-start/pooling path: skipped ({exc})")
+        print(f"Offline TF live-λ bridge/warm-start/pooling/criteria contract: skipped ({exc})")
 
     return 0 if report["verdict"].startswith("PASS") else 1
 
