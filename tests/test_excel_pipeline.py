@@ -3374,6 +3374,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d["toc_present"] == "true"
     assert d["offline_tf_ladder_toc_ready"] == "true"
     assert d["includes_blueprint"] == "true"
+    assert d["includes_first_blocker_operational_prep"] == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -3388,6 +3389,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     ids = d["topic_ids"]
     assert "tf_offline_units" in ids
     assert "implementation_blueprint" in ids
+    assert "isolation_rewrite_first_blocker_operational_prep" in ids
     assert "wire_preflight" in ids
     assert "isolation_rewrite" in ids
     one = d["planner_one_liner"].lower()
@@ -6048,3 +6050,143 @@ def test_ensure_template(tmp_path):
     path = tmp_path / "crudes_template.xlsx"
     out = ensure_template(path)
     assert out.is_file() and out.stat().st_size > 1000
+
+
+def test_format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto_pure():
+    """Static isolation first-blocker operational prep How_to: prep_present; ship false; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_FIRST_BLOCKING_COREQ,
+        _CASE1_FORM_CURRENT,
+        _CASE1_ISOLATION_SUITE_PATH,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto,
+    )
+    import pims_admm_llm.models.excel_pipeline as ep
+    import inspect
+
+    d = format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto()
+    assert d["topic"] == "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep"
+    assert d["prep_present"] == "true"
+    assert d["first_blocker_prep_present"] == "true"
+    assert d["first_blocking_coreq"] == _CASE1_FIRST_BLOCKING_COREQ
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["isolation_tests_rewritten_with_wire"] == "false"
+    assert d["rewrite_not_delete"] == "true"
+    assert d["suite_path"] == _CASE1_ISOLATION_SUITE_PATH
+    assert d["suite_path"] == "tests/test_tf_import_isolation.py"
+    assert d["dual_recovery_path"] == "None"
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["prep_is_not_isolation_rewrite_shipped"] == "true"
+    assert d["prep_is_not_wire"] == "true"
+    assert d["prep_is_not_verdict_gate"] == "true"
+    assert d["prep_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["this_prep_alone_is_not_ship"] == "true"
+    assert d["packaging_alone_is_not_ship"] == "true"
+    assert d["companion_matrix_is_inventory_only"] == "true"
+    assert d["order_hint_is_not_executor"] == "true"
+    assert d["feature_flag_enabled_today"] == "false"
+    assert "pure-admm" not in d["dual_recovery_path_planned_when_shipped"].lower()
+    assert d["dual_recovery_path_planned_when_shipped"] == _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED
+    one = d["planner_one_liner"].lower()
+    assert "prep_present" in one
+    assert "isolation_rewrite_shipped=false" in one
+    assert "dual_recovery_path=none" in one
+    assert "not verdict" in one or "verdict" in one
+    # purity: no live report call / import
+    src = inspect.getsource(
+        format_tf_offline_case1_isolation_rewrite_first_blocker_operational_prep_howto
+    )
+    assert "offline_case1_isolation_rewrite_first_blocker_operational_prep_report(" not in src
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    ep_src = open(ep.__file__, encoding="utf-8").read()
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in ep_src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in ep_src
+    assert "import tensorflow" not in ep_src
+    assert "import pulp" not in ep_src
+
+
+def test_excel_first_blocker_operational_prep_packaging_surfaces(tmp_path):
+    """Workbook integration: prep How_to + meta + Summary + Calc_Check dual-ban; Index ≤1439."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    out = tmp_path / "prep_pkg.xlsx"
+    write_results_excel(out, report)
+    import openpyxl
+
+    wb = openpyxl.load_workbook(out)
+    assert len(wb.sheetnames) <= GOAL_MAX_SHEETS
+
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready"] is True
+    assert pkg["meta"]["offline_tf_first_blocker_prep_present"] is True
+    assert pkg["meta"]["offline_tf_isolation_rewrite_shipped"] is False
+    assert pkg["meta"]["offline_tf_wire_shipped"] is False
+    assert pkg["meta"]["tf_dual_recovery_path"] is None
+    assert pkg.get("tf_offline_case1_isolation_rewrite_first_blocker_operational_prep") is not None
+    prep = pkg["tf_offline_case1_isolation_rewrite_first_blocker_operational_prep"]
+    assert prep["topic"] == "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep"
+    assert prep["prep_present"] == "true"
+    assert prep["isolation_rewrite_shipped"] == "false"
+    assert prep["dual_recovery_path"] == "None"
+    assert prep["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+    how = {
+        str(r[0].value): str(r[1].value or "")
+        for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert "tf_offline_case1_isolation_rewrite_first_blocker_operational_prep" in how
+    body = how["tf_offline_case1_isolation_rewrite_first_blocker_operational_prep"].lower()
+    assert "prep_present" in body
+    assert "isolation_rewrite_shipped=false" in body
+    assert "dual_recovery_path=none" in body
+    # TOC lists prep
+    assert "tf_offline_ladder_toc" in how
+    assert "operational_prep" in how["tf_offline_ladder_toc"].lower() or "first_blocker" in how[
+        "tf_offline_ladder_toc"
+    ].lower()
+
+    summary = {
+        str(r[0].value): r[1].value
+        for r in wb["Summary"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert summary.get("offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready") in (
+        True,
+        "true",
+        True,
+    )
+    assert summary.get("offline_tf_first_blocker_prep_present") in (True, "true")
+
+    rows = planner_honesty_check_rows(report)
+    names = {r["check"] for r in rows}
+    assert "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_duals" in names
+    assert "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_ship" in names
+    assert "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_verdict_gate" in names
+    assert (
+        "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_not_dual_linf_under_wire_proof"
+        in names
+    )
+    for r in rows:
+        if r["check"].startswith(
+            "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep"
+        ):
+            assert r["ok"] is True

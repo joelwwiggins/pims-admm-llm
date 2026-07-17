@@ -102,7 +102,8 @@ def main(argv: list[str] | None = None) -> int:
     # flip-criteria contract, isolation-rewrite design, form_label ship criteria,
     # isolation-rewrite ship criteria, multi-blocker bundle design, multi-blocker
     # bundle ship-met criteria, dual-honest path execution scaffold, rehearsal,
-    # or dual-honest multi-blocker wire implementation blueprint reports.
+    # dual-honest multi-blocker wire implementation blueprint, or isolation
+    # first-blocker operational prep reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -156,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_honest_multi_blocker_wire_rehearsal")
     if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ready"):
         readiness_bits.append("case1_dual_honest_multi_blocker_wire_implementation_blueprint")
+    if ph.get("offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready"):
+        readiness_bits.append("case1_isolation_rewrite_first_blocker_operational_prep")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -294,6 +297,14 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ready")
         else "no case1_dual_honest_multi_blocker_wire_implementation_blueprint packaging flag"
     )
+    first_blocker_prep_note = (
+        "isolation first-blocker operational prep packaged (prep_present; "
+        "first_blocking=isolation_rewrite_with_wire; isolation_rewrite_shipped=false; "
+        "rewrite-not-delete; dual_linf=unproven; dual_recovery_path=None; "
+        "prep≠ship; dual-ban; not VERDICT; not wire; not dual L∞ under wire proof)"
+        if ph.get("offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready")
+        else "no case1_isolation_rewrite_first_blocker_operational_prep packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -306,7 +317,8 @@ def main(argv: list[str] | None = None) -> int:
         f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note}; "
         f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
         f"{form_label_criteria_note}; {isolation_ship_criteria_note}; "
-        f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note}; {rehearsal_note}; {blueprint_note})"
+        f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note}; {rehearsal_note}; "
+        f"{blueprint_note}; {first_blocker_prep_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
