@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     # Static readiness flags from meta only — never import tf_linear_blocks /
     # live residual, block subproblem, multi-round coordination, plant-linking,
     # plant-named, wire-preflight, Case-1-shaped skeleton, dual-space/form
-    # contract, or dual-space L∞ probe reports.
+    # contract, dual-space L∞ probe, or dual-space L∞ live-λ bridge reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -113,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_space_form_contract")
     if ph.get("offline_tf_case1_dual_space_linf_probe_ready"):
         readiness_bits.append("case1_dual_space_linf_probe")
+    if ph.get("offline_tf_case1_dual_space_linf_live_lambda_bridge_ready"):
+        readiness_bits.append("case1_dual_space_linf_live_lambda_bridge")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -137,6 +139,12 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_dual_space_linf_probe_ready")
         else "no dual_space_linf_probe packaging flag"
     )
+    live_bridge_note = (
+        "dual-space L∞ live-λ bridge packaged (source-labeled; unproven; not VERDICT; "
+        "not wire proof; dual-ban; wire_shipped=False)"
+        if ph.get("offline_tf_case1_dual_space_linf_live_lambda_bridge_ready")
+        else "no dual_space_linf_live_lambda_bridge packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -145,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         f"per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
         f"plant-named offline demo ≠ full plant MB / ≠ live cascade; "
         f"preflight λ ≠ duals; {wire_note}; {case1_shaped_note}; {dual_space_note}; "
-        f"{linf_probe_note})"
+        f"{linf_probe_note}; {live_bridge_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")

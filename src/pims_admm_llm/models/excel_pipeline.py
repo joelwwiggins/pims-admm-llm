@@ -1905,6 +1905,81 @@ def format_tf_offline_case1_dual_space_linf_probe_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto() -> Dict[str, str]:
+    """Static offline Case-1 dual-space L∞ live-λ bridge How_to (isolation-safe #36 packaging).
+
+    Planner-facing note that offline Case-1 dual-space L∞ live-λ bridge readiness exists:
+    always-on extract/normalize of this-run Case 1 PRIMARY online λ into the existing probe;
+    live_lambda_source must be labeled (caller_supplied / package_extract / fixture);
+    dual_linf_under_wire=unproven with open checklist (online_linf_gate_under_tf_path);
+    bridge ≠ VERDICT gate; bridge ≠ dual L∞ under wire proof; dual_recovery_path=None;
+    skeleton λ ≠ Case 1 PRIMARY online / SECONDARY recovered duals; wire_shipped=False;
+    does not clear wire blockers; not form flip; not dual L∞ proven. Does **not** load
+    tf_linear_blocks or tensorflow; does **not** call
+    offline_case1_dual_space_linf_live_lambda_bridge_report.
+    """
+    streams = ",".join(_CASE1_SHAPED_LINKING_STREAMS)
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    allowed_src = ",".join(_LIVE_LAMBDA_SOURCE_ALLOWED)
+    one_liner = (
+        "Offline Case-1 dual-space L∞ live-λ bridge readiness exists (static packaging of "
+        f"#36 harness): form_current={_CASE1_FORM_CURRENT}; form_planned={_CASE1_FORM_PLANNED} "
+        f"(registered only; not flip); linking_streams={streams}; stream_alignment_ok=true; "
+        f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; package dual gate=PRIMARY online_lambda; "
+        "SECONDARY recovered blender is not gate; this-run extract/normalize PRIMARY online λ "
+        "into existing probe (extracted λ are probe inputs only; skeleton λ are not Case 1 "
+        "PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM dual recovery); "
+        f"live_lambda_source must be labeled ({allowed_src}; fixture ≠ claimed live this-run); "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; open checklist "
+        f"({open_ids}); bridge_is_not_verdict_gate=true; "
+        "bridge_is_not_dual_linf_under_wire_proof=true; dual_recovery_path=None; "
+        "wire_shipped=False; does not clear wire_blockers; not form flip; not dual L∞ proven "
+        "under wire; not full plant mass balance; not live plant_blocks cascade. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender; "
+        "bridge L∞ is not the Case 1 VERDICT dual gate."
+    )
+    return {
+        "topic": "tf_offline_case1_dual_space_linf_live_lambda_bridge",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "linking_streams": streams,
+        "stream_alignment_ok": "true",
+        "dual_vector_face": _CASE1_DUAL_VECTOR_FACE,
+        "package_dual_gate": "online_lambda",
+        "package_dual_secondary": "recovered_blender",
+        "skeleton_lambda_is_not_case1_online_lambda": "true",
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": "true",
+        "live_lambda_source_must_be_labeled": "true",
+        "live_lambda_source_allowed": allowed_src,
+        "extracted_lambda_is_probe_input_only": "true",
+        "live_lambda_is_not_dual_recovery": "true",
+        "bridge_is_not_verdict_gate": "true",
+        "bridge_is_not_dual_linf_under_wire_proof": "true",
+        "bridge_available_is_not_dual_linf_under_wire_proof": "true",
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -1920,6 +1995,10 @@ _CASE1_FORM_PLANNED = "tf_affine_cdu_blender_shaped_excel_path"  # mirror CASE1_
 _CASE1_DUAL_LINF_UNDER_WIRE_STATUS = "unproven"
 # Excel-local mirror of default probe dual_vector_face (#34). Static only.
 _CASE1_DUAL_VECTOR_FACE = "raw_online_duals"
+# Excel-local mirror of LIVE_LAMBDA_SOURCE_* (#36). Static only — never import TF enums.
+# Align when tf_linear_blocks LIVE_LAMBDA_SOURCE_* changes. "missing" is not an allowed
+# successful source for packaging honesty (source must be labeled when present).
+_LIVE_LAMBDA_SOURCE_ALLOWED = ("caller_supplied", "package_extract", "fixture")
 _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS = (
     "isolation_rewrite_with_wire",
     "form_label_change_shipped",
@@ -1947,24 +2026,28 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
 # plant-named / wire-preflight / case1-shaped / form-contract / linf-probe reports.
 _OFFLINE_TF_INDEX_WHAT = (
     "FCC+COKER+CDU offline kernels + priced residual readiness + block-solve timing "
-    "readiness + ADMM residual readiness + block subproblem readiness (raw affine under box) + multi-round "
+    "readiness + ADMM residual readiness + block subproblem readiness (raw affine) + multi-round "
     "ADMM coordination readiness (synthetic λ,z,ρ; per-unit synthetic) + multi-block "
     "plant-linking readiness (synthetic linking topology; not full plant MB) + "
-    "multi-block plant-named linking readiness "
-    "(plant product streams + identity incidence; plant_named_offline_demo; not full plant MB) + "
+    "plant-named linking readiness "
+    "(plant product streams; plant_named_offline_demo; not full plant MB) + "
     "wire-preflight readiness (blockers; wire_shipped=False) + "
     "Case-1-shaped skeleton readiness "
     "(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False) + "
     "dual-space/form contract readiness "
     "(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) + "
-    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) — "
+    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) + "
+    "dual-space L∞ live-λ bridge readiness "
+    "(source-labeled; unproven; not VERDICT; not wire; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "prices/timings/synthetic residual/subproblem/coord/plant-linking/plant-named λ "
     "not duals / not pure-ADMM dual recovery; "
     "per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
     "preflight ≠ wire shipped; skeleton λ not duals / not wire; "
     "contract ≠ form flip / ≠ dual L∞ proven / ≠ wire; "
-    "probe ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire"
+    "probe ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
+    "bridge ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
+    "live_lambda_source must be labeled"
 )
 _OFFLINE_TF_PRICED_NOTE = (
     "offline priced residual readiness (FCC+COKER+CDU) — synthetic prices not ADMM λ / not Case 1 shadows"
@@ -2036,6 +2119,18 @@ _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_PROBE_NOTE = (
     "dual recovery; wire_shipped=False; does not clear wire_blockers; not form flip; "
     "not dual L∞ proven under wire"
 )
+_OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_NOTE = (
+    "offline Case-1 dual-space L∞ live-λ bridge readiness — "
+    f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+    f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; "
+    f"live_lambda_source must be labeled ({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    "bridge ≠ VERDICT gate; bridge ≠ dual L∞ under wire proof; dual_recovery_path=None; "
+    "extracted λ are probe inputs only; skeleton λ not Case 1 PRIMARY online λ / not SECONDARY "
+    "recovered duals / not pure-ADMM dual recovery; wire_shipped=False; does not clear "
+    "wire_blockers; not form flip; not dual L∞ proven under wire"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -2044,12 +2139,16 @@ _OFFLINE_TF_READINESS_NOTE = (
     "naphtha/distillate/gasoil/residue; wire_shipped=False) + "
     "dual-space/form contract (planned≠classic form registered; streams aligned; "
     "dual_linf_under_wire=unproven; wire_shipped=False) + "
-    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) — "
+    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) + "
+    "dual-space L∞ live-λ bridge readiness "
+    "(source-labeled; unproven; not VERDICT; not wire; dual-ban) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
     "contract ≠ form flip / ≠ dual L∞ proven; "
     "probe ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
+    "bridge ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
+    "live_lambda_source must be labeled; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
 
@@ -2065,16 +2164,18 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     multi_block_plant_named_linking_admm_report / offline_wire_preflight_report /
     offline_case1_shaped_cdu_blender_linking_report /
     offline_case1_dual_space_form_contract_report /
-    offline_case1_dual_space_linf_probe_report.
+    offline_case1_dual_space_linf_probe_report /
+    offline_case1_dual_space_linf_live_lambda_bridge_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
     ADMM block subproblem + multi-round ADMM coordination + multi-block
     plant-linking (synthetic) + multi-block plant-named linking + wire-preflight
     + Case-1-shaped CDU↔Blender skeleton + dual-space/form contract + dual-space
-    L∞ probe (static harness-existence flags only; wire_shipped=False; blockers
-    honesty; blender linear_quality_pooling; dual_linf_under_wire=unproven;
-    probe ≠ VERDICT gate / ≠ dual L∞ under wire proof).
+    L∞ probe + dual-space L∞ live-λ bridge (static harness-existence flags only;
+    wire_shipped=False; blockers honesty; blender linear_quality_pooling;
+    dual_linf_under_wire=unproven; probe/bridge ≠ VERDICT gate / ≠ dual L∞ under
+    wire proof; live_lambda_source must be labeled).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
@@ -2089,6 +2190,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_case1_shaped = format_tf_offline_case1_shaped_linking_howto()
     tf_dual_space = format_tf_offline_case1_dual_space_form_contract_howto()
     tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
+    tf_live_bridge = format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -2127,6 +2229,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_shaped_linking_ready": True,  # static; not live skeleton report
         "offline_tf_case1_dual_space_form_contract_ready": True,  # static; not live contract report
         "offline_tf_case1_dual_space_linf_probe_ready": True,  # static; not live probe report
+        "offline_tf_case1_dual_space_linf_live_lambda_bridge_ready": True,  # static; not live bridge
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -2142,6 +2245,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "offline_tf_case1_dual_space_linf_probe": (
             _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_PROBE_NOTE
+        ),
+        "offline_tf_case1_dual_space_linf_live_lambda_bridge": (
+            _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -2168,7 +2274,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"dual-space/form contract readiness "
             f"(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) + "
             f"dual-space L∞ probe readiness "
-            f"(unproven; not VERDICT; not wire; dual-ban) "
+            f"(unproven; not VERDICT; not wire; dual-ban) + "
+            f"dual-space L∞ live-λ bridge readiness "
+            f"(source-labeled; unproven; not VERDICT; not wire; dual-ban) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -2211,6 +2319,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_dual_space_linf_probe",
             _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_PROBE_NOTE,
         ),
+        (
+            "offline_tf_case1_dual_space_linf_live_lambda_bridge",
+            _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -2232,6 +2344,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_shaped_linking": tf_case1_shaped,
         "tf_offline_case1_dual_space_form_contract": tf_dual_space,
         "tf_offline_case1_dual_space_linf_probe": tf_linf_probe,
+        "tf_offline_case1_dual_space_linf_live_lambda_bridge": tf_live_bridge,
     }
 
 
@@ -2242,8 +2355,8 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
     Static only: never runs priced residual, timing, ADMM residual, block
     subproblem, multi-round coordination, plant-linking, plant-named,
-    wire-preflight, Case-1-shaped skeleton, dual-space/form contract, or dual-space
-    L∞ probe harness (isolation + smoke latency).
+    wire-preflight, Case-1-shaped skeleton, dual-space/form contract, dual-space
+    L∞ probe, or dual-space L∞ live-λ bridge harness (isolation + smoke latency).
     """
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -2536,6 +2649,75 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_duals",
+            "predicted": (
+                "offline Case-1 dual-space L∞ live-λ bridge readiness packaging exists (static); "
+                f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+                f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; "
+                f"live_lambda_source must be labeled ({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "extracted λ are probe inputs only; skeleton λ not Case 1 PRIMARY online λ / "
+                "not SECONDARY recovered duals / not pure-ADMM dual recovery; "
+                "dual_recovery_path=None on bridge surface; package dual gate remains online_lambda"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ live-λ bridge dual_recovery_path=None; "
+                "extracted λ ≠ dual recovery; skeleton λ ≠ Case 1 duals; dual_linf under wire "
+                "unproven; not pure-ADMM dual recovery; source must be labeled"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_wire",
+            "predicted": (
+                "wire_shipped=False; form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                "dual_linf_under_wire_unproven + wire_not_shipped remain"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ live-λ bridge packaging only; wire not shipped; "
+                "blockers still true; form classic_2block_excel_path unchanged; "
+                "dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_verdict_gate",
+            "predicted": (
+                "bridge ≠ Case 1 VERDICT dual gate; online L∞ ≤15 gate unchanged; "
+                "bridge_ok means honesty/source/align only (not L∞≤15 under wire); "
+                f"checklist open includes online_linf_gate_under_tf_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                f"live_lambda_source must be labeled ({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)})"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ live-λ bridge is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY gate; checklist online_linf_gate_under_tf_path open; "
+                "bridge L∞ is not Case 1 dual PASS/FAIL; source must be labeled"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_bridge_source_must_be_labeled",
+            "predicted": (
+                "live_lambda_source must be labeled "
+                f"({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); fixture ≠ claimed live this-run; "
+                "package_extract / caller_supplied are honest this-run paths when present; "
+                "missing is not a successful source for packaging honesty"
+            ),
+            "actual": (
+                "static honesty — live-λ bridge packaging requires source-labeled vocabulary; "
+                "fixture is fallback only (never claimed as live duals); not dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -2562,6 +2744,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_case1_shaped = format_tf_offline_case1_shaped_linking_howto()
     tf_dual_space = format_tf_offline_case1_dual_space_form_contract_howto()
     tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
+    tf_live_bridge = format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto()
     return [
         (
             "goal",
@@ -2648,6 +2831,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_dual_space_linf_probe",
             tf_linf_probe["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_dual_space_linf_live_lambda_bridge",
+            tf_live_bridge["planner_one_liner"],
         ),
         (
             "solve_boundary",
