@@ -163,6 +163,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_linf_under_wire_criteria_contract")
     if ph.get("offline_tf_case1_form_label_second_coreq_operational_prep_ready"):
         readiness_bits.append("case1_form_label_second_coreq_operational_prep")
+    if ph.get("offline_tf_case1_path_third_coreq_operational_prep_ready"):
+        readiness_bits.append("case1_path_third_coreq_operational_prep")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -317,6 +319,14 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_form_label_second_coreq_operational_prep_ready")
         else "no case1_form_label_second_coreq_operational_prep packaging flag"
     )
+    path_third_coreq_prep_note = (
+        "path third-coreq operational prep packaged (prep_present; "
+        "path_shipped=false; dual_honest_tf_aware_path_present ship-met=false; "
+        "feature_flag=false; first_blocking still isolation; prep≠path ship; "
+        "dual_recovery_path=None; dual-ban; not VERDICT; not wire; not ship-met)"
+        if ph.get("offline_tf_case1_path_third_coreq_operational_prep_ready")
+        else "no case1_path_third_coreq_operational_prep packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -330,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
         f"{form_label_criteria_note}; {isolation_ship_criteria_note}; "
         f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note}; {rehearsal_note}; "
-        f"{blueprint_note}; {first_blocker_prep_note}; {form_label_second_coreq_prep_note})"
+        f"{blueprint_note}; {first_blocker_prep_note}; {form_label_second_coreq_prep_note}; {path_third_coreq_prep_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")

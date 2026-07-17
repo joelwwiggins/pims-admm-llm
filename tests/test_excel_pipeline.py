@@ -3376,6 +3376,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d["includes_blueprint"] == "true"
     assert d["includes_first_blocker_operational_prep"] == "true"
     assert d.get("includes_form_label_second_coreq_operational_prep") == "true"
+    assert d.get("includes_path_third_coreq_operational_prep") == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -6429,5 +6430,101 @@ def test_form_label_second_coreq_prep_package_surfaces(tmp_path):
     checks = {r["check"]: r for r in rows}
     assert "offline_tf_form_label_second_coreq_prep_not_form_ship" in checks
     assert checks["offline_tf_form_label_second_coreq_prep_not_form_ship"]["ok"] is True
+    # No Index growth for this residual
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+
+def test_format_tf_offline_case1_path_third_coreq_operational_prep_howto_pure():
+    """E1/E2 Excel: path third-coreq operational prep How_to dual-ban (static)."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_case1_path_third_coreq_operational_prep_howto,
+        _CASE1_PATH_THIRD_COREQ_PREP_ANTI_CRITERIA,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+    )
+    import inspect
+    import pims_admm_llm.models.excel_pipeline as ep
+
+    d = format_tf_offline_case1_path_third_coreq_operational_prep_howto()
+    assert d["topic"] == "tf_offline_case1_path_third_coreq_operational_prep"
+    assert d["prep_present"] == "true"
+    assert d["path_third_coreq_prep_present"] == "true"
+    assert d["operational_prep_present"] == "true"
+    assert d["path_shipped"] == "false"
+    assert d["dual_honest_tf_aware_path_present"] == "false"
+    assert d["ship_met_allowed_today"] == "false"
+    assert d["path_present_criteria_met_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["feature_flag_enabled_today"] == "false"
+    assert d["feature_flag_name"] == _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["is_first_blocking_coreq"] == "false"
+    assert d["order_hint_index"] == "2"
+    assert d["order_hint_coreq"] == "dual_honest_tf_aware_path_present"
+    assert d["dual_recovery_path"] == "None"
+    assert d["wire_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["prep_is_not_path_shipped"] == "true"
+    assert d["prep_is_not_ship_met"] == "true"
+    assert d["prep_is_not_feature_flag_enable"] == "true"
+    assert d["distinct_from_path_design_contract"] == "true"
+    assert d["distinct_from_path_present_criteria_contract"] == "true"
+    assert d["distinct_from_path_execution_scaffold"] == "true"
+    assert d["this_prep_alone_is_not_ship"] == "true"
+    assert d["packaging_alone_is_not_ship"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "prep_present" in one
+    assert "path_shipped=false" in one
+    assert "dual_honest_tf_aware_path_present=false" in one
+    assert "isolation_rewrite_with_wire" in one
+    assert "this_prep_alone" in _CASE1_PATH_THIRD_COREQ_PREP_ANTI_CRITERIA
+    assert "path_design_alone" in _CASE1_PATH_THIRD_COREQ_PREP_ANTI_CRITERIA
+    assert "scaffold_alone" in _CASE1_PATH_THIRD_COREQ_PREP_ANTI_CRITERIA
+    assert "wire_not_shipped" in _OFFLINE_WIRE_BLOCKER_IDS
+    src = inspect.getsource(
+        format_tf_offline_case1_path_third_coreq_operational_prep_howto
+    )
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    assert "offline_case1_path_third_coreq_operational_prep_report(" not in src
+    assert "format_tf_offline_case1_path_third_coreq_operational_prep_howto" in open(
+        ep.__file__, encoding="utf-8"
+    ).read()
+
+
+def test_path_third_coreq_prep_package_surfaces(tmp_path):
+    """E1/E2: path third-coreq prep meta/How_to/Calc_Check dual-ban surfaces."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_path_third_coreq_operational_prep_ready"] is True
+    assert pkg["meta"]["offline_tf_path_third_coreq_prep_present"] is True
+    assert pkg["meta"]["offline_tf_path_shipped"] is False
+    assert pkg["meta"]["offline_tf_dual_honest_tf_aware_path_present_ship_met"] is False
+    note = str(pkg["meta"].get("offline_tf_case1_path_third_coreq_operational_prep", "")).lower()
+    assert "prep" in note
+    assert "path_shipped=false" in note or "path_shipped" in note
+    path_prep = pkg.get("tf_offline_case1_path_third_coreq_operational_prep")
+    assert path_prep is not None
+    assert path_prep["path_shipped"] == "false"
+    assert path_prep["dual_honest_tf_aware_path_present"] == "false"
+    assert path_prep["prep_present"] == "true"
+    assert path_prep["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert path_prep["is_first_blocking_coreq"] == "false"
+    assert path_prep["order_hint_index"] == "2"
+    rows = planner_honesty_check_rows(report)
+    checks = {r["check"]: r for r in rows}
+    assert "offline_tf_path_third_coreq_prep_not_path_ship" in checks
+    assert checks["offline_tf_path_third_coreq_prep_not_path_ship"]["ok"] is True
     # No Index growth for this residual
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439

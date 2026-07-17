@@ -108,6 +108,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_dual_honest_tf_aware_path_execution_scaffold_available": True,
         "admm_case1_dual_honest_multi_blocker_wire_rehearsal_available": True,
         "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_available": True,
+        "admm_case1_path_third_coreq_operational_prep_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -1632,6 +1633,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_isolation_rewrite_first_blocker_operational_prep: bool = True,
     include_admm_case1_dual_linf_under_wire_criteria_contract: bool = True,
     include_admm_case1_form_label_second_coreq_operational_prep: bool = True,
+    include_admm_case1_path_third_coreq_operational_prep: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1660,7 +1662,8 @@ def offline_block_solve_readiness_report(
     ``admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok``, and
     ``admm_case1_isolation_rewrite_first_blocker_operational_prep_ok``, and
     ``admm_case1_dual_linf_under_wire_criteria_contract_ok``, and
-    ``admm_case1_form_label_second_coreq_operational_prep_ok`` are
+    ``admm_case1_form_label_second_coreq_operational_prep_ok``, and
+    ``admm_case1_path_third_coreq_operational_prep_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -2117,6 +2120,27 @@ def offline_block_solve_readiness_report(
     base["admm_case1_form_label_second_coreq_operational_prep_ok"] = (
         admm_case1_form_label_second_coreq_operational_prep_ok
     )
+
+    admm_case1_path_third_coreq_operational_prep_ok: Optional[bool] = None
+    if include_admm_case1_path_third_coreq_operational_prep:
+        try:
+            # Additive readiness: path third-coreq operational prep
+            # (prep_present; path_shipped hard False; dual_honest_tf_aware_path_present
+            # ship-met False; dual_recovery_path=None; not VERDICT; not path ship).
+            path_prep_rep = (
+                offline_case1_path_third_coreq_operational_prep_report()
+            )
+            admm_case1_path_third_coreq_operational_prep_ok = bool(
+                path_prep_rep.get(
+                    "prep_ok",
+                    path_prep_rep.get("contract_ok", path_prep_rep.get("ok")),
+                )
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_path_third_coreq_operational_prep_ok = False
+    base["admm_case1_path_third_coreq_operational_prep_ok"] = (
+        admm_case1_path_third_coreq_operational_prep_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -2227,7 +2251,7 @@ def offline_block_solve_readiness_report(
         "isolation rewrite shipped ≠ form ship ≠ VERDICT; order_hint is not an executor; "
         "blueprint_present is not wire_shipped) — and does not redefine "
         "ready_for_wire_discussion. "
-        "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok, admm_case1_isolation_rewrite_first_blocker_operational_prep_ok, admm_case1_dual_linf_under_wire_criteria_contract_ok and admm_case1_form_label_second_coreq_operational_prep_ok are additive only."
+        "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok, admm_case1_isolation_rewrite_first_blocker_operational_prep_ok, admm_case1_dual_linf_under_wire_criteria_contract_ok and admm_case1_form_label_second_coreq_operational_prep_ok and admm_case1_path_third_coreq_operational_prep_ok are additive only."
     )
     return base
 
@@ -4473,6 +4497,7 @@ def offline_wire_preflight_report(
     include_admm_case1_isolation_rewrite_first_blocker_operational_prep: bool = True,
     include_admm_case1_dual_linf_under_wire_criteria_contract: bool = True,
     include_admm_case1_form_label_second_coreq_operational_prep: bool = True,
+    include_admm_case1_path_third_coreq_operational_prep: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -4642,6 +4667,9 @@ def offline_wire_preflight_report(
     admm_case1_form_label_second_coreq_operational_prep_ok = readiness.get(
         "admm_case1_form_label_second_coreq_operational_prep_ok"
     )
+    admm_case1_path_third_coreq_operational_prep_ok = readiness.get(
+        "admm_case1_path_third_coreq_operational_prep_ok"
+    )
 
     blockers_documented = (
         len(wire_blockers) > 0
@@ -4747,6 +4775,10 @@ def offline_wire_preflight_report(
         (
             admm_case1_form_label_second_coreq_operational_prep_ok,
             include_admm_case1_form_label_second_coreq_operational_prep,
+        ),
+        (
+            admm_case1_path_third_coreq_operational_prep_ok,
+            include_admm_case1_path_third_coreq_operational_prep,
         ),
     ):
         if included and flag is False:
@@ -4868,6 +4900,9 @@ def offline_wire_preflight_report(
         ),
         "admm_case1_form_label_second_coreq_operational_prep_ok": (
             admm_case1_form_label_second_coreq_operational_prep_ok
+        ),
+        "admm_case1_path_third_coreq_operational_prep_ok": (
+            admm_case1_path_third_coreq_operational_prep_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -15920,13 +15955,16 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
                 "offline_case1_dual_honest_tf_aware_path_design_contract_report",
                 "offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report",
                 f"feature flag {CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME}=False",
+                "offline_case1_dual_honest_tf_aware_path_execution_scaffold_report (scaffold_present; inventory only; not path ship)",
+                "offline_case1_path_third_coreq_operational_prep_report (prep_present; path_shipped false; dual_honest_tf_aware_path_present ship-met false; third coreq; not first_blocking)",
             ],
             "test_surface": (
-                "tests/test_tf_offline_case1_dual_honest_tf_aware_path_present_criteria_contract.py"
+                "tests/test_tf_offline_case1_path_third_coreq_operational_prep.py"
             ),
             "prep_note": (
-                "Path design+criteria present; path_shipped=False; "
-                "dual_honest_tf_aware_path_present ship-met=False; feature flag reserved false."
+                "Path design+criteria+scaffold present; operational prep present ≠ path ship ≠ "
+                "path present ship-met; path_shipped=False; dual_honest_tf_aware_path_present "
+                "ship-met=False; feature flag reserved false; scaffold inventory ≠ path ship."
             ),
         },
         {
@@ -18445,6 +18483,669 @@ def multi_unit_case1_form_label_second_coreq_operational_prep_report() -> Dict[s
 
 
 
+# ---------------------------------------------------------------------------
+# Case-1 path *third-coreq* operational prep (order_hint[2]) — prep without ship
+# Distinct from path design / path present criteria / execution scaffold.
+# ---------------------------------------------------------------------------
+
+CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_KIND = (
+    "offline_case1_path_third_coreq_operational_prep"
+)
+CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANNOTATION = "present"
+CASE1_PATH_THIRD_COREQ_ORDER_HINT_INDEX = 2
+CASE1_PATH_THIRD_COREQ_ORDER_HINT_COREQ = "dual_honest_tf_aware_path_present"
+
+CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANTI_CRITERIA_TODAY: tuple = (
+    "this_prep_alone",
+    "path_design_alone",
+    "path_present_criteria_alone",
+    "scaffold_alone",
+    "execution_scaffold_alone",
+    "rehearsal_alone",
+    "blueprint_alone",
+    "packaging_alone",
+    "this_prep_packaging_alone",
+    "form_label_second_coreq_prep_alone",
+    "isolation_first_blocker_prep_alone",
+    "form_label_criteria_alone",
+    "isolation_design_alone",
+    "isolation_ship_criteria_alone",
+    "go_board_alone",
+    "design_alone",
+    "ship_criteria_alone",
+    "diagnostic_linf_alone",
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "gate_criteria_alone",
+    "bundle_design_alone",
+    "bundle_ship_met_criteria_alone",
+    "wire_ship_acceptance_alone",
+    "dual_linf_criteria_alone",
+)
+
+
+CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS: Dict[str, Any] = {
+    "companion_artifacts_are_inventory_only": True,
+    "path_design_report": (
+        "offline_case1_dual_honest_tf_aware_path_design_contract_report"
+    ),
+    "path_present_criteria_report": (
+        "offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report"
+    ),
+    "execution_scaffold_report": (
+        "offline_case1_dual_honest_tf_aware_path_execution_scaffold_report"
+    ),
+    "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+    "feature_flag_enabled_today": (
+        CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY
+    ),
+    "optional_rehearsal_report": (
+        "offline_case1_dual_honest_multi_blocker_wire_rehearsal_report"
+    ),
+    "optional_blueprint_report": (
+        "offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report"
+    ),
+}
+
+
+def case1_path_third_coreq_companion_artifacts() -> Dict[str, Any]:
+    """Static companion artifact inventory (inventory only — not path ship)."""
+    return {
+        "companion_artifacts_are_inventory_only": True,
+        "path_design_report": CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS[
+            "path_design_report"
+        ],
+        "path_present_criteria_report": CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS[
+            "path_present_criteria_report"
+        ],
+        "execution_scaffold_report": CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS[
+            "execution_scaffold_report"
+        ],
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": bool(
+            CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY
+        ),
+        "optional_rehearsal_report": CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS[
+            "optional_rehearsal_report"
+        ],
+        "optional_blueprint_report": CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS[
+            "optional_blueprint_report"
+        ],
+        "note": (
+            "Inventory of path third-coreq companion artifacts. Path design + "
+            "path present criteria + execution scaffold + feature flag named "
+            "not enabled + optional rehearsal/blueprint are listed only — not "
+            "executed as path ship. Prep inventory ≠ path_shipped ≠ "
+            "dual_honest_tf_aware_path_present ship-met."
+        ),
+    }
+
+
+def case1_path_third_coreq_prep_steps() -> List[Dict[str, Any]]:
+    """Machine-readable prep steps for path third-coreq (no path ship)."""
+    dual_planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    flag = CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME
+    return [
+        {
+            "step_id": "path_design_present",
+            "artifact": (
+                "offline_case1_dual_honest_tf_aware_path_design_contract_report"
+            ),
+            "status": "present",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": "Path design formalizes *what*; path_shipped still False.",
+        },
+        {
+            "step_id": "path_present_criteria_present",
+            "artifact": (
+                "offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report"
+            ),
+            "status": "present_ship_false",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": (
+                "Path present criteria formalize *when present-for-ship*; "
+                "dual_honest_tf_aware_path_present ship-met still False; "
+                "criteria_met_today False."
+            ),
+        },
+        {
+            "step_id": "execution_scaffold_present",
+            "artifact": (
+                "offline_case1_dual_honest_tf_aware_path_execution_scaffold_report"
+            ),
+            "status": "present_not_ship",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": (
+                "Execution scaffold formalizes *compose pieces without ship*; "
+                "scaffold inventory ≠ path ship."
+            ),
+        },
+        {
+            "step_id": "feature_flag_named_not_enabled",
+            "artifact": flag,
+            "status": "named_not_enabled",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": (
+                f"Feature flag {flag} named; enabled_today="
+                f"{CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY}."
+            ),
+        },
+        {
+            "step_id": "dual_ban_locks",
+            "artifact": "prep_dual_ban_tokens",
+            "status": "locked",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": (
+                "prep≠ship; path_shipped false; dual_honest_tf_aware_path_present "
+                "ship-met false; dual_linf unproven; dual_recovery_path=None "
+                f"today; planned under wire={dual_planned} (not pure-ADMM); "
+                "form classic; first_blocking still isolation."
+            ),
+        },
+        {
+            "step_id": "first_blocking_still_isolation",
+            "artifact": "order_hint",
+            "status": "locked",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": (
+                "order_hint_index=2 dual_honest_tf_aware_path_present is third "
+                "coreq; first_blocking_coreq remains isolation_rewrite_with_wire."
+            ),
+        },
+        {
+            "step_id": "steps_complete_is_not_path_ship",
+            "artifact": "anti_criteria",
+            "status": "locked",
+            "executes_path_ship": False,
+            "ships": False,
+            "note": (
+                "Prep steps complete ≠ path_shipped ≠ dual_honest_tf_aware_path_present "
+                "ship-met ≠ wire ≠ feature flag enable ≠ VERDICT."
+            ),
+        },
+    ]
+
+
+def _case1_path_third_coreq_operational_prep_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / prep-is-not-ship locks for path third coreq."""
+    return {
+        "kind": CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "prep_present": True,
+        "path_third_coreq_prep_present": True,
+        "operational_prep_present": True,
+        "path_shipped": False,
+        "dual_honest_tf_aware_path_present": False,
+        "ship_met_allowed_today": False,
+        "path_present_criteria_met_today": False,
+        "criteria_met_today": False,
+        "wire_shipped": False,
+        "bundle_shipped": False,
+        "bundle_ship_allowed_today": False,
+        "not_wire_shipped": True,
+        "not_path_shipped": True,
+        "not_bundle_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "prep_is_not_path_shipped": True,
+        "prep_is_not_path_present_for_ship": True,
+        "prep_is_not_ship_met": True,
+        "prep_is_not_wire": True,
+        "prep_is_not_bundle_shipped": True,
+        "prep_is_not_verdict_gate": True,
+        "prep_is_not_dual_linf_under_wire_proof": True,
+        "prep_is_not_feature_flag_enable": True,
+        "prep_is_not_ship_allow": True,
+        "prep_is_not_gate_flip": True,
+        "prep_is_not_ship_criteria": True,
+        "prep_is_not_isolation_rewrite_shipped": True,
+        "prep_is_not_form_label_change_shipped": True,
+        "this_prep_alone_is_not_ship_criterion": True,
+        "path_design_alone_is_anti_criterion": True,
+        "path_present_criteria_alone_is_anti_criterion": True,
+        "scaffold_alone_is_anti_criterion": True,
+        "this_prep_alone_is_anti_criterion_for_path_ship": True,
+        "go_board_alone_is_not_ship_criterion": True,
+        "design_alone_is_not_ship_criterion": True,
+        "ship_criteria_alone_is_not_ship_criterion": True,
+        "blueprint_alone_is_not_ship_criterion": True,
+        "rehearsal_alone_is_not_ship_criterion": True,
+        "packaging_alone_is_not_ship_criterion": True,
+        "order_hint_is_not_executor": True,
+        "no_auto_wire": True,
+        "static_prep_only": True,
+        "does_not_rewrite_isolation_suite": True,
+        "suite_delete_forbidden": True,
+        "isolation_rewrite_shipped": False,
+        "isolation_tests_rewritten_with_wire": False,
+        "form_label_change_shipped": False,
+        "feature_flag_enabled_today": False,
+        "distinct_from_path_design_contract": True,
+        "distinct_from_path_present_criteria_contract": True,
+        "distinct_from_path_execution_scaffold": True,
+        "path_design_formalizes_what": True,
+        "path_present_criteria_formalizes_when_present_for_ship": True,
+        "execution_scaffold_formalizes_compose_without_ship": True,
+        "this_prep_formalizes_how_third_coreq_prep_lands_without_ship": True,
+        "order_hint_index": CASE1_PATH_THIRD_COREQ_ORDER_HINT_INDEX,
+        "order_hint_coreq": CASE1_PATH_THIRD_COREQ_ORDER_HINT_COREQ,
+        "is_first_blocking_coreq": False,
+        "probe_linf_is_not_ship_criterion_today": True,
+        "bridge_linf_is_not_ship_criterion_today": True,
+        "warmstart_linf_is_not_ship_criterion_today": True,
+        "pooling_linf_is_not_ship_criterion_today": True,
+        "seed_identity_linf_is_not_ship_criterion": True,
+        "recovered_blender_linf_is_not_ship_criterion_today": True,
+        "residual_must_vanish_is_not_ship_criterion": True,
+        "diagnostic_linf_is_not_dual_linf_under_wire_proof": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "scope": "case1_path_third_coreq_operational_prep_offline",
+        "note": (
+            "Offline Case-1 path third-coreq *operational prep*: machine-readable "
+            "*how third-coreq prep lands without ship* for order_hint[2] "
+            "dual_honest_tf_aware_path_present. prep_present=True / "
+            "path_third_coreq_prep_present=True; path_shipped=False; "
+            "dual_honest_tf_aware_path_present ship-met=False; "
+            "ship_met_allowed_today=False; path_present_criteria_met_today=False; "
+            "feature_flag_enabled_today=False with feature flag named "
+            f"{CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME}; "
+            "path/wire/bundle/isolation/form ship flags hard false; dual_linf "
+            "unproven; dual_recovery_path=None today; planned under wire="
+            f"{CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED} "
+            "(not pure-ADMM); first_blocking_coreq remains "
+            "isolation_rewrite_with_wire (path is third, not first). Distinct "
+            "from path design (*what*), path present criteria (*when "
+            "present-for-ship*), and execution scaffold (*compose without ship*). "
+            "Prep alone / path design alone / path present criteria alone / "
+            "scaffold alone / packaging alone / blueprint alone / rehearsal "
+            "alone / diagnostic L∞ ≠ path_shipped ≠ dual_honest_tf_aware_path_present "
+            "ship-met ≠ wire ≠ feature flag enable ≠ VERDICT. Does not redefine "
+            "ready_for_wire_discussion; does not clear DEFAULT_WIRE_BLOCKERS; "
+            "does not enable Case 1 TF feature flag; isolation suite behavior "
+            "unchanged. SUGGESTED_NEXT_WAVE still full multi-blocker wire "
+            "*execution* long-term."
+        ),
+    }
+
+
+def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Always-on path third-coreq operational prep (prep without path ship).
+
+    No TF, no PuLP, no excel_pipeline, no Case 1 solve routing. Aggregate
+    ``ok`` / ``contract_ok`` / ``prep_ok`` = prep formalized ∧ honesty locks ∧
+    prep_present ∧ first_blocking_coreq=isolation_rewrite_with_wire ∧ form
+    classic ∧ path_shipped False ∧ dual_honest_tf_aware_path_present ship-met
+    False ∧ ship flags hard false ∧ dual_linf unproven ∧ dual_recovery_path
+    is None ∧ UNITS FCC/COKER/CDU.
+    **Not** path_shipped. **Not** dual_honest_tf_aware_path_present ship-met.
+    **Not** wire. **Not** VERDICT. **Not** dual L∞ under wire proof.
+    **Not** path design / present criteria / scaffold (related but distinct).
+    """
+    honesty = _case1_path_third_coreq_operational_prep_honesty_fields()
+    dual_linf = case1_dual_linf_proof_checklist()
+    first_blocking = (
+        case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq(
+            dual_linf=dual_linf
+        )
+    )
+    go_board = case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
+        first_blocking=first_blocking, dual_linf=dual_linf
+    )
+    companion = case1_path_third_coreq_companion_artifacts()
+    prep_steps = case1_path_third_coreq_prep_steps()
+    form = case1_form_label_contract()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    checklist = dual_linf["dual_linf_proof_checklist"]
+    open_ids = dual_linf["dual_linf_proof_checklist_open_ids"]
+    isolation_status = checklist.get(CASE1_ISOLATION_REWRITE_CHECKLIST_KEY)
+    isolation_still_open = isolation_status == "open"
+    gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY)
+    gate_still_open = gate_status == "open"
+
+    isolation_met_map = case1_isolation_rewrite_shipped_criteria_met_today_map()
+    isolation_ship_allowed_today = case1_isolation_ship_allowed_today(isolation_met_map)
+    wire_criteria_met_map = case1_wire_ship_acceptance_criteria_met_today_map()
+    wire_ship_allowed_today = case1_wire_ship_allowed_today(wire_criteria_met_map)
+    gate_met_map = case1_online_linf_gate_criteria_met_today_map()
+    gate_flip_allowed_today = case1_online_linf_gate_flip_allowed_today(gate_met_map)
+    form_label_met_map = case1_form_label_change_shipped_criteria_met_today_map()
+    form_label_ship_allowed_today = case1_form_label_ship_allowed_today(
+        form_label_met_map
+    )
+    path_present_met_map = case1_dual_honest_tf_aware_path_present_criteria_met_today_map()
+    ship_met_allowed_today = case1_dual_honest_tf_aware_path_present_ship_met_allowed_today(
+        path_present_met_map
+    )
+    path_present_criteria_met_today = (
+        case1_dual_honest_tf_aware_path_present_criteria_met_today_aggregate(
+            path_present_met_map
+        )
+    )
+    bundle_met_map = (
+        case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_met_today_map()
+    )
+    bundle_ship_allowed_today = (
+        case1_dual_honest_multi_blocker_wire_bundle_ship_allowed_today(bundle_met_map)
+    )
+    criteria_met_today = (
+        case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_met_today_aggregate(
+            bundle_met_map
+        )
+    )
+    form_criteria_met_today = case1_form_label_change_shipped_criteria_met_today_aggregate(
+        form_label_met_map
+    )
+
+    isolation_rewrite_shipped = False
+    isolation_tests_rewritten_with_wire = False
+    path_shipped = False
+    dual_honest_tf_aware_path_present = False
+    form_label_change_shipped = False
+    wire_shipped = False
+    bundle_shipped = False
+    feature_flag_enabled_today = bool(
+        CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY
+    )
+    prep_present = True
+    path_third_coreq_prep_present = True
+    operational_prep_present = True
+
+    units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
+    critical_blockers_present = {
+        "isolation_rewrite_required",
+        "form_label_change_required",
+        "dual_linf_under_wire_unproven",
+        "case1_is_cdu_blender_package_admm",
+        "no_blender_offline_affine_kernel",
+        "wire_not_shipped",
+    }.issubset(set(blockers))
+    affine_blocker_present = (
+        "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp" in blockers
+    )
+    blocker_ok = critical_blockers_present and affine_blocker_present
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["bundle_shipped"] is False
+        and honesty["path_shipped"] is False
+        and honesty["dual_honest_tf_aware_path_present"] is False
+        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["form_label_change_shipped"] is False
+        and honesty["feature_flag_enabled_today"] is False
+        and honesty["prep_is_not_path_shipped"] is True
+        and honesty["prep_is_not_ship_met"] is True
+        and honesty["prep_is_not_wire"] is True
+        and honesty["prep_is_not_verdict_gate"] is True
+        and honesty["prep_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["prep_is_not_feature_flag_enable"] is True
+        and honesty["this_prep_alone_is_not_ship_criterion"] is True
+        and honesty["distinct_from_path_design_contract"] is True
+        and honesty["distinct_from_path_present_criteria_contract"] is True
+        and honesty["distinct_from_path_execution_scaffold"] is True
+        and honesty["order_hint_is_not_executor"] is True
+        and honesty["no_auto_wire"] is True
+        and honesty["is_first_blocking_coreq"] is False
+        and honesty["order_hint_index"] == 2
+    )
+    dual_linf_unproven_ok = bool(
+        dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and dual_linf["dual_linf_under_wire_unproven_still_true"] is True
+    )
+    form_ok = bool(
+        form["form_contract_ok"]
+        and form["form_current"] == CASE1_FORM_CURRENT
+        and form["form_unchanged"] is True
+        and honesty["case1_form_unchanged"] is True
+        and form_label_change_shipped is False
+        and form_label_ship_allowed_today is False
+        and form_criteria_met_today is False
+    )
+    ship_permission_ok = (
+        isolation_ship_allowed_today is False
+        and wire_ship_allowed_today is False
+        and form_label_ship_allowed_today is False
+        and ship_met_allowed_today is False
+        and path_present_criteria_met_today is False
+        and bundle_ship_allowed_today is False
+        and criteria_met_today is False
+        and gate_flip_allowed_today is False
+        and form_criteria_met_today is False
+    )
+    first_blocking_ok = bool(
+        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        and first_blocking.get("matches_expected_today") is True
+        and honesty["is_first_blocking_coreq"] is False
+    )
+    # go_board path row will include operational prep after go-board fold
+    path_prep_arts = (go_board.get("file_level_prep_map") or {}).get(
+        "dual_honest_tf_aware_path_present", []
+    )
+    go_board_link_ok = bool(
+        go_board.get("order_hint_is_not_executor") is True
+        and any(
+            "operational_prep" in str(a)
+            or "path_third_coreq" in str(a)
+            or "path_design" in str(a)
+            for a in path_prep_arts
+        )
+    )
+    companion_ok = bool(
+        companion["companion_artifacts_are_inventory_only"] is True
+        and companion["feature_flag_enabled_today"] is False
+        and companion["feature_flag_name"]
+        == CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME
+        and "path_design" in companion["path_design_report"]
+        and "path_present_criteria" in companion["path_present_criteria_report"]
+        and "execution_scaffold" in companion["execution_scaffold_report"]
+    )
+    prep_steps_ok = bool(
+        len(prep_steps) >= 5
+        and all(s.get("executes_path_ship") is False for s in prep_steps)
+        and all(s.get("ships") is False for s in prep_steps)
+        and prep_steps[0]["step_id"] == "path_design_present"
+    )
+    anti = CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANTI_CRITERIA_TODAY
+    anti_ok = (
+        "this_prep_alone" in anti
+        and "path_design_alone" in anti
+        and "path_present_criteria_alone" in anti
+        and "scaffold_alone" in anti
+        and "packaging_alone" in anti
+        and "blueprint_alone" in anti
+        and "rehearsal_alone" in anti
+        and "diagnostic_linf_alone" in anti
+        and "form_label_second_coreq_prep_alone" in anti
+        and "isolation_first_blocker_prep_alone" in anti
+    )
+    prep_formalized = bool(
+        prep_present
+        and path_third_coreq_prep_present
+        and operational_prep_present
+        and first_blocking_ok
+        and companion_ok
+        and prep_steps_ok
+        and anti_ok
+        and CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANNOTATION == "present"
+        and feature_flag_enabled_today is False
+    )
+    honesty_ok = bool(
+        dual_ban_ok
+        and units_ok
+        and blocker_ok
+        and dual_linf_unproven_ok
+        and form_ok
+        and ship_permission_ok
+        and isolation_still_open
+        and gate_still_open
+        and prep_formalized
+        and blockers_still_documented
+        and go_board_link_ok
+    )
+    prep_ok = honesty_ok
+    contract_ok = prep_ok
+    ok = (
+        prep_ok
+        and prep_present is True
+        and path_shipped is False
+        and dual_honest_tf_aware_path_present is False
+        and ship_met_allowed_today is False
+        and path_present_criteria_met_today is False
+        and feature_flag_enabled_today is False
+        and wire_shipped is False
+        and isolation_rewrite_shipped is False
+        and form_label_change_shipped is False
+        and honesty["dual_recovery_path"] is None
+    )
+    ok_criteria = (
+        "prep formalized ∧ honesty locks ∧ prep_present=True ∧ "
+        "path_third_coreq_prep_present=True ∧ form classic ∧ "
+        "path_shipped=False ∧ dual_honest_tf_aware_path_present=False ∧ "
+        "ship_met_allowed_today=False ∧ path_present_criteria_met_today=False ∧ "
+        "feature_flag_enabled_today=False ∧ "
+        "first_blocking_coreq=isolation_rewrite_with_wire (path third) ∧ "
+        "path/wire/bundle/isolation/form ship flags false ∧ dual_linf unproven ∧ "
+        "dual_recovery_path=None ∧ blockers non-empty ∧ UNITS FCC/COKER/CDU — "
+        "NOT path_shipped; NOT dual_honest_tf_aware_path_present ship-met; "
+        "NOT wire; NOT feature flag enable; NOT VERDICT; NOT dual L∞ under wire proof"
+    )
+    dual_recovery_planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    return {
+        **honesty,
+        "ok": ok,
+        "prep_ok": prep_ok,
+        "contract_ok": contract_ok,
+        "design_contract_ok": prep_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "units_ok": units_ok,
+        "blocker_ok": blocker_ok,
+        "form_ok": form_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "ship_permission_ok": ship_permission_ok,
+        "first_blocking_ok": first_blocking_ok,
+        "go_board_link_ok": go_board_link_ok,
+        "companion_ok": companion_ok,
+        "prep_steps_ok": prep_steps_ok,
+        "prep_formalized": prep_formalized,
+        "ok_criteria": ok_criteria,
+        "prep_present": prep_present,
+        "path_third_coreq_prep_present": path_third_coreq_prep_present,
+        "operational_prep_present": operational_prep_present,
+        "prep_annotation": CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANNOTATION,
+        "first_blocking_coreq": first_blocking.get("first_blocking_coreq"),
+        "first_blocking_coreq_status": first_blocking.get("first_blocking_coreq_status"),
+        "first_blocking": first_blocking,
+        "go_board_path_prep_artifacts": path_prep_arts,
+        "companion_artifacts": companion,
+        "prep_steps": prep_steps,
+        "n_prep_steps": len(prep_steps),
+        "anti_criteria_today": list(anti),
+        "path_design_present": True,
+        "path_present_criteria_present": True,
+        "execution_scaffold_present": True,
+        "isolation_rewrite_shipped": isolation_rewrite_shipped,
+        "isolation_tests_rewritten_with_wire": isolation_tests_rewritten_with_wire,
+        "isolation_rewrite_with_wire": isolation_status,
+        "isolation_rewrite_still_open": isolation_still_open,
+        "isolation_ship_allowed_today": isolation_ship_allowed_today,
+        "path_shipped": path_shipped,
+        "dual_honest_tf_aware_path_present": dual_honest_tf_aware_path_present,
+        "form_label_change_shipped": form_label_change_shipped,
+        "bundle_shipped": bundle_shipped,
+        "bundle_ship_allowed_today": bundle_ship_allowed_today,
+        "criteria_met_today": False,
+        "path_present_criteria_met_today": path_present_criteria_met_today,
+        "form_criteria_met_today": form_criteria_met_today,
+        "wire_ship_allowed_today": wire_ship_allowed_today,
+        "wire_shipped": wire_shipped,
+        "ship_met_allowed_today": ship_met_allowed_today,
+        "form_label_ship_allowed_today": form_label_ship_allowed_today,
+        "online_linf_gate_under_tf_path": gate_status,
+        "online_linf_gate_still_open": gate_still_open,
+        "gate_flip_allowed_today": gate_flip_allowed_today,
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_unchanged": form["form_unchanged"],
+        "dual_recovery_path_today_on_tf_surface": None,
+        "dual_recovery_path_planned_when_shipped": dual_recovery_planned,
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": feature_flag_enabled_today,
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "units_affine_unchanged": list(UNITS),
+        "wire_blockers": blockers,
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "suggested_next_wave_after_preflight": SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT,
+        "suggested_next_wave_still_full_wire": (
+            SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT
+            == "dual_honest_tf_case1_wire_with_isolation_rewrite_and_form_label_change"
+        ),
+        "tf_available": tf_available(),
+        "path_third_coreq_operational_prep_available": True,
+        "excel_packaging_twin_present": True,
+        "excel_packaging_twin_deferred": False,
+        "any_ship_allowed_today": False,
+        "all_ship_flags_false": True,
+        "dual_linf_proof_allowed_today": False,
+    }
+
+
+def offline_case1_dual_honest_tf_aware_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Alias sticky plan name for path third-coreq operational prep."""
+    return offline_case1_path_third_coreq_operational_prep_report()
+
+
+def case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Alias for ``offline_case1_path_third_coreq_operational_prep_report``."""
+    return offline_case1_path_third_coreq_operational_prep_report()
+
+
+def multi_unit_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
+    """Alias for multi-unit registry symmetry."""
+    return offline_case1_path_third_coreq_operational_prep_report()
+
+
 
 __all__ = [
     "MODULE_KIND",
@@ -18740,6 +19441,18 @@ __all__ = [
     "offline_case1_form_label_second_coreq_operational_prep_report",
     "case1_form_label_second_coreq_operational_prep_report",
     "multi_unit_case1_form_label_second_coreq_operational_prep_report",
+    "CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_KIND",
+    "CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANNOTATION",
+    "CASE1_PATH_THIRD_COREQ_ORDER_HINT_INDEX",
+    "CASE1_PATH_THIRD_COREQ_ORDER_HINT_COREQ",
+    "CASE1_PATH_THIRD_COREQ_OPERATIONAL_PREP_ANTI_CRITERIA_TODAY",
+    "CASE1_PATH_THIRD_COREQ_COMPANION_ARTIFACTS",
+    "case1_path_third_coreq_companion_artifacts",
+    "case1_path_third_coreq_prep_steps",
+    "offline_case1_path_third_coreq_operational_prep_report",
+    "offline_case1_dual_honest_tf_aware_path_third_coreq_operational_prep_report",
+    "case1_path_third_coreq_operational_prep_report",
+    "multi_unit_case1_path_third_coreq_operational_prep_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
