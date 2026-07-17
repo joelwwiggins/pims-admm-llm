@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     # isolation-rewrite ship criteria, multi-blocker bundle design, multi-blocker
     # bundle ship-met criteria, dual-honest path execution scaffold, rehearsal,
     # dual-honest multi-blocker wire implementation blueprint, or isolation
-    # first-blocker operational prep reports.
+    # first-blocker operational prep, or dual_linf_under_wire flip-criteria contract reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -159,6 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_honest_multi_blocker_wire_implementation_blueprint")
     if ph.get("offline_tf_case1_isolation_rewrite_first_blocker_operational_prep_ready"):
         readiness_bits.append("case1_isolation_rewrite_first_blocker_operational_prep")
+    if ph.get("offline_tf_case1_dual_linf_under_wire_criteria_contract_ready"):
+        readiness_bits.append("case1_dual_linf_under_wire_criteria_contract")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"

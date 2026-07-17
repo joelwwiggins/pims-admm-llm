@@ -6190,3 +6190,153 @@ def test_excel_first_blocker_operational_prep_packaging_surfaces(tmp_path):
             "offline_tf_case1_isolation_rewrite_first_blocker_operational_prep"
         ):
             assert r["ok"] is True
+
+def test_format_tf_offline_case1_dual_linf_under_wire_criteria_contract_howto_pure():
+    """Static dual_linf_under_wire flip-criteria How_to: criteria_present; unproven; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_FIRST_BLOCKING_COREQ,
+        _CASE1_FORM_CURRENT,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_FLIP_CRITERIA_KEYS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_ANTI_CRITERIA,
+        _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        format_tf_offline_case1_dual_linf_under_wire_criteria_contract_howto,
+    )
+    import pims_admm_llm.models.excel_pipeline as ep
+    import inspect
+
+    d = format_tf_offline_case1_dual_linf_under_wire_criteria_contract_howto()
+    assert d["topic"] == "tf_offline_case1_dual_linf_under_wire_criteria_contract"
+    assert d["criteria_present"] == "true"
+    assert d["flip_criteria_formalized"] == "true"
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["criteria_met_today"] == "false"
+    assert d["dual_linf_proof_allowed_today"] == "false"
+    assert d["dual_recovery_path"] == "None"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["first_blocking_coreq"] == _CASE1_FIRST_BLOCKING_COREQ
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["contract_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["criteria_present_is_not_proven"] == "true"
+    assert d["distinct_from_online_linf_gate_criteria_contract"] == "true"
+    assert d["gates_status_not_checklist_id"] == "true"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert "online_linf_gate_criteria_alone" in d["anti_criteria_today"]
+    for k in _CASE1_DUAL_LINF_UNDER_WIRE_FLIP_CRITERIA_KEYS:
+        assert k in d["flip_criteria_keys"]
+    for a in (
+        "probe_linf",
+        "bridge_linf",
+        "warmstart_linf",
+        "packaging_alone",
+        "online_linf_gate_criteria_alone",
+    ):
+        assert a in _CASE1_DUAL_LINF_UNDER_WIRE_ANTI_CRITERIA
+    one = d["planner_one_liner"].lower()
+    assert "criteria_present" in one
+    assert "unproven" in one
+    assert "distinct" in one or "online_linf_gate" in one
+    assert "dual_recovery_path=none" in one
+    assert "not verdict" in one or "verdict" in one
+    assert "pure-admm" not in d["dual_recovery_path_planned_when_shipped"].lower()
+    assert d["dual_recovery_path_planned_when_shipped"] == _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED
+    src = inspect.getsource(
+        format_tf_offline_case1_dual_linf_under_wire_criteria_contract_howto
+    )
+    assert "offline_case1_dual_linf_under_wire_criteria_contract_report(" not in src
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    ep_src = open(ep.__file__, encoding="utf-8").read()
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in ep_src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in ep_src
+    assert "import tensorflow" not in ep_src
+    assert "import pulp" not in ep_src
+
+
+def test_excel_dual_linf_under_wire_criteria_contract_packaging_surfaces(tmp_path):
+    """Workbook integration: dual_linf criteria How_to + meta + Summary + Calc_Check dual-ban; Index ≤1439."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+        format_tf_offline_ladder_toc_howto,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    out = tmp_path / "dual_linf_crit_pkg.xlsx"
+    write_results_excel(out, report)
+    import openpyxl
+
+    wb = openpyxl.load_workbook(out)
+    assert len(wb.sheetnames) <= GOAL_MAX_SHEETS
+
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_dual_linf_under_wire_criteria_contract_ready"] is True
+    assert pkg["meta"]["offline_tf_dual_linf_criteria_present"] is True
+    assert pkg["meta"]["offline_tf_dual_linf_under_wire_status"] == "unproven"
+    assert pkg["meta"]["offline_tf_dual_linf_proof_allowed_today"] is False
+    assert pkg["meta"]["offline_tf_dual_linf_criteria_met_today"] is False
+    assert pkg["meta"]["offline_tf_wire_shipped"] is False
+    assert pkg["meta"]["offline_tf_isolation_rewrite_shipped"] is False
+    assert pkg["meta"]["tf_dual_recovery_path"] is None
+    assert pkg.get("tf_offline_case1_dual_linf_under_wire_criteria_contract") is not None
+    crit = pkg["tf_offline_case1_dual_linf_under_wire_criteria_contract"]
+    assert crit["topic"] == "tf_offline_case1_dual_linf_under_wire_criteria_contract"
+    assert crit["criteria_present"] == "true"
+    assert crit["dual_linf_under_wire_status"] == "unproven"
+    assert crit["dual_recovery_path"] == "None"
+    assert crit["dual_linf_proof_allowed_today"] == "false"
+    assert crit["distinct_from_online_linf_gate_criteria_contract"] == "true"
+    assert crit["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+    how = {
+        str(r[0].value): str(r[1].value or "")
+        for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert "tf_offline_case1_dual_linf_under_wire_criteria_contract" in how
+    body = how["tf_offline_case1_dual_linf_under_wire_criteria_contract"].lower()
+    assert "criteria_present" in body
+    assert "unproven" in body
+    assert "dual_recovery_path=none" in body
+    assert "distinct" in body or "online_linf_gate" in body
+    # TOC lists dual_linf criteria
+    assert "tf_offline_ladder_toc" in how
+    toc = how["tf_offline_ladder_toc"].lower()
+    assert "dual_linf" in toc
+    toc_d = format_tf_offline_ladder_toc_howto()
+    assert toc_d.get("includes_dual_linf_under_wire_criteria_contract") == "true"
+    assert "dual_linf_under_wire_criteria_contract" in toc_d["topic_ids"]
+
+    summary = {
+        str(r[0].value): r[1].value
+        for r in wb["Summary"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert summary.get("offline_tf_case1_dual_linf_under_wire_criteria_contract_ready") in (
+        True,
+        "true",
+    )
+    assert summary.get("offline_tf_dual_linf_criteria_present") in (True, "true")
+    assert str(summary.get("offline_tf_dual_linf_under_wire_status")).lower() == "unproven"
+
+    rows = planner_honesty_check_rows(report)
+    names = {r["check"] for r in rows}
+    assert "offline_tf_dual_linf_under_wire_criteria_not_proof" in names
+    for r in rows:
+        if r["check"] == "offline_tf_dual_linf_under_wire_criteria_not_proof":
+            assert r["ok"] is True
+            assert "criteria" in r["predicted"].lower()
+            assert "unproven" in r["predicted"].lower() or "unproven" in r["actual"].lower()
+
