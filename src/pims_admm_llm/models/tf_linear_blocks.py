@@ -95,6 +95,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_dual_space_linf_live_lambda_bridge_available": True,
         "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_available": True,
         "admm_case1_honest_blender_pooling_path_available": True,
+        "admm_case1_online_linf_gate_criteria_contract_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -169,7 +170,15 @@ def honesty_metadata() -> Dict[str, Any]:
             "no_blender_offline_affine_kernel still true; dual-ban; dual_linf unproven; "
             "pooling path ≠ wire; pooling path ≠ VERDICT; dual_recovery_path=None; "
             "wire_shipped=False; does not clear DEFAULT_WIRE_BLOCKERS; does not redefine "
-            "ready_for_wire_discussion; no excel_pipeline import on hot path; no TF required."
+            "ready_for_wire_discussion; no excel_pipeline import on hot path; no TF required. "
+            "Offline Case-1 online_linf_gate flip-criteria contract available "
+            "(offline_case1_online_linf_gate_criteria_contract_report): machine-readable "
+            "flip criteria for checklist online_linf_gate_under_tf_path (gate stays open); "
+            "gate_flip_allowed_today=False; criteria_met_today=False; dual_linf unproven; "
+            "contract ≠ gate flip ≠ wire ≠ VERDICT ≠ dual L∞ under wire proof; dual-ban; "
+            "dual_recovery_path=None; wire_shipped=False; does not clear DEFAULT_WIRE_BLOCKERS; "
+            "does not redefine ready_for_wire_discussion; no excel_pipeline import on hot "
+            "path; no TF required."
         ),
     }
 
@@ -1492,6 +1501,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_dual_space_linf_live_lambda_bridge: bool = True,
     include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart: bool = True,
     include_admm_case1_honest_blender_pooling_path: bool = True,
+    include_admm_case1_online_linf_gate_criteria_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1505,7 +1515,8 @@ def offline_block_solve_readiness_report(
     ``admm_case1_dual_space_linf_probe_ok``,
     ``admm_case1_dual_space_linf_live_lambda_bridge_ok``, and
     ``admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok``, and
-    ``admm_case1_honest_blender_pooling_path_ok`` are
+    ``admm_case1_honest_blender_pooling_path_ok``, and
+    ``admm_case1_online_linf_gate_criteria_contract_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1659,6 +1670,21 @@ def offline_block_solve_readiness_report(
     base["admm_case1_honest_blender_pooling_path_ok"] = (
         admm_case1_honest_blender_pooling_path_ok
     )
+    admm_case1_online_linf_gate_criteria_contract_ok: Optional[bool] = None
+    if include_admm_case1_online_linf_gate_criteria_contract:
+        try:
+            # Additive readiness: pure criteria-contract compose (no maximizer).
+            # online_linf_gate stays open; criteria_met_today=False; dual_linf unproven;
+            # not VERDICT; not wire; not gate flip.
+            crit_rep = offline_case1_online_linf_gate_criteria_contract_report()
+            admm_case1_online_linf_gate_criteria_contract_ok = bool(
+                crit_rep.get("contract_ok", crit_rep.get("ok"))
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_online_linf_gate_criteria_contract_ok = False
+    base["admm_case1_online_linf_gate_criteria_contract_ok"] = (
+        admm_case1_online_linf_gate_criteria_contract_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1672,8 +1698,10 @@ def offline_block_solve_readiness_report(
         "admm_case1_shaped_linking_ok, "
         "admm_case1_dual_space_form_contract_ok, "
         "admm_case1_dual_space_linf_probe_ok, "
-        "admm_case1_dual_space_linf_live_lambda_bridge_ok, and "
-        "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok are additive "
+        "admm_case1_dual_space_linf_live_lambda_bridge_ok, "
+        "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok, "
+        "admm_case1_honest_blender_pooling_path_ok, and "
+        "admm_case1_online_linf_gate_criteria_contract_ok are additive "
         "pre-wire checklist items (synthetic λ,z,ρ residual / block subproblem / "
         "multi-round coordination / multi-block plant-linking synthetic + plant-named "
         "topology modes / Case-1-shaped CDU↔Blender offline skeleton / dual-space "
@@ -1689,9 +1717,12 @@ def offline_block_solve_readiness_report(
         "and measures post-round stream L∞ (seed identity L∞ ≠ dual L∞ under wire proof; "
         "dual_linf stays unproven); honest blender pooling path formalizes "
         "linear_quality_pooling with checklist honest_pooling_path_present (affine "
-        "kernel still absent; dual_linf unproven) — and do not redefine "
-        "ready_for_wire_discussion. admm_case1_honest_blender_pooling_path_ok is "
-        "additive only."
+        "kernel still absent; dual_linf unproven); online_linf_gate flip-criteria "
+        "contract formalizes machine-readable close criteria while gate stays open "
+        "(gate_flip_allowed_today=False; criteria_met_today=False; dual_linf unproven; "
+        "contract ≠ gate flip ≠ wire ≠ VERDICT) — and do not redefine "
+        "ready_for_wire_discussion. admm_case1_honest_blender_pooling_path_ok and "
+        "admm_case1_online_linf_gate_criteria_contract_ok are additive only."
     )
     return base
 
@@ -3922,6 +3953,7 @@ def offline_wire_preflight_report(
     include_admm_case1_dual_space_linf_live_lambda_bridge: bool = True,
     include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart: bool = True,
     include_admm_case1_honest_blender_pooling_path: bool = True,
+    include_admm_case1_online_linf_gate_criteria_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -3969,6 +4001,9 @@ def offline_wire_preflight_report(
         include_admm_case1_honest_blender_pooling_path=(
             include_admm_case1_honest_blender_pooling_path
         ),
+        include_admm_case1_online_linf_gate_criteria_contract=(
+            include_admm_case1_online_linf_gate_criteria_contract
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -4000,6 +4035,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_honest_blender_pooling_path_ok = readiness.get(
         "admm_case1_honest_blender_pooling_path_ok"
+    )
+    admm_case1_online_linf_gate_criteria_contract_ok = readiness.get(
+        "admm_case1_online_linf_gate_criteria_contract_ok"
     )
 
     blockers_documented = (
@@ -4047,6 +4085,10 @@ def offline_wire_preflight_report(
             admm_case1_honest_blender_pooling_path_ok,
             include_admm_case1_honest_blender_pooling_path,
         ),
+        (
+            admm_case1_online_linf_gate_criteria_contract_ok,
+            include_admm_case1_online_linf_gate_criteria_contract,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -4071,7 +4113,7 @@ def offline_wire_preflight_report(
         "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
         "plant_linking/plant_named/case1_shaped/dual_space_form_contract/"
         "dual_space_linf_probe/live_lambda_bridge/live_lambda_seeded_warmstart/"
-        "honest_blender_pooling_path gates) and lists "
+        "honest_blender_pooling_path/online_linf_gate_criteria_contract gates) and lists "
         "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
@@ -4115,6 +4157,9 @@ def offline_wire_preflight_report(
         ),
         "admm_case1_honest_blender_pooling_path_ok": (
             admm_case1_honest_blender_pooling_path_ok
+        ),
+        "admm_case1_online_linf_gate_criteria_contract_ok": (
+            admm_case1_online_linf_gate_criteria_contract_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -7285,6 +7330,369 @@ def multi_unit_case1_honest_blender_pooling_path_report(
     return offline_case1_honest_blender_pooling_path_report(**kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Offline Case-1 online_linf_gate flip-criteria contract (goal 3 + 5 honesty)
+# ---------------------------------------------------------------------------
+# Always-on pure compose. Formalizes machine-readable flip criteria for
+# checklist online_linf_gate_under_tf_path so the item is no longer an opaque
+# bare "open". Does NOT flip the gate. Does NOT claim dual L∞ under wire
+# proven. Does NOT ship wire or flip Case 1 form. Does NOT invent BLENDER
+# UNITS. Does NOT clear DEFAULT_WIRE_BLOCKERS. Does NOT redefine
+# ready_for_wire_discussion. No TF / no PuLP / no excel_pipeline on hot path.
+
+CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_KIND = (
+    "offline_case1_online_linf_gate_criteria_contract"
+)
+CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY = "online_linf_gate_under_tf_path"
+CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_ANNOTATION = "present"
+
+# Flip-criteria class labels
+FLIP_CRITERION_REQUIRED = "required"
+FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY = "required_under_wire_only"
+
+# Machine-readable flip criteria map (what must hold before the gate can close).
+# Values are requirement classes — not "met today" claims.
+CASE1_ONLINE_LINF_GATE_FLIP_CRITERIA: Dict[str, str] = {
+    "isolation_rewrite_with_wire": FLIP_CRITERION_REQUIRED,
+    "form_label_change_shipped": FLIP_CRITERION_REQUIRED,
+    "dual_honest_tf_aware_path_present": FLIP_CRITERION_REQUIRED,
+    "online_lambda_owns_verdict_gate": FLIP_CRITERION_REQUIRED,
+    "linf_le_15_only_under_shipped_tf_aware_path": (
+        FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY
+    ),
+    "wire_shipped": FLIP_CRITERION_REQUIRED,
+    "dual_recovery_path_labeled_honestly": FLIP_CRITERION_REQUIRED,
+    "no_silent_form_reuse": FLIP_CRITERION_REQUIRED,
+    "isolation_tests_rewritten_with_wire_not_deleted": FLIP_CRITERION_REQUIRED,
+}
+
+# Explicit anti-criteria: these are NEVER flip enablers today.
+CASE1_ONLINE_LINF_GATE_ANTI_CRITERIA_TODAY: tuple = (
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+)
+
+
+def case1_online_linf_gate_flip_criteria() -> Dict[str, str]:
+    """Return a copy of the machine-readable online_linf_gate flip-criteria map."""
+    return dict(CASE1_ONLINE_LINF_GATE_FLIP_CRITERIA)
+
+
+def case1_online_linf_gate_criteria_met_today_map() -> Dict[str, bool]:
+    """Per-criterion met_today snapshot under HEAD defaults.
+
+    Aggregate criteria_met_today remains False while isolation rewrite, form
+    label shipped, wire_shipped, and dual-honest TF path remain open. Individual
+    structural honesty labels that already hold offline (e.g. online λ owns
+    VERDICT on classic path; dual_recovery_path labeled None on TF surface) may
+    be True without flipping the aggregate.
+    """
+    # HEAD truth: none of the wire-shipping prerequisites are met.
+    return {
+        "isolation_rewrite_with_wire": False,
+        "form_label_change_shipped": False,
+        # Dual-honest TF-aware *wire path* not present (offline ladder ≠ wire path).
+        "dual_honest_tf_aware_path_present": False,
+        # Classic Case 1 already owns VERDICT via PRIMARY online λ — structural.
+        "online_lambda_owns_verdict_gate": True,
+        # linf≤15 under shipped TF path — not applicable until wire ships.
+        "linf_le_15_only_under_shipped_tf_aware_path": False,
+        "wire_shipped": False,
+        # TF surface dual_recovery_path is None (labeled honestly offline).
+        "dual_recovery_path_labeled_honestly": True,
+        # Planned form is registered and distinct from classic (no silent reuse).
+        "no_silent_form_reuse": True,
+        "isolation_tests_rewritten_with_wire_not_deleted": False,
+    }
+
+
+def case1_online_linf_gate_flip_allowed_today(
+    criteria_met: Optional[Dict[str, bool]] = None,
+) -> bool:
+    """Hard False while wire/form/isolation prerequisites remain open.
+
+    Even if some structural labels hold offline, aggregate flip is never allowed
+    until required wire-shipping criteria are all met.
+    """
+    met = criteria_met if criteria_met is not None else (
+        case1_online_linf_gate_criteria_met_today_map()
+    )
+    required_keys = [
+        k
+        for k, cls in CASE1_ONLINE_LINF_GATE_FLIP_CRITERIA.items()
+        if cls == FLIP_CRITERION_REQUIRED
+    ]
+    return all(bool(met.get(k)) for k in required_keys)
+
+
+def case1_online_linf_gate_criteria_met_today_aggregate(
+    criteria_met: Optional[Dict[str, bool]] = None,
+) -> bool:
+    """Aggregate criteria_met_today — False until all required criteria hold."""
+    return case1_online_linf_gate_flip_allowed_today(criteria_met)
+
+
+def _case1_online_linf_gate_criteria_contract_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-gate-flip / not-wire locks."""
+    return {
+        "kind": CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "contract_is_not_gate_flip": True,
+        "contract_is_not_wire": True,
+        "contract_is_not_verdict_gate": True,
+        "contract_is_not_dual_linf_under_wire_proof": True,
+        "probe_linf_is_not_flip_criterion_today": True,
+        "bridge_linf_is_not_flip_criterion_today": True,
+        "warmstart_linf_is_not_flip_criterion_today": True,
+        "pooling_linf_is_not_flip_criterion_today": True,
+        "seed_identity_linf_is_not_flip_criterion": True,
+        "recovered_blender_linf_is_not_flip_criterion_today": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "scope": "case1_online_linf_gate_criteria_contract_offline",
+        "note": (
+            "Offline Case-1 online_linf_gate flip-criteria contract: machine-readable "
+            "criteria for checklist online_linf_gate_under_tf_path. Gate stays open; "
+            "gate_flip_allowed_today=False; criteria_met_today=False; dual_linf "
+            "unproven; dual_recovery_path=None; solver=False; on_excel_case1_path=False; "
+            f"wire_shipped=False; case1_form_unchanged ({CASE1_FORM_CURRENT}). Contract "
+            "is NOT gate flip, NOT wire, NOT VERDICT gate, NOT dual L∞ under wire proof. "
+            "Probe/bridge/warmstart/pooling/seed-identity/recovered L∞ are not flip "
+            "criteria today. no_blender_offline_affine_kernel remains in "
+            "DEFAULT_WIRE_BLOCKERS. UNITS stay FCC/COKER/CDU. Does not clear "
+            "DEFAULT_WIRE_BLOCKERS. Does not redefine ready_for_wire_discussion. "
+            "Always-on numpy; no TF/PuLP/excel_pipeline on hot path; no maximizer; "
+            "no linf≤15 gate on contract ok."
+        ),
+    }
+
+
+def offline_case1_online_linf_gate_criteria_contract_report() -> Dict[str, Any]:
+    """Always-on online_linf_gate flip-criteria contract (no TF, no PuLP, no solve).
+
+    Aggregate ``ok`` / ``contract_ok`` = criteria formalized ∧ honesty locks ∧
+    gate still open ∧ dual_linf unproven ∧ blockers non-empty ∧ form classic ∧
+    UNITS FCC/COKER/CDU ∧ gate_flip_allowed_today=False ∧ criteria_met_today=False.
+    **Not** linf≤15. **Not** gate flipped. **Not** wire. **Not** dual L∞ proven.
+    Composes checklist / form / blockers / pooling snapshot — does **not** re-run
+    maximizers/probes.
+    """
+    honesty = _case1_online_linf_gate_criteria_contract_honesty_fields()
+    form = case1_form_label_contract()
+    dual_linf = case1_dual_linf_proof_checklist()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    checklist = dual_linf["dual_linf_proof_checklist"]
+    gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY)
+    gate_still_open = gate_status == "open"
+    open_ids = dual_linf["dual_linf_proof_checklist_open_ids"]
+    gate_in_open = CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY in open_ids
+
+    flip_criteria = case1_online_linf_gate_flip_criteria()
+    criteria_met_map = case1_online_linf_gate_criteria_met_today_map()
+    gate_flip_allowed_today = case1_online_linf_gate_flip_allowed_today(criteria_met_map)
+    criteria_met_today = case1_online_linf_gate_criteria_met_today_aggregate(
+        criteria_met_map
+    )
+
+    required_keys = set(CASE1_ONLINE_LINF_GATE_FLIP_CRITERIA.keys())
+    flip_criteria_formalized = (
+        set(flip_criteria.keys()) == required_keys
+        and flip_criteria.get("linf_le_15_only_under_shipped_tf_aware_path")
+        == FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY
+        and all(
+            flip_criteria[k] == FLIP_CRITERION_REQUIRED
+            for k in required_keys
+            if k != "linf_le_15_only_under_shipped_tf_aware_path"
+        )
+    )
+
+    units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
+    blocker_ok = (
+        "no_blender_offline_affine_kernel" in blockers
+        and honesty["no_blender_offline_affine_kernel_blocker_still_true"] is True
+    )
+    pooling_status = checklist.get("blender_affine_kernel_or_honest_pooling_path")
+    pooling_ok = pooling_status == CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["on_excel_case1_path"] is False
+        and honesty["contract_is_not_gate_flip"] is True
+        and honesty["contract_is_not_wire"] is True
+        and honesty["contract_is_not_verdict_gate"] is True
+        and honesty["contract_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["probe_linf_is_not_flip_criterion_today"] is True
+        and honesty["bridge_linf_is_not_flip_criterion_today"] is True
+        and honesty["warmstart_linf_is_not_flip_criterion_today"] is True
+        and honesty["pooling_linf_is_not_flip_criterion_today"] is True
+        and honesty["seed_identity_linf_is_not_flip_criterion"] is True
+    )
+    dual_linf_unproven_ok = bool(
+        dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and dual_linf["dual_linf_under_wire_unproven_still_true"] is True
+        and dual_linf["dual_linf_status_unproven_ok"] is True
+    )
+    form_ok = bool(
+        form["form_contract_ok"]
+        and form["form_current"] == CASE1_FORM_CURRENT
+        and form["form_unchanged"] is True
+        and honesty["case1_form_unchanged"] is True
+    )
+    flip_permission_ok = (
+        gate_flip_allowed_today is False and criteria_met_today is False
+    )
+    gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
+
+    honesty_ok = bool(
+        dual_ban_ok
+        and units_ok
+        and blocker_ok
+        and dual_linf_unproven_ok
+        and form_ok
+        and flip_criteria_formalized
+        and flip_permission_ok
+        and gate_open_ok
+        and blockers_still_documented
+        and pooling_ok
+    )
+    contract_ok = honesty_ok
+    ok = contract_ok and (honesty["wire_shipped"] is False)
+
+    ok_criteria = (
+        "criteria formalized ∧ honesty locks ∧ gate still open ∧ dual_linf "
+        "unproven ∧ blockers non-empty ∧ form classic ∧ UNITS FCC/COKER/CDU ∧ "
+        "gate_flip_allowed_today=False ∧ criteria_met_today=False — "
+        "NOT gate flipped; NOT linf<=15; NOT wire; NOT VERDICT; "
+        "NOT dual L∞ under wire proof"
+    )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "contract_ok": contract_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "units_ok": units_ok,
+        "blocker_ok": blocker_ok,
+        "form_ok": form_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "flip_criteria_formalized": flip_criteria_formalized,
+        "flip_permission_ok": flip_permission_ok,
+        "gate_open_ok": gate_open_ok,
+        "ok_criteria": ok_criteria,
+        # Checklist / gate status (must remain open)
+        "online_linf_gate_under_tf_path": gate_status,
+        "online_linf_gate_checklist_key": CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY,
+        "online_linf_gate_still_open": gate_still_open,
+        "online_linf_gate_criteria_contract": (
+            CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_ANNOTATION
+        ),
+        # Flip permission (hard False under HEAD)
+        "gate_flip_allowed_today": gate_flip_allowed_today,
+        "criteria_met_today": criteria_met_today,
+        "flip_criteria": flip_criteria,
+        "gate_flip_criteria": flip_criteria,
+        "criteria_status_today": criteria_met_map,
+        "criteria_met_today_map": criteria_met_map,
+        "anti_criteria_today": list(CASE1_ONLINE_LINF_GATE_ANTI_CRITERIA_TODAY),
+        "flip_criterion_required_class": FLIP_CRITERION_REQUIRED,
+        "flip_criterion_required_under_wire_only_class": (
+            FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY
+        ),
+        # Form
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_unchanged": form["form_unchanged"],
+        "form_contract_ok": form["form_contract_ok"],
+        "form_label_change_required_still_true": form[
+            "form_label_change_required_still_true"
+        ],
+        # Dual linf
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_status_unproven_ok": dual_linf["dual_linf_status_unproven_ok"],
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "dual_linf_proof_checklist_n_open": dual_linf[
+            "dual_linf_proof_checklist_n_open"
+        ],
+        # Pooling honesty snapshot
+        "blender_pooling_checklist_status": pooling_status,
+        "blender_pooling_checklist_key": "blender_affine_kernel_or_honest_pooling_path",
+        "honest_pooling_path_present": pooling_ok,
+        "units_affine_unchanged": list(UNITS),
+        # Blockers
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "wire_not_shipped_blocker_still_true": "wire_not_shipped" in blockers,
+        "dual_linf_under_wire_unproven_blocker_still_true": (
+            "dual_linf_under_wire_unproven" in blockers
+        ),
+        "no_blender_offline_affine_kernel_in_default_wire_blockers": (
+            "no_blender_offline_affine_kernel" in blockers
+        ),
+        "no_blender_offline_affine_kernel_in_critical_blockers": (
+            "no_blender_offline_affine_kernel" in critical
+        ),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "tf_available": tf_available(),
+        "criteria_contract_available": True,
+        "linf_le_15_is_not_gate": True,
+        "linf_le_15_is_not_flip_criterion_today": True,
+        "residual_must_vanish_is_not_gate": True,
+        "note": honesty["note"],
+    }
+
+
+def case1_online_linf_gate_criteria_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_online_linf_gate_criteria_contract_report``."""
+    return offline_case1_online_linf_gate_criteria_contract_report(**kwargs)
+
+
+def multi_unit_case1_online_linf_gate_criteria_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_online_linf_gate_criteria_contract_report``."""
+    return offline_case1_online_linf_gate_criteria_contract_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -7522,6 +7930,20 @@ __all__ = [
     "offline_case1_honest_blender_pooling_path_report",
     "case1_honest_blender_pooling_path_report",
     "multi_unit_case1_honest_blender_pooling_path_report",
+    "CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_KIND",
+    "CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY",
+    "CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_ANNOTATION",
+    "CASE1_ONLINE_LINF_GATE_FLIP_CRITERIA",
+    "CASE1_ONLINE_LINF_GATE_ANTI_CRITERIA_TODAY",
+    "FLIP_CRITERION_REQUIRED",
+    "FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY",
+    "case1_online_linf_gate_flip_criteria",
+    "case1_online_linf_gate_criteria_met_today_map",
+    "case1_online_linf_gate_flip_allowed_today",
+    "case1_online_linf_gate_criteria_met_today_aggregate",
+    "offline_case1_online_linf_gate_criteria_contract_report",
+    "case1_online_linf_gate_criteria_contract_report",
+    "multi_unit_case1_online_linf_gate_criteria_contract_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
