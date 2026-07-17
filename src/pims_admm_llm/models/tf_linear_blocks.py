@@ -93,6 +93,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_dual_space_form_contract_available": True,
         "admm_case1_dual_space_linf_probe_available": True,
         "admm_case1_dual_space_linf_live_lambda_bridge_available": True,
+        "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -149,7 +150,16 @@ def honesty_metadata() -> Dict[str, Any]:
             "package_extract); dual-ban; dual_linf still unproven; bridge ≠ VERDICT; bridge ≠ "
             "wire proof; dual_recovery_path=None; wire_shipped=False; does not clear "
             "DEFAULT_WIRE_BLOCKERS; does not redefine ready_for_wire_discussion; no "
-            "excel_pipeline import on hot path."
+            "excel_pipeline import on hot path. "
+            "Offline Case-1 dual-space L∞ live-λ-seeded skeleton warm-start available "
+            "(offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report): seed "
+            "Case-1-shaped skeleton λ0 from this-run/caller PRIMARY online λ (source labeled); "
+            "run N skeleton rounds; measure post-round stream L∞; also report linf_at_seed "
+            "labeled seed-identity-not-proof; dual-ban; dual_linf_under_wire still unproven "
+            "even if L∞ 0 or ≤15; online_linf_gate open; warm-start ≠ VERDICT; warm-start ≠ "
+            "dual L∞ under wire proof; dual_recovery_path=None; wire_shipped=False; does not "
+            "clear DEFAULT_WIRE_BLOCKERS; does not redefine ready_for_wire_discussion; no "
+            "excel_pipeline import on hot path; no TF required."
         ),
     }
 
@@ -1470,6 +1480,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_dual_space_form_contract: bool = True,
     include_admm_case1_dual_space_linf_probe: bool = True,
     include_admm_case1_dual_space_linf_live_lambda_bridge: bool = True,
+    include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1480,8 +1491,9 @@ def offline_block_solve_readiness_report(
     ``admm_plant_linking_ok``, ``admm_plant_named_linking_ok``,
     ``admm_case1_shaped_linking_ok``,
     ``admm_case1_dual_space_form_contract_ok``,
-    ``admm_case1_dual_space_linf_probe_ok``, and
-    ``admm_case1_dual_space_linf_live_lambda_bridge_ok`` are
+    ``admm_case1_dual_space_linf_probe_ok``,
+    ``admm_case1_dual_space_linf_live_lambda_bridge_ok``, and
+    ``admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1604,6 +1616,23 @@ def offline_block_solve_readiness_report(
     base["admm_case1_dual_space_linf_live_lambda_bridge_ok"] = (
         admm_case1_dual_space_linf_live_lambda_bridge_ok
     )
+    admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok: Optional[bool] = None
+    if include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart:
+        try:
+            # Additive readiness: fixture-labeled live-λ-seeded warm-start self-test.
+            # dual_linf stays unproven even if post-round L∞ small; not VERDICT; not wire.
+            warm_rep = offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report(
+                allow_fixture_fallback=True,
+                n_rounds=1,
+            )
+            admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok = bool(
+                warm_rep.get("warmstart_ok", warm_rep.get("ok"))
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok = False
+    base["admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok"] = (
+        admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1616,8 +1645,9 @@ def offline_block_solve_readiness_report(
         "admm_plant_linking_ok, admm_plant_named_linking_ok, "
         "admm_case1_shaped_linking_ok, "
         "admm_case1_dual_space_form_contract_ok, "
-        "admm_case1_dual_space_linf_probe_ok, and "
-        "admm_case1_dual_space_linf_live_lambda_bridge_ok are additive "
+        "admm_case1_dual_space_linf_probe_ok, "
+        "admm_case1_dual_space_linf_live_lambda_bridge_ok, and "
+        "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok are additive "
         "pre-wire checklist items (synthetic λ,z,ρ residual / block subproblem / "
         "multi-round coordination / multi-block plant-linking synthetic + plant-named "
         "topology modes / Case-1-shaped CDU↔Blender offline skeleton / dual-space "
@@ -1628,8 +1658,10 @@ def offline_block_solve_readiness_report(
         "map + dual_linf unproven checklist without flipping Case 1 or shipping wire; "
         "dual-space L∞ probe is numeric prep only (status stays unproven; not VERDICT); "
         "live-λ bridge extracts/accepts caller Case 1 PRIMARY online λ into the existing "
-        "probe with source labeled (fixture fallback only when explicit) — "
-        "and do not redefine ready_for_wire_discussion."
+        "probe with source labeled (fixture fallback only when explicit); live-λ-seeded "
+        "warm-start seeds skeleton λ0 from live/caller PRIMARY, runs N skeleton rounds, "
+        "and measures post-round stream L∞ (seed identity L∞ ≠ dual L∞ under wire proof; "
+        "dual_linf stays unproven) — and do not redefine ready_for_wire_discussion."
     )
     return base
 
@@ -3858,6 +3890,7 @@ def offline_wire_preflight_report(
     include_admm_case1_dual_space_form_contract: bool = True,
     include_admm_case1_dual_space_linf_probe: bool = True,
     include_admm_case1_dual_space_linf_live_lambda_bridge: bool = True,
+    include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -3899,6 +3932,9 @@ def offline_wire_preflight_report(
         include_admm_case1_dual_space_linf_live_lambda_bridge=(
             include_admm_case1_dual_space_linf_live_lambda_bridge
         ),
+        include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart=(
+            include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -3924,6 +3960,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_dual_space_linf_live_lambda_bridge_ok = readiness.get(
         "admm_case1_dual_space_linf_live_lambda_bridge_ok"
+    )
+    admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok = readiness.get(
+        "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok"
     )
 
     blockers_documented = (
@@ -3963,6 +4002,10 @@ def offline_wire_preflight_report(
             admm_case1_dual_space_linf_live_lambda_bridge_ok,
             include_admm_case1_dual_space_linf_live_lambda_bridge,
         ),
+        (
+            admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok,
+            include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -3986,7 +4029,7 @@ def offline_wire_preflight_report(
         "Offline dual-honest wire preflight: composes offline_block_solve_readiness_report "
         "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
         "plant_linking/plant_named/case1_shaped/dual_space_form_contract/"
-        "dual_space_linf_probe/live_lambda_bridge gates) and lists "
+        "dual_space_linf_probe/live_lambda_bridge/live_lambda_seeded_warmstart gates) and lists "
         "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
@@ -4024,6 +4067,9 @@ def offline_wire_preflight_report(
         "admm_case1_dual_space_linf_probe_ok": admm_case1_dual_space_linf_probe_ok,
         "admm_case1_dual_space_linf_live_lambda_bridge_ok": (
             admm_case1_dual_space_linf_live_lambda_bridge_ok
+        ),
+        "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok": (
+            admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -6425,6 +6471,537 @@ def multi_unit_case1_dual_space_linf_live_lambda_bridge_report(
     return offline_case1_dual_space_linf_live_lambda_bridge_report(**kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Offline Case-1 dual-space L∞ live-λ-seeded skeleton warm-start / dual_linf
+# proof-prep (goal 5 + goal 3 residual after live-λ bridge)
+# Compose extract + Case-1-shaped rounds with λ0 from live/caller PRIMARY;
+# post-round stream L∞; dual_linf_under_wire stays unproven always; not VERDICT;
+# not wire; seed identity ≠ proof; no excel_pipeline / TF / PuLP on hot path.
+# ---------------------------------------------------------------------------
+
+CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_KIND = (
+    "offline_case1_dual_space_linf_live_lambda_seeded_warmstart"
+)
+
+SEED_POLICY_LAMBDA0_FROM_LIVE_PRIMARY = "lambda0_from_live_primary_online"
+Z0_POLICY_UNCHANGED_DEFAULT_SKELETON = "unchanged_default_skeleton_z"
+
+
+def case1_warmstart_seed_lambda_from_primary(
+    primary_map: Optional[Mapping[str, Any]],
+    *,
+    streams: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Stream-align live PRIMARY online λ into skeleton lam0 (seed input only).
+
+    Pure mapping helper — dual_recovery_path=None; not dual recovery ownership.
+    Missing/non-finite streams → seed_ok=False (no silent zero-fill success).
+    """
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    aligned = _case1_stream_align_mapping(primary_map or {}, streams=streams_list)
+    return {
+        "kind": "case1_warmstart_seed_lambda_from_primary",
+        "seed_ok": bool(aligned["extract_ok"]),
+        "extract_ok": bool(aligned["extract_ok"]),
+        "stream_alignment_ok": bool(aligned["stream_alignment_ok"]),
+        "lam0": dict(aligned["lambda"]) if aligned["extract_ok"] else {},
+        "lambda": dict(aligned["lambda"]) if aligned["extract_ok"] else {},
+        "missing_streams": list(aligned["missing_streams"]),
+        "non_finite_streams": list(aligned["non_finite_streams"]),
+        "streams": streams_list,
+        "seed_policy": SEED_POLICY_LAMBDA0_FROM_LIVE_PRIMARY,
+        "dual_recovery_path": None,
+        "seeded_lambda_is_probe_input_only": True,
+        "note": (
+            "Stream-aligned lam0 from live PRIMARY online λ for skeleton seed only. "
+            "dual_recovery_path=None; not dual recovery ownership; not VERDICT; not wire."
+        ),
+    }
+
+
+def _case1_dual_space_linf_live_lambda_seeded_warmstart_honesty_fields() -> Dict[str, Any]:
+    """Dual-ban / not-wire / not-VERDICT / seed-identity locks for warm-start."""
+    base = _case1_dual_space_linf_probe_honesty_fields()
+    base = dict(base)
+    base["kind"] = CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_KIND
+    base["scope"] = "case1_dual_space_linf_live_lambda_seeded_warmstart_offline"
+    base["warmstart_is_not_verdict_gate"] = True
+    base["warmstart_is_not_dual_linf_under_wire_proof"] = True
+    base["bridge_is_not_verdict_gate"] = True
+    base["bridge_is_not_dual_linf_under_wire_proof"] = True
+    base["probe_is_not_verdict_gate"] = True
+    base["probe_is_not_dual_linf_under_wire_proof"] = True
+    base["live_lambda_is_not_dual_recovery"] = True
+    base["seeded_lambda_is_probe_input_only"] = True
+    base["extracted_lambda_is_probe_input_only"] = True
+    base["seed_identity_linf_is_not_proof"] = True
+    base["skeleton_lambda_is_not_case1_online_lambda"] = True
+    base["skeleton_lambda_is_not_case1_primary_or_secondary_duals"] = True
+    base["secondary_recovered_is_not_gate"] = True
+    base["note"] = (
+        "Offline Case-1 dual-space L∞ live-λ-seeded skeleton warm-start / dual_linf "
+        "proof-prep: extract/accept this-run Case 1 PRIMARY online λ (source labeled), "
+        "seed Case-1-shaped skeleton dual-space λ0 from that PRIMARY "
+        f"(seed_policy={SEED_POLICY_LAMBDA0_FROM_LIVE_PRIMARY}), keep "
+        f"z0={Z0_POLICY_UNCHANGED_DEFAULT_SKELETON} (no plant MB invention), run N "
+        "skeleton linking rounds via offline_case1_shaped_cdu_blender_linking_report, "
+        "then stream-aligned L∞ of post-round skeleton λ vs live PRIMARY (compose "
+        "existing L∞/probe helpers — no second engine). Also reports linf_at_seed "
+        "labeled seed-identity-not-proof. dual_recovery_path=None; solver=False; "
+        "on_excel_case1_path=False; wire_shipped=False; dual_linf_under_wire_status="
+        "unproven ALWAYS (even if post-round L∞ is 0 or ≤15); checklist "
+        "online_linf_gate_under_tf_path remains open; warm-start ≠ Case 1 VERDICT "
+        "gate; warm-start ≠ dual L∞ under wire proof; skeleton λ (even post-round) ≠ "
+        "Case 1 duals as recovery; SECONDARY recovered is diagnostic only; form_current "
+        "classic unchanged; does not clear DEFAULT_WIRE_BLOCKERS; does not redefine "
+        "ready_for_wire_discussion. Always-on numpy; no TF/PuLP/excel_pipeline on hot "
+        "path; no live Case 1 solve ownership; no residual-must-vanish hard-fail."
+    )
+    return base
+
+
+def offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report(
+    *,
+    case1_package: Optional[Mapping[str, Any]] = None,
+    case1_primary_online_lambda: Optional[Mapping[str, float]] = None,
+    case1_secondary_recovered_lambda: Optional[Mapping[str, float]] = None,
+    include_secondary_recovered: bool = True,
+    allow_fixture_fallback: bool = False,
+    n_rounds: int = 2,
+    rho: float = 1.0,
+    dual_step: float = 1.0,
+    dual_vector_face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+    streams: Optional[Sequence[str]] = None,
+    dual_gate_threshold_diagnostic: float = 15.0,
+) -> Dict[str, Any]:
+    """Always-on live-λ-seeded Case-1 dual-space L∞ warm-start / dual_linf proof-prep.
+
+    Compose only:
+      1. extract/normalize live PRIMARY online λ (source labeled)
+      2. seed skeleton λ0 from that PRIMARY; z0 = default skeleton z
+      3. run N Case-1-shaped linking rounds under that seed
+      4. stream-aligned L∞ post-round skeleton λ vs live PRIMARY
+      5. also linf_at_seed (seed identity) labeled not-proof
+
+    ``warmstart_ok`` / ``ok`` = extract ∧ source documented ∧ seed_policy ∧ z0_policy
+    ∧ rounds ∧ stream alignment ∧ finite L∞ ∧ dual-ban ∧ blockers — **never**
+    ``linf <= 15``; **never** VERDICT; dual_linf_under_wire stays **unproven always**.
+
+    Does **not** clear ``DEFAULT_WIRE_BLOCKERS``. Does **not** redefine
+    ``ready_for_wire_discussion``. Does **not** flip Case 1 form. Does **not**
+    retune Case 1 ADMM ρ. No excel_pipeline / tensorflow / pulp on hot path.
+    """
+    honesty = _case1_dual_space_linf_live_lambda_seeded_warmstart_honesty_fields()
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+    n_r = int(n_rounds)
+    if n_r < 1:
+        n_r = 1
+
+    # --- PRIMARY extract / resolve (same branch structure as live-λ bridge) ---
+    extract_rep: Dict[str, Any]
+    if case1_primary_online_lambda is not None:
+        extract_rep = case1_primary_online_lambda_from_mapping(
+            case1_primary_online_lambda,
+            face=dual_vector_face,
+            streams=streams_list,
+        )
+        extract_rep = dict(extract_rep)
+        extract_rep["kind"] = "extract_case1_primary_online_lambda"
+        extract_rep["source"] = LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+        extract_rep["source_path"] = "case1_primary_online_lambda_arg"
+        extract_rep["face_converted"] = False
+    elif case1_package is not None:
+        extract_rep = extract_case1_primary_online_lambda(
+            case1_package,
+            face=dual_vector_face,
+            streams=streams_list,
+        )
+    else:
+        extract_rep = {
+            "kind": "extract_case1_primary_online_lambda",
+            "extract_ok": False,
+            "stream_alignment_ok": False,
+            "lambda": {},
+            "case1_primary_online_lambda": {},
+            "missing_streams": list(streams_list),
+            "non_finite_streams": [],
+            "streams": streams_list,
+            "dual_vector_face": dual_vector_face,
+            "source": LIVE_LAMBDA_SOURCE_MISSING,
+            "source_path": "none",
+            "face_converted": False,
+            "dual_recovery_path": None,
+        }
+
+    used_fixture = False
+    if not extract_rep.get("extract_ok"):
+        if allow_fixture_fallback:
+            primary = case1_primary_online_lambda_fixture(face=dual_vector_face)
+            live_lambda_source = LIVE_LAMBDA_SOURCE_FIXTURE
+            primary_source_path = "fixture"
+            used_fixture = True
+            extract_ok = True
+        else:
+            primary = {}
+            live_lambda_source = LIVE_LAMBDA_SOURCE_MISSING
+            primary_source_path = str(extract_rep.get("source_path") or "missing")
+            extract_ok = False
+    else:
+        primary = dict(extract_rep["lambda"])
+        live_lambda_source = str(
+            extract_rep.get("source") or LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+        )
+        primary_source_path = str(
+            extract_rep.get("source_path") or "caller_supplied"
+        )
+        extract_ok = True
+
+    source_documented = live_lambda_source in (
+        LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED,
+        LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT,
+        LIVE_LAMBDA_SOURCE_FIXTURE,
+    )
+    source_honest = not (
+        used_fixture and live_lambda_source != LIVE_LAMBDA_SOURCE_FIXTURE
+    )
+    if used_fixture:
+        live_lambda_source = LIVE_LAMBDA_SOURCE_FIXTURE
+        source_honest = True
+        source_documented = True
+
+    # --- Optional SECONDARY diagnostic (never gate) ---
+    secondary_map: Optional[Dict[str, float]] = None
+    secondary_extract: Optional[Dict[str, Any]] = None
+    if case1_secondary_recovered_lambda is not None:
+        sec = _case1_stream_align_mapping(
+            case1_secondary_recovered_lambda, streams=streams_list
+        )
+        secondary_extract = {
+            "extract_ok": sec["extract_ok"],
+            "source": LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED,
+            "source_path": "case1_secondary_recovered_lambda_arg",
+            "secondary_recovered_is_not_gate": True,
+            "dual_recovery_path": None,
+        }
+        if sec["extract_ok"]:
+            secondary_map = dict(sec["lambda"])
+    elif include_secondary_recovered and case1_package is not None:
+        secondary_extract = extract_case1_secondary_recovered_lambda(
+            case1_package, streams=streams_list
+        )
+        if secondary_extract.get("extract_ok"):
+            secondary_map = dict(secondary_extract["lambda"])
+
+    # --- Seed policy: lam0 from live PRIMARY; z0 default skeleton ---
+    seed_policy = SEED_POLICY_LAMBDA0_FROM_LIVE_PRIMARY
+    z0_policy = Z0_POLICY_UNCHANGED_DEFAULT_SKELETON
+    seed_rep = case1_warmstart_seed_lambda_from_primary(
+        primary if extract_ok else None, streams=streams_list
+    )
+    seed_ok = bool(extract_ok and seed_rep.get("seed_ok"))
+    lam0: Dict[str, float] = dict(seed_rep.get("lam0") or {}) if seed_ok else {}
+    z0: Dict[str, float] = _default_case1_z_link(streams_list)
+    seed_documented = bool(seed_policy and z0_policy)
+    seed_policy_documented = seed_documented
+
+    # --- Seed identity L∞ (diagnostic; not proof) ---
+    linf_at_seed = float("nan")
+    l1_at_seed = float("nan")
+    per_stream_abs_at_seed: Dict[str, float] = {}
+    seed_gap: Optional[Dict[str, Any]] = None
+    if seed_ok and primary and lam0:
+        seed_gap = case1_dual_space_stream_aligned_linf(
+            primary, lam0, streams=streams_list
+        )
+        linf_at_seed = float(seed_gap.get("linf", float("nan")))
+        l1_at_seed = float(seed_gap.get("l1", float("nan")))
+        per_stream_abs_at_seed = dict(seed_gap.get("per_stream_abs") or {})
+
+    # --- N skeleton rounds under seeded dual-space ---
+    skeleton_report: Optional[Dict[str, Any]] = None
+    rounds_ran = False
+    skeleton_ok = False
+    final_lam: Dict[str, float] = {}
+    final_z: Dict[str, float] = {}
+    residual_trend: Any = None
+    if seed_ok and lam0:
+        skeleton_report = offline_case1_shaped_cdu_blender_linking_report(
+            n_rounds=n_r,
+            rho=float(rho),
+            dual_step=float(dual_step),
+            lam0=lam0,
+            z0=z0,
+        )
+        rounds_ran = True
+        skeleton_ok = bool(skeleton_report.get("ok"))
+        final_lam = extract_case1_shaped_skeleton_lambda(
+            skeleton_report=skeleton_report
+        )
+        final_z = dict(skeleton_report.get("final_z") or {})
+        residual_trend = skeleton_report.get("residual_trend")
+
+    # --- Post-round stream L∞ via existing probe compose (no second engine) ---
+    if seed_ok and primary and final_lam:
+        probe = offline_case1_dual_space_linf_probe_report(
+            case1_primary_online_lambda=primary,
+            case1_secondary_recovered_lambda=secondary_map,
+            skeleton_lambda=final_lam,
+            dual_vector_face=dual_vector_face,
+            streams=streams_list,
+            dual_gate_threshold_diagnostic=dual_gate_threshold_diagnostic,
+        )
+    else:
+        probe = offline_case1_dual_space_linf_probe_report(
+            case1_primary_online_lambda={s: 0.0 for s in streams_list},
+            skeleton_lambda={s: 0.0 for s in streams_list},
+            dual_vector_face=dual_vector_face,
+            streams=streams_list,
+            dual_gate_threshold_diagnostic=dual_gate_threshold_diagnostic,
+        )
+
+    linf_post_rounds = probe.get("linf") if (seed_ok and final_lam) else float("nan")
+    l1_post_rounds = probe.get("l1") if (seed_ok and final_lam) else float("nan")
+    per_stream_abs_post = (
+        dict(probe.get("per_stream_abs") or {}) if (seed_ok and final_lam) else {}
+    )
+
+    # dual_linf_under_wire ALWAYS unproven on this surface (even if L∞ 0 or ≤15)
+    dual_linf_unproven = (
+        honesty["dual_linf_under_wire_status"] == "unproven"
+        and probe.get("dual_linf_under_wire_status") == "unproven"
+    )
+    # Force unproven even if future probe changes — warm-start hard lock
+    dual_linf_status = "unproven"
+    dual_linf_unproven = dual_linf_unproven and dual_linf_status == "unproven"
+
+    checklist = dict(honesty["dual_linf_proof_checklist"])
+    online_gate_status = str(checklist.get("online_linf_gate_under_tf_path", "open"))
+    online_gate_open = online_gate_status.lower() in ("open", "false_today", "unproven")
+    online_gate_open = online_gate_open and bool(
+        probe.get("online_linf_gate_under_tf_path_open", True)
+    )
+
+    dual_ban_ok = bool(
+        honesty["dual_recovery_path"] is None
+        and probe.get("dual_recovery_path") is None
+        and honesty["warmstart_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["warmstart_is_not_verdict_gate"] is True
+        and honesty["seed_identity_linf_is_not_proof"] is True
+        and dual_linf_unproven
+        and online_gate_open
+    )
+
+    honesty_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and "BLENDER" not in UNITS
+        and honesty["dual_recovery_path"] is None
+        and honesty["wire_shipped"] is False
+        and honesty["warmstart_is_not_verdict_gate"] is True
+        and honesty["warmstart_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["seed_identity_linf_is_not_proof"] is True
+        and honesty["does_not_clear_default_wire_blockers"] is True
+        and honesty["does_not_redefine_ready_for_wire_discussion"] is True
+        and dual_linf_unproven
+        and "dual_linf_under_wire_unproven" in blockers
+        and "wire_not_shipped" in blockers
+        and blockers_still_documented
+        and online_gate_open
+    )
+
+    probe_ok = bool(probe.get("probe_ok")) if (seed_ok and final_lam) else False
+    stream_alignment_ok = bool(
+        seed_ok and final_lam and probe.get("stream_alignment_ok", False)
+    )
+    finite_linf = bool(probe.get("finite_linf")) if (seed_ok and final_lam) else False
+    # Primary metric finite check must not gate on ≤15
+    finite_post = bool(
+        finite_linf
+        and linf_post_rounds is not None
+        and np.isfinite(float(linf_post_rounds))
+    ) if (seed_ok and final_lam) else False
+
+    ok_criteria = (
+        "extract_ok ∧ source_documented ∧ source_honest ∧ seed_ok ∧ "
+        "seed_policy_documented ∧ z0_policy_documented ∧ rounds_ran ∧ "
+        "skeleton_ok ∧ honesty_ok ∧ dual_ban ∧ probe_ok ∧ stream_alignment_ok ∧ "
+        "finite_post_round_linf ∧ wire_shipped=False ∧ dual_linf_unproven ∧ "
+        "blockers_still_documented ∧ online_linf_gate_open; "
+        "NOT linf<=15 under wire; NOT dual_linf proven (even if L∞ 0 or ≤15); "
+        "NOT VERDICT gate; NOT seed identity as proof; NOT form flip; "
+        "NOT ready redefined; NOT blockers cleared; NOT residual-must-vanish; "
+        "fixture never labeled as live/caller_supplied"
+    )
+
+    warmstart_ok = bool(
+        extract_ok
+        and source_documented
+        and source_honest
+        and seed_ok
+        and seed_policy_documented
+        and rounds_ran
+        and skeleton_ok
+        and honesty_ok
+        and dual_ban_ok
+        and probe_ok
+        and stream_alignment_ok
+        and finite_post
+        and honesty["wire_shipped"] is False
+        and dual_linf_unproven
+        and blockers_still_documented
+        and online_gate_open
+    )
+    ok = warmstart_ok
+
+    face_conversion_applied = bool(extract_rep.get("face_converted", False))
+
+    return {
+        **honesty,
+        # Force unproven status even if honesty base ever changes
+        "dual_linf_under_wire_status": dual_linf_status,
+        "dual_linf_under_wire": dual_linf_status,
+        "dual_linf_under_wire_unproven_still_true": True,
+        "online_linf_gate_under_tf_path": "open",
+        "ok": ok,
+        "warmstart_ok": warmstart_ok,
+        "probe_ok": probe_ok,
+        "extract_ok": extract_ok,
+        "seed_ok": seed_ok,
+        "skeleton_ok": skeleton_ok,
+        "rounds_ran": rounds_ran,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "stream_alignment_ok": stream_alignment_ok,
+        "finite_linf": finite_post,
+        "finite_ok": finite_post,
+        "blockers_still_documented": blockers_still_documented,
+        "source_documented": source_documented,
+        "source_honest": source_honest,
+        "seed_documented": seed_documented,
+        "seed_policy_documented": seed_policy_documented,
+        "ok_criteria": ok_criteria,
+        "warmstart_ok_criteria": ok_criteria,
+        # Source labeling (fixture ≠ live)
+        "live_lambda_source": live_lambda_source,
+        "case1_primary_online_lambda_source": live_lambda_source,
+        "primary_source_path": primary_source_path,
+        "used_fixture_fallback": used_fixture,
+        "allow_fixture_fallback": bool(allow_fixture_fallback),
+        "fixture_is_not_live": True,
+        # Seed policy honesty
+        "seed_policy": seed_policy,
+        "z0_policy": z0_policy,
+        "lam0": dict(lam0),
+        "z0": dict(z0),
+        "n_rounds": n_r,
+        "rho": float(rho),
+        "dual_step": float(dual_step),
+        "rho_is_not_case1_retune": True,
+        "does_not_retune_case1_admm_rho": True,
+        # Dual vectors
+        "dual_vector_face": dual_vector_face,
+        "face_conversion_applied": face_conversion_applied,
+        "case1_primary_online_lambda": dict(primary) if extract_ok else {},
+        "case1_secondary_recovered_lambda": (
+            dict(secondary_map) if secondary_map is not None else None
+        ),
+        "secondary_recovered_is_not_gate": True,
+        "primary_extract": extract_rep,
+        "secondary_extract": secondary_extract,
+        "skeleton_lambda": dict(final_lam),
+        "skeleton_lambda_source": "live_lambda_seeded_post_rounds",
+        "skeleton_lambda_at_seed": dict(lam0),
+        "final_lam": dict(final_lam),
+        "final_z": dict(final_z),
+        "streams": streams_list,
+        "linking_streams": streams_list,
+        "skeleton_lambda_slots": list(CASE1_SHAPED_LINKING_STREAMS),
+        # Dual metrics: seed identity + post-round primary
+        "linf_at_seed": linf_at_seed,
+        "l1_at_seed": l1_at_seed,
+        "per_stream_abs_at_seed": per_stream_abs_at_seed,
+        "seed_gap": seed_gap,
+        "linf_post_rounds": linf_post_rounds,
+        "linf": linf_post_rounds,  # primary metric alias
+        "l1_post_rounds": l1_post_rounds,
+        "l1": l1_post_rounds,
+        "per_stream_abs": per_stream_abs_post,
+        "abs_gap": dict(per_stream_abs_post),
+        "missing_in_primary": list(probe.get("missing_in_primary") or []),
+        "missing_in_skeleton": list(probe.get("missing_in_skeleton") or []),
+        "gap": probe.get("gap") if (seed_ok and final_lam) else None,
+        "secondary_gap_diagnostic": (
+            probe.get("secondary_gap_diagnostic") if (seed_ok and final_lam) else None
+        ),
+        "probe_linf_vs_gate_tol_diagnostic": {
+            **dict(probe.get("probe_linf_vs_gate_tol_diagnostic") or {}),
+            "is_not_verdict_gate": True,
+            "is_not_warmstart_ok_criterion": True,
+            "is_not_probe_ok_criterion": True,
+        },
+        "online_linf_gate_under_tf_path_open": online_gate_open,
+        "probe_available": True,
+        "warmstart_available": True,
+        "composed_probe_kind": CASE1_DUAL_SPACE_LINF_PROBE_KIND,
+        "composed_skeleton_kind": CASE1_SHAPED_LINKING_KIND,
+        "residual_trend": residual_trend,
+        "residual_must_vanish_is_not_gate": True,
+        "no_residual_must_vanish_hard_fail": True,
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "wire_not_shipped_blocker_still_true": "wire_not_shipped" in blockers,
+        "dual_linf_under_wire_unproven_blocker_still_true": (
+            "dual_linf_under_wire_unproven" in blockers
+        ),
+        "units_affine_unchanged": list(UNITS),
+        "tf_available": tf_available(),
+        "case1_shaped_streams_source": "CASE1_SHAPED_LINKING_STREAMS",
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "skeleton": {
+            "kind": (skeleton_report or {}).get("kind"),
+            "ok": (skeleton_report or {}).get("ok"),
+            "n_rounds": n_r,
+            "wire_shipped": (skeleton_report or {}).get("wire_shipped"),
+            "dual_recovery_path": (skeleton_report or {}).get("dual_recovery_path"),
+        },
+        "probe": {
+            "kind": probe.get("kind"),
+            "probe_ok": probe.get("probe_ok"),
+            "linf": probe.get("linf"),
+            "dual_linf_under_wire_status": probe.get("dual_linf_under_wire_status"),
+            "wire_shipped": probe.get("wire_shipped"),
+            "dual_recovery_path": probe.get("dual_recovery_path"),
+        },
+        "note": honesty["note"],
+    }
+
+
+def case1_dual_space_linf_live_lambda_seeded_warmstart(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report``."""
+    return offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report(**kwargs)
+
+
+def multi_unit_case1_dual_space_linf_live_lambda_seeded_warmstart_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report``."""
+    return offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -6649,6 +7226,13 @@ __all__ = [
     "offline_case1_dual_space_linf_live_lambda_bridge_report",
     "case1_dual_space_linf_live_lambda_bridge",
     "multi_unit_case1_dual_space_linf_live_lambda_bridge_report",
+    "CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_KIND",
+    "SEED_POLICY_LAMBDA0_FROM_LIVE_PRIMARY",
+    "Z0_POLICY_UNCHANGED_DEFAULT_SKELETON",
+    "case1_warmstart_seed_lambda_from_primary",
+    "offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report",
+    "case1_dual_space_linf_live_lambda_seeded_warmstart",
+    "multi_unit_case1_dual_space_linf_live_lambda_seeded_warmstart_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
