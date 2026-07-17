@@ -365,6 +365,24 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "not" in lblow and "wire" in lblow
     assert "raw_online_duals" in lblow or "dual_vector_face" in lblow
 
+    # Offline Case-1 dual-space L∞ live-λ-seeded warm-start How_to (static packaging of #38)
+    tf_ws = how.get("tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart", "")
+    assert tf_ws, "How_to_read must include tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"
+    wslow = tf_ws.lower()
+    assert "warm" in wslow or "seed" in wslow or "λ" in wslow or "lambda" in wslow
+    assert "unproven" in wslow
+    assert "verdict" in wslow
+    assert "online_linf_gate_under_tf_path" in wslow or "online_linf_gate" in wslow
+    assert "live_lambda_source" in wslow or "source" in wslow
+    assert "seed_policy" in wslow or "lambda0_from_live_primary" in wslow
+    assert "seed_identity" in wslow or "seed" in wslow
+    assert "caller_supplied" in wslow and "package_extract" in wslow and "fixture" in wslow
+    assert "naphtha" in wslow and "residue" in wslow
+    assert "wire_shipped" in wslow or "wire shipped" in wslow or "not wire" in wslow
+    assert "dual" in wslow and ("none" in wslow or "primary" in wslow)
+    assert "not" in wslow and "wire" in wslow
+    assert "raw_online_duals" in wslow or "dual_vector_face" in wslow
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -853,6 +871,93 @@ def test_format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto_pure()
     assert "caller_supplied" in one and "fixture" in one
 
 
+def test_format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto_pure():
+    """Static dual-space L∞ live-λ-seeded warm-start How_to: dual-ban, seed_policy, seed≠proof; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_DUAL_VECTOR_FACE,
+        _CASE1_FORM_CURRENT,
+        _CASE1_FORM_PLANNED,
+        _CASE1_SHAPED_LINKING_STREAMS,
+        _LIVE_LAMBDA_SOURCE_ALLOWED,
+        _WARMSTART_SEED_POLICY,
+        _WARMSTART_Z0_POLICY,
+        format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto,
+    )
+
+    d = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
+    assert d["topic"] == "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"
+    assert "CDU" in d["units"] and "Blender" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["not_case1_solve"] == "true"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["form_planned"] == _CASE1_FORM_PLANNED
+    assert d["form_current"] == "classic_2block_excel_path"
+    assert d["form_planned"] == "tf_affine_cdu_blender_shaped_excel_path"
+    assert d["form_current"] != d["form_planned"]
+    assert d["case1_form_unchanged"] == "true"
+    assert d["form_unchanged"] == "true"
+    assert d["form_label_change_required_still_true"] == "true"
+    assert d["planned_form_distinct"] == "true"
+    assert d["dual_recovery_path"] == "None"
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    streams = d["linking_streams"]
+    for s in _CASE1_SHAPED_LINKING_STREAMS:
+        assert s in streams
+    assert d["stream_alignment_ok"] == "true"
+    assert d["dual_vector_face"] == _CASE1_DUAL_VECTOR_FACE
+    assert d["dual_vector_face"] == "raw_online_duals"
+    assert d["package_dual_gate"] == "online_lambda"
+    assert d["package_dual_secondary"] == "recovered_blender"
+    assert d["skeleton_lambda_is_not_case1_online_lambda"] == "true"
+    assert d["skeleton_lambda_is_not_case1_primary_or_secondary_duals"] == "true"
+    assert d["live_lambda_source_must_be_labeled"] == "true"
+    allowed = d["live_lambda_source_allowed"]
+    for src in _LIVE_LAMBDA_SOURCE_ALLOWED:
+        assert src in allowed
+    assert "caller_supplied" in allowed and "package_extract" in allowed and "fixture" in allowed
+    assert d["seed_policy"] == _WARMSTART_SEED_POLICY
+    assert d["seed_policy"] == "lambda0_from_live_primary_online"
+    assert d["z0_policy"] == _WARMSTART_Z0_POLICY
+    assert d["z0_policy"] == "unchanged_default_skeleton_z"
+    assert d["seeded_lambda_is_probe_input_only"] == "true"
+    assert d["live_lambda_is_not_dual_recovery"] == "true"
+    assert d["warmstart_is_not_verdict_gate"] == "true"
+    assert d["warmstart_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["warmstart_available_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["seed_identity_linf_is_not_proof"] == "true"
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    open_ids = d["dual_linf_proof_checklist_open_ids"]
+    for oid in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS:
+        assert oid in open_ids
+    assert "online_linf_gate_under_tf_path" in open_ids
+    assert d["does_not_clear_wire_blockers"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    assert d["not_form_flip"] == "true"
+    assert d["not_dual_linf_under_wire_proven"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "warm" in one or "seed" in one or "λ" in one or "lambda" in one
+    assert "classic_2block" in one or "form_current" in one
+    assert "naphtha" in one and "residue" in one
+    assert "unproven" in one
+    assert "verdict" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "primary" in one
+    assert "dual" in one and "none" in one
+    assert "not" in one and "wire" in one
+    assert "online_linf_gate" in one
+    assert "live_lambda_source" in one or "source" in one
+    assert "caller_supplied" in one and "fixture" in one
+    assert "seed_policy" in one or "lambda0_from_live_primary" in one
+    assert "seed_identity" in one or "seed" in one
+
+
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""
     from pims_admm_llm.models.tf_linear_blocks import excel_fcc_matrix_matches_affine
@@ -1083,6 +1188,9 @@ def test_planner_honesty_glance_package(tmp_path):
     # Dual-space L∞ live-λ bridge readiness (short Index clause; co-exists with probe)
     assert "bridge" in what_l or "live-λ" in what_l or "live-lambda" in what_l or "live_lambda" in what_l
     assert "source-labeled" in what_l or "live_lambda_source" in what_l or "source" in what_l
+    # Dual-space L∞ live-λ-seeded warm-start readiness (short Index clause; co-exists with bridge)
+    assert "warm-start" in what_l or "warmstart" in what_l or "seeded" in what_l
+    assert "seed_policy" in what_l or "seed≠proof" in what_l or "seed" in what_l
     from pims_admm_llm.models.excel_pipeline import _OFFLINE_TF_INDEX_WHAT
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439, len(_OFFLINE_TF_INDEX_WHAT)
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
@@ -1104,6 +1212,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_case1_dual_space_form_contract_ready"] is True
     assert pkg["meta"]["offline_tf_case1_dual_space_linf_probe_ready"] is True
     assert pkg["meta"]["offline_tf_case1_dual_space_linf_live_lambda_bridge_ready"] is True
+    assert pkg["meta"]["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready"] is True
     assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
@@ -1177,6 +1286,19 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "live_lambda_source" in lb_note or "source" in lb_note
     assert "caller_supplied" in lb_note and "fixture" in lb_note
     assert "online_linf_gate" in lb_note or "online_linf_gate_under_tf_path" in lb_note
+    ws_note = str(
+        pkg["meta"]["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart"]
+    ).lower()
+    assert "warm" in ws_note or "seed" in ws_note or "λ" in ws_note or "lambda" in ws_note
+    assert "unproven" in ws_note
+    assert "verdict" in ws_note
+    assert "wire_shipped" in ws_note or "not wire" in ws_note
+    assert "dual" in ws_note
+    assert "live_lambda_source" in ws_note or "source" in ws_note
+    assert "seed_policy" in ws_note or "lambda0_from_live_primary" in ws_note
+    assert "seed" in ws_note
+    assert "caller_supplied" in ws_note and "fixture" in ws_note
+    assert "online_linf_gate" in ws_note or "online_linf_gate_under_tf_path" in ws_note
     blockers_meta = str(pkg["meta"]["offline_tf_wire_blockers"])
     assert "isolation_rewrite_required" in blockers_meta
     assert "form_label_change_required" in blockers_meta
@@ -1199,6 +1321,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "verdict" in readiness_note
     assert "bridge" in readiness_note or "live-λ" in readiness_note or "live-lambda" in readiness_note
     assert "source-labeled" in readiness_note or "live_lambda_source" in readiness_note
+    assert "warm-start" in readiness_note or "warmstart" in readiness_note or "seeded" in readiness_note
+    assert "seed_policy" in readiness_note or "seed≠proof" in readiness_note or "seed" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
@@ -1211,6 +1335,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "dual-space" in one_l or "form contract" in one_l
     assert "probe" in one_l or "l∞" in one_l
     assert "bridge" in one_l or "live-λ" in one_l or "live-lambda" in one_l or "live_lambda" in one_l
+    assert "warm-start" in one_l or "warmstart" in one_l or "seeded" in one_l or "seed_policy" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -1302,6 +1427,61 @@ def test_planner_honesty_glance_package(tmp_path):
         pkg["tf_offline_case1_dual_space_linf_live_lambda_bridge"]["dual_vector_face"]
         == "raw_online_duals"
     )
+    assert pkg.get("tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart") is not None
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["topic"]
+        == "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["wire_shipped"]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["dual_recovery_path"]
+        == "None"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "dual_linf_under_wire_status"
+        ]
+        == "unproven"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "warmstart_is_not_verdict_gate"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "warmstart_is_not_dual_linf_under_wire_proof"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "seed_identity_linf_is_not_proof"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "live_lambda_source_must_be_labeled"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["seed_policy"]
+        == "lambda0_from_live_primary_online"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["z0_policy"]
+        == "unchanged_default_skeleton_z"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["dual_vector_face"]
+        == "raw_online_duals"
+    )
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -1316,6 +1496,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_dual_space_form_contract",
         "offline_tf_case1_dual_space_linf_probe",
         "offline_tf_case1_dual_space_linf_live_lambda_bridge",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart",
         "offline_tf_wire_blockers",
         "offline_tf_wire_shipped",
         "offline_tf_readiness_note",
@@ -1350,6 +1531,11 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_wire",
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_verdict_gate",
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_source_must_be_labeled",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_duals",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_wire",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_verdict_gate",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_source_must_be_labeled",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_seed_identity_not_proof",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -1377,6 +1563,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph["offline_tf_case1_dual_space_form_contract_ready"] is True
     assert ph["offline_tf_case1_dual_space_linf_probe_ready"] is True
     assert ph["offline_tf_case1_dual_space_linf_live_lambda_bridge_ready"] is True
+    assert ph["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready"] is True
     assert ph["offline_tf_wire_shipped"] is False
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
@@ -1437,6 +1624,12 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "unproven" in ph_lb
     assert "verdict" in ph_lb
     assert "live_lambda_source" in ph_lb or "source" in ph_lb
+    ph_ws = str(ph["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart"]).lower()
+    assert "warm" in ph_ws or "seed" in ph_ws or "λ" in ph_ws or "lambda" in ph_ws
+    assert "unproven" in ph_ws
+    assert "verdict" in ph_ws
+    assert "live_lambda_source" in ph_ws or "source" in ph_ws
+    assert "seed_policy" in ph_ws or "lambda0_from_live_primary" in ph_ws
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -1476,6 +1669,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "not verdict" in ot or "verdict" in ot
     assert "bridge" in ot or "live-λ" in ot or "live-lambda" in ot or "live_lambda" in ot
     assert "source-labeled" in ot or "live_lambda_source" in ot or "source" in ot
+    assert "warm-start" in ot or "warmstart" in ot or "seeded" in ot
+    assert "seed_policy" in ot or "seed≠proof" in ot or "seed" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -1510,6 +1705,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "dual-space" in note.lower() or "form contract" in note.lower()
     assert "probe" in note.lower() or "l∞" in note.lower()
     assert "bridge" in note.lower() or "live-λ" in note.lower() or "live-lambda" in note.lower()
+    assert "warm-start" in note.lower() or "warmstart" in note.lower() or "seeded" in note.lower()
     priced_s = str(summary.get("offline_tf_priced") or "").lower()
     timing_s = str(summary.get("offline_tf_timing") or "").lower()
     admm_s = str(summary.get("offline_tf_admm_residual") or "").lower()
@@ -1522,6 +1718,9 @@ def test_planner_honesty_glance_package(tmp_path):
     ds_s = str(summary.get("offline_tf_case1_dual_space_form_contract") or "").lower()
     lp_s = str(summary.get("offline_tf_case1_dual_space_linf_probe") or "").lower()
     lb_s = str(summary.get("offline_tf_case1_dual_space_linf_live_lambda_bridge") or "").lower()
+    ws_s = str(
+        summary.get("offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart") or ""
+    ).lower()
     blockers_s = str(summary.get("offline_tf_wire_blockers") or "")
     assert "priced" in priced_s
     assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
@@ -1573,6 +1772,13 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "wire_shipped" in lb_s or "not wire" in lb_s
     assert "live_lambda_source" in lb_s or "source" in lb_s
     assert "caller_supplied" in lb_s and "fixture" in lb_s
+    assert "warm" in ws_s or "seed" in ws_s or "λ" in ws_s or "lambda" in ws_s
+    assert "unproven" in ws_s
+    assert "verdict" in ws_s
+    assert "wire_shipped" in ws_s or "not wire" in ws_s
+    assert "live_lambda_source" in ws_s or "source" in ws_s
+    assert "seed_policy" in ws_s or "lambda0_from_live_primary" in ws_s
+    assert "caller_supplied" in ws_s and "fixture" in ws_s
     assert "isolation_rewrite_required" in blockers_s
     assert "wire_not_shipped" in blockers_s
     assert "case1_is_cdu_blender_package_admm" in blockers_s
@@ -1612,6 +1818,15 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("offline_tf_case1_dual_space_linf_live_lambda_bridge_not_wire") is True
     assert checks.get("offline_tf_case1_dual_space_linf_live_lambda_bridge_not_verdict_gate") is True
     assert checks.get("offline_tf_case1_dual_space_linf_live_lambda_bridge_source_must_be_labeled") is True
+    assert checks.get("offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_duals") is True
+    assert checks.get("offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_wire") is True
+    assert checks.get("offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_verdict_gate") is True
+    assert checks.get(
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_source_must_be_labeled"
+    ) is True
+    assert checks.get(
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_seed_identity_not_proof"
+    ) is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
@@ -1636,6 +1851,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_case1_dual_space_form_contract")
     assert how.get("tf_offline_case1_dual_space_linf_probe")
     assert how.get("tf_offline_case1_dual_space_linf_live_lambda_bridge")
+    assert how.get("tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -1680,6 +1896,11 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_wire",
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_not_verdict_gate",
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_source_must_be_labeled",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_duals",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_wire",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_verdict_gate",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_source_must_be_labeled",
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_seed_identity_not_proof",
     } <= names
     assert all(r["ok"] for r in rows_good)
 
@@ -1698,6 +1919,17 @@ def test_planner_honesty_check_rows_pure():
     assert rows["offline_tf_wire_preflight_not_duals"] is True
     assert rows["offline_tf_wire_not_shipped"] is True
     assert rows["offline_tf_case1_dual_space_form_contract_not_duals"] is True
+    assert rows["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_duals"] is True
+    assert rows["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_wire"] is True
+    assert rows[
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_verdict_gate"
+    ] is True
+    assert rows[
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_source_must_be_labeled"
+    ] is True
+    assert rows[
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_seed_identity_not_proof"
+    ] is True
     assert rows["offline_tf_case1_dual_space_form_contract_not_wire"] is True
     assert rows["offline_tf_case1_dual_space_linf_probe_not_duals"] is True
     assert rows["offline_tf_case1_dual_space_linf_probe_not_wire"] is True
@@ -1741,6 +1973,8 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "not verdict" in what or "verdict" in what
     assert "bridge" in what or "live-λ" in what or "live-lambda" in what or "live_lambda" in what
     assert "source-labeled" in what or "live_lambda_source" in what
+    assert "warm-start" in what or "warmstart" in what or "seeded" in what
+    assert "seed_policy" in what or "seed≠proof" in what or "seed" in what
     assert "not" in what and "case 1" in what
     assert "not full plant" in what or "full plant mb" in what
     meta = pkg["meta"]
@@ -1756,6 +1990,7 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert meta["offline_tf_case1_dual_space_form_contract_ready"] is True
     assert meta["offline_tf_case1_dual_space_linf_probe_ready"] is True
     assert meta["offline_tf_case1_dual_space_linf_live_lambda_bridge_ready"] is True
+    assert meta["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready"] is True
     assert meta["offline_tf_wire_shipped"] is False
     assert meta["tf_dual_recovery_path"] is None
     assert meta["form"] == "classic_2block_excel_path"
@@ -1784,6 +2019,12 @@ def test_format_planner_honesty_package_priced_timing_pure():
         or "live-λ" in meta["planner_one_liner"].lower()
         or "live-lambda" in meta["planner_one_liner"].lower()
         or "live_lambda" in meta["planner_one_liner"].lower()
+    )
+    assert (
+        "warm-start" in meta["planner_one_liner"].lower()
+        or "warmstart" in meta["planner_one_liner"].lower()
+        or "seeded" in meta["planner_one_liner"].lower()
+        or "seed_policy" in meta["planner_one_liner"].lower()
     )
     admm_note = str(meta["offline_tf_admm_residual"]).lower()
     assert "synthetic" in admm_note or "admm residual" in admm_note
@@ -1929,10 +2170,76 @@ def test_format_planner_honesty_package_priced_timing_pure():
             "dual_linf_proof_checklist_open_ids"
         ]
     )
-    # probe + bridge co-exist (non-destructive packaging)
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["topic"]
+        == "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "dual_recovery_path"
+        ]
+        == "None"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["wire_shipped"]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "dual_linf_under_wire_status"
+        ]
+        == "unproven"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "warmstart_is_not_verdict_gate"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "warmstart_is_not_dual_linf_under_wire_proof"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "seed_identity_linf_is_not_proof"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "live_lambda_source_must_be_labeled"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["seed_policy"]
+        == "lambda0_from_live_primary_online"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["z0_policy"]
+        == "unchanged_default_skeleton_z"
+    )
+    assert (
+        "online_linf_gate_under_tf_path"
+        in pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"][
+            "dual_linf_proof_checklist_open_ids"
+        ]
+    )
+    # probe + bridge + warm-start co-exist (non-destructive packaging)
     assert (
         pkg["tf_offline_case1_dual_space_linf_probe"]["topic"]
         != pkg["tf_offline_case1_dual_space_linf_live_lambda_bridge"]["topic"]
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_live_lambda_bridge"]["topic"]
+        != pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["topic"]
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"]["topic"]
+        != pkg["tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart"]["topic"]
     )
 
 

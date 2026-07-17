@@ -1980,6 +1980,87 @@ def format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto() -> Dict[s
     }
 
 
+def format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto() -> Dict[str, str]:
+    """Static offline Case-1 dual-space L∞ live-λ-seeded warm-start How_to (isolation-safe #38 packaging).
+
+    Planner-facing note that offline Case-1 dual-space L∞ live-λ-seeded warm-start readiness
+    exists: seed Case-1-shaped skeleton λ0 from live/caller PRIMARY online λ (source labeled);
+    seed_policy / z0_policy documented; N skeleton rounds; post-round L∞ is proof-prep only;
+    seed identity L∞ ≠ dual L∞ under wire proof; dual_linf_under_wire=unproven with open
+    checklist (online_linf_gate_under_tf_path); warm-start ≠ VERDICT gate; warm-start ≠ dual
+    L∞ under wire proof; dual_recovery_path=None; skeleton λ ≠ Case 1 PRIMARY online /
+    SECONDARY recovered duals; wire_shipped=False; does not clear wire blockers; not form
+    flip; not dual L∞ proven. Does **not** load tf_linear_blocks or tensorflow; does **not**
+    call offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report.
+    """
+    streams = ",".join(_CASE1_SHAPED_LINKING_STREAMS)
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    allowed_src = ",".join(_LIVE_LAMBDA_SOURCE_ALLOWED)
+    one_liner = (
+        "Offline Case-1 dual-space L∞ live-λ-seeded warm-start readiness exists (static "
+        f"packaging of #38 harness): form_current={_CASE1_FORM_CURRENT}; "
+        f"form_planned={_CASE1_FORM_PLANNED} (registered only; not flip); "
+        f"linking_streams={streams}; stream_alignment_ok=true; "
+        f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; package dual gate=PRIMARY online_lambda; "
+        "SECONDARY recovered blender is not gate; seed λ0 from PRIMARY online λ "
+        f"(seed_policy={_WARMSTART_SEED_POLICY}; z0_policy={_WARMSTART_Z0_POLICY}; "
+        "seeded λ are probe inputs only; skeleton λ are not Case 1 PRIMARY online λ / "
+        "not SECONDARY recovered duals / not pure-ADMM dual recovery); "
+        f"live_lambda_source must be labeled ({allowed_src}; fixture ≠ claimed live this-run); "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; open checklist "
+        f"({open_ids}); warmstart_is_not_verdict_gate=true; "
+        "warmstart_is_not_dual_linf_under_wire_proof=true; "
+        "seed_identity_linf_is_not_proof=true; dual_recovery_path=None; "
+        "wire_shipped=False; does not clear wire_blockers; not form flip; not dual L∞ proven "
+        "under wire; not full plant mass balance; not live plant_blocks cascade. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender; "
+        "warm-start L∞ is not the Case 1 VERDICT dual gate; seed identity L∞≠proof."
+    )
+    return {
+        "topic": "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "linking_streams": streams,
+        "stream_alignment_ok": "true",
+        "dual_vector_face": _CASE1_DUAL_VECTOR_FACE,
+        "package_dual_gate": "online_lambda",
+        "package_dual_secondary": "recovered_blender",
+        "skeleton_lambda_is_not_case1_online_lambda": "true",
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": "true",
+        "live_lambda_source_must_be_labeled": "true",
+        "live_lambda_source_allowed": allowed_src,
+        "seed_policy": _WARMSTART_SEED_POLICY,
+        "z0_policy": _WARMSTART_Z0_POLICY,
+        "seeded_lambda_is_probe_input_only": "true",
+        "live_lambda_is_not_dual_recovery": "true",
+        "warmstart_is_not_verdict_gate": "true",
+        "warmstart_is_not_dual_linf_under_wire_proof": "true",
+        "warmstart_available_is_not_dual_linf_under_wire_proof": "true",
+        "seed_identity_linf_is_not_proof": "true",
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -1999,6 +2080,10 @@ _CASE1_DUAL_VECTOR_FACE = "raw_online_duals"
 # Align when tf_linear_blocks LIVE_LAMBDA_SOURCE_* changes. "missing" is not an allowed
 # successful source for packaging honesty (source must be labeled when present).
 _LIVE_LAMBDA_SOURCE_ALLOWED = ("caller_supplied", "package_extract", "fixture")
+# Excel-local mirrors of TF SEED_POLICY_* / Z0_POLICY_* (#38 warm-start). Static only —
+# never import tf_linear_blocks enums. Align when TF seed/z0 policy strings change.
+_WARMSTART_SEED_POLICY = "lambda0_from_live_primary_online"
+_WARMSTART_Z0_POLICY = "unchanged_default_skeleton_z"
 _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS = (
     "isolation_rewrite_with_wire",
     "form_label_change_shipped",
@@ -2017,16 +2102,18 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
     "wire_not_shipped",
     "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp",
 )
-# Index OFFLINE_TF one-liner: offline ladder through dual-space/form contract + dual-space
-# L∞ probe readiness. Prefer short Index clause — full honesty in How_to / Summary / meta.
+# Index OFFLINE_TF one-liner: offline ladder through dual-space L∞ live-λ-seeded warm-start
+# readiness. Prefer short Index clause — full honesty in How_to / Summary / meta.
 # Hard negatives: not Case 1; dual_recovery_path=None on TF surface; synthetic λ ≠ duals;
 # preflight ≠ wire; skeleton λ ≠ duals; contract ≠ form flip / ≠ dual L∞ proven;
-# probe ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire.
+# probe/bridge/warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire;
+# seed identity L∞ ≠ proof; seed_policy + source labeled.
 # Static only — never call live residual / subproblem / coordination / plant-linking /
-# plant-named / wire-preflight / case1-shaped / form-contract / linf-probe reports.
+# plant-named / wire-preflight / case1-shaped / form-contract / linf-probe / bridge /
+# warm-start reports. Trim-first ≤1439 hard test when adding warm-start language.
 _OFFLINE_TF_INDEX_WHAT = (
-    "FCC+COKER+CDU offline kernels + priced residual readiness + block-solve timing "
-    "readiness + ADMM residual readiness + block subproblem readiness (raw affine) + multi-round "
+    "FCC+COKER+CDU offline kernels + priced residual readiness + timing readiness + "
+    "ADMM residual readiness + block subproblem readiness (raw affine) + multi-round "
     "ADMM coordination readiness (synthetic λ,z,ρ; per-unit synthetic) + multi-block "
     "plant-linking readiness (synthetic linking topology; not full plant MB) + "
     "plant-named linking readiness "
@@ -2038,15 +2125,15 @@ _OFFLINE_TF_INDEX_WHAT = (
     "(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) + "
     "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) + "
     "dual-space L∞ live-λ bridge readiness "
-    "(source-labeled; unproven; not VERDICT; not wire; dual-ban) — "
+    "(source-labeled; unproven; not VERDICT; not wire; dual-ban) + "
+    "dual-space L∞ live-λ-seeded warm-start readiness "
+    "(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "prices/timings/synthetic residual/subproblem/coord/plant-linking/plant-named λ "
-    "not duals / not pure-ADMM dual recovery; "
-    "per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
+    "not duals; per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
     "preflight ≠ wire shipped; skeleton λ not duals / not wire; "
-    "contract ≠ form flip / ≠ dual L∞ proven / ≠ wire; "
-    "probe ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
-    "bridge ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
+    "contract ≠ form flip / ≠ dual L∞ proven; "
+    "probe/bridge/warm-start ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
     "live_lambda_source must be labeled"
 )
 _OFFLINE_TF_PRICED_NOTE = (
@@ -2131,6 +2218,20 @@ _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_NOTE = (
     "recovered duals / not pure-ADMM dual recovery; wire_shipped=False; does not clear "
     "wire_blockers; not form flip; not dual L∞ proven under wire"
 )
+_OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_NOTE = (
+    "offline Case-1 dual-space L∞ live-λ-seeded warm-start readiness — "
+    f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+    f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; "
+    f"seed_policy={_WARMSTART_SEED_POLICY}; z0_policy={_WARMSTART_Z0_POLICY}; "
+    f"live_lambda_source must be labeled ({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    "warm-start ≠ VERDICT gate; warm-start ≠ dual L∞ under wire proof; "
+    "seed identity L∞ ≠ proof; dual_recovery_path=None; seeded λ are probe inputs only; "
+    "skeleton λ not Case 1 PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM "
+    "dual recovery; wire_shipped=False; does not clear wire_blockers; not form flip; "
+    "not dual L∞ proven under wire"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -2141,13 +2242,16 @@ _OFFLINE_TF_READINESS_NOTE = (
     "dual_linf_under_wire=unproven; wire_shipped=False) + "
     "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) + "
     "dual-space L∞ live-λ bridge readiness "
-    "(source-labeled; unproven; not VERDICT; not wire; dual-ban) — "
+    "(source-labeled; unproven; not VERDICT; not wire; dual-ban) + "
+    "dual-space L∞ live-λ-seeded warm-start readiness "
+    "(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
     "contract ≠ form flip / ≠ dual L∞ proven; "
     "probe ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
     "bridge ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
+    "warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof; seed identity ≠ proof; "
     "live_lambda_source must be labeled; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
@@ -2165,17 +2269,19 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     offline_case1_shaped_cdu_blender_linking_report /
     offline_case1_dual_space_form_contract_report /
     offline_case1_dual_space_linf_probe_report /
-    offline_case1_dual_space_linf_live_lambda_bridge_report.
+    offline_case1_dual_space_linf_live_lambda_bridge_report /
+    offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
     ADMM block subproblem + multi-round ADMM coordination + multi-block
     plant-linking (synthetic) + multi-block plant-named linking + wire-preflight
     + Case-1-shaped CDU↔Blender skeleton + dual-space/form contract + dual-space
-    L∞ probe + dual-space L∞ live-λ bridge (static harness-existence flags only;
-    wire_shipped=False; blockers honesty; blender linear_quality_pooling;
-    dual_linf_under_wire=unproven; probe/bridge ≠ VERDICT gate / ≠ dual L∞ under
-    wire proof; live_lambda_source must be labeled).
+    L∞ probe + dual-space L∞ live-λ bridge + dual-space L∞ live-λ-seeded warm-start
+    (static harness-existence flags only; wire_shipped=False; blockers honesty;
+    blender linear_quality_pooling; dual_linf_under_wire=unproven; probe/bridge/
+    warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof; seed identity ≠ proof;
+    seed_policy/z0_policy documented; live_lambda_source must be labeled).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
@@ -2191,6 +2297,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_dual_space = format_tf_offline_case1_dual_space_form_contract_howto()
     tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
     tf_live_bridge = format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto()
+    tf_warmstart = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -2230,6 +2337,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_dual_space_form_contract_ready": True,  # static; not live contract report
         "offline_tf_case1_dual_space_linf_probe_ready": True,  # static; not live probe report
         "offline_tf_case1_dual_space_linf_live_lambda_bridge_ready": True,  # static; not live bridge
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready": True,  # static; not live warm-start
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -2248,6 +2356,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "offline_tf_case1_dual_space_linf_live_lambda_bridge": (
             _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_NOTE
+        ),
+        "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart": (
+            _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -2276,7 +2387,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"dual-space L∞ probe readiness "
             f"(unproven; not VERDICT; not wire; dual-ban) + "
             f"dual-space L∞ live-λ bridge readiness "
-            f"(source-labeled; unproven; not VERDICT; not wire; dual-ban) "
+            f"(source-labeled; unproven; not VERDICT; not wire; dual-ban) + "
+            f"dual-space L∞ live-λ-seeded warm-start readiness "
+            f"(seed_policy; seed≠proof; unproven; not VERDICT; not wire; dual-ban) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -2323,6 +2436,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_dual_space_linf_live_lambda_bridge",
             _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_NOTE,
         ),
+        (
+            "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart",
+            _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_SEEDED_WARMSTART_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -2345,6 +2462,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_dual_space_form_contract": tf_dual_space,
         "tf_offline_case1_dual_space_linf_probe": tf_linf_probe,
         "tf_offline_case1_dual_space_linf_live_lambda_bridge": tf_live_bridge,
+        "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart": tf_warmstart,
     }
 
 
@@ -2718,6 +2836,99 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_duals",
+            "predicted": (
+                "offline Case-1 dual-space L∞ live-λ-seeded warm-start readiness packaging "
+                "exists (static); "
+                f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+                f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; "
+                f"seed_policy={_WARMSTART_SEED_POLICY}; z0_policy={_WARMSTART_Z0_POLICY}; "
+                f"live_lambda_source must be labeled ({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "seeded λ are probe inputs only; skeleton λ not Case 1 PRIMARY online λ / "
+                "not SECONDARY recovered duals / not pure-ADMM dual recovery; "
+                "dual_recovery_path=None on warm-start surface; package dual gate remains "
+                "online_lambda; seed identity L∞ ≠ dual recovery"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ live-λ-seeded warm-start dual_recovery_path=None; "
+                "seeded λ ≠ dual recovery; skeleton λ ≠ Case 1 duals; dual_linf under wire "
+                "unproven; not pure-ADMM dual recovery; source + seed_policy must be labeled; "
+                "seed identity ≠ proof"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_wire",
+            "predicted": (
+                "wire_shipped=False; form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                "dual_linf_under_wire_unproven + wire_not_shipped remain"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ live-λ-seeded warm-start packaging only; "
+                "wire not shipped; blockers still true; form classic_2block_excel_path "
+                "unchanged; dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_not_verdict_gate",
+            "predicted": (
+                "warm-start ≠ Case 1 VERDICT dual gate; online L∞ ≤15 gate unchanged; "
+                "warmstart_ok means honesty/source/seed/align only (not L∞≤15 under wire); "
+                f"checklist open includes online_linf_gate_under_tf_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                f"live_lambda_source must be labeled ({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); "
+                f"seed_policy={_WARMSTART_SEED_POLICY}"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ live-λ-seeded warm-start is not VERDICT dual "
+                "gate; online_lambda remains PRIMARY gate; checklist "
+                "online_linf_gate_under_tf_path open; warm-start L∞ is not Case 1 dual "
+                "PASS/FAIL; source + seed_policy must be labeled"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_source_must_be_labeled",
+            "predicted": (
+                "live_lambda_source must be labeled "
+                f"({','.join(_LIVE_LAMBDA_SOURCE_ALLOWED)}); fixture ≠ claimed live this-run; "
+                "package_extract / caller_supplied are honest this-run paths when present; "
+                "missing is not a successful source for packaging honesty; "
+                f"seed_policy={_WARMSTART_SEED_POLICY}; z0_policy={_WARMSTART_Z0_POLICY}"
+            ),
+            "actual": (
+                "static honesty — live-λ-seeded warm-start packaging requires source-labeled "
+                "vocabulary + seed_policy/z0_policy; fixture is fallback only (never claimed "
+                "as live duals); not dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_seed_identity_not_proof",
+            "predicted": (
+                "seed identity L∞ (linf_at_seed often ~0 by construction) is NOT dual L∞ under "
+                "wire proof; post-round L∞ is proof-prep diagnostic only; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS} even if seed or "
+                "post-round L∞ is 0 or ≤15; seed_identity_linf_is_not_proof=true; "
+                "warmstart_is_not_dual_linf_under_wire_proof=true"
+            ),
+            "actual": (
+                "static honesty — seed identity L∞≠dual L∞ under wire proof; dual_linf stays "
+                "unproven; warm-start packaging never treats seed identity as wire proof"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -2745,6 +2956,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_dual_space = format_tf_offline_case1_dual_space_form_contract_howto()
     tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
     tf_live_bridge = format_tf_offline_case1_dual_space_linf_live_lambda_bridge_howto()
+    tf_warmstart = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
     return [
         (
             "goal",
@@ -2835,6 +3047,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_dual_space_linf_live_lambda_bridge",
             tf_live_bridge["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart",
+            tf_warmstart["planner_one_liner"],
         ),
         (
             "solve_boundary",
