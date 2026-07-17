@@ -3378,6 +3378,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d.get("includes_form_label_second_coreq_operational_prep") == "true"
     assert d.get("includes_path_third_coreq_operational_prep") == "true"
     assert d.get("includes_dual_linf_fourth_coreq_operational_prep") == "true"
+    assert d.get("includes_wire_fifth_coreq_operational_prep") == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -6624,5 +6625,105 @@ def test_dual_linf_fourth_coreq_prep_package_surfaces(tmp_path):
     checks = {r["check"]: r for r in rows}
     assert "offline_tf_dual_linf_fourth_coreq_prep_not_dual_linf_proof" in checks
     assert checks["offline_tf_dual_linf_fourth_coreq_prep_not_dual_linf_proof"]["ok"] is True
+    # No Index growth for this residual
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+
+
+def test_format_tf_offline_case1_wire_fifth_coreq_operational_prep_howto_pure():
+    """E1/E2 Excel: wire fifth-coreq operational prep How_to dual-ban (static)."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_case1_wire_fifth_coreq_operational_prep_howto,
+        _CASE1_WIRE_FIFTH_COREQ_PREP_ANTI_CRITERIA,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+    )
+    import inspect
+    import pims_admm_llm.models.excel_pipeline as ep
+
+    d = format_tf_offline_case1_wire_fifth_coreq_operational_prep_howto()
+    assert d["topic"] == "tf_offline_case1_wire_fifth_coreq_operational_prep"
+    assert d["prep_present"] == "true"
+    assert d["wire_fifth_coreq_prep_present"] == "true"
+    assert d["operational_prep_present"] == "true"
+    assert d["wire_shipped"] == "false"
+    assert d["wire_ship_allowed_today"] == "false"
+    assert d["wire_ship_criteria_met_today"] == "false"
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["dual_linf_proof_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert d["feature_flag_enabled_today"] == "false"
+    assert d["feature_flag_name"] == _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["is_first_blocking_coreq"] == "false"
+    assert d["order_hint_index"] == "4"
+    assert d["order_hint_coreq"] == "wire_shipped"
+    assert d["dual_recovery_path"] == "None"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["prep_is_not_wire_shipped"] == "true"
+    assert d["prep_is_not_wire_ship_allow"] == "true"
+    assert d["prep_is_not_wire_criteria_met"] == "true"
+    assert d["distinct_from_wire_ship_acceptance_design_contract"] == "true"
+    assert d["distinct_from_offline_wire_preflight"] == "true"
+    assert d["distinct_from_prior_coreq_operational_preps"] == "true"
+    assert d["this_prep_alone_is_not_wire_shipped"] == "true"
+    assert d["packaging_alone_is_not_wire_shipped"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "prep_present" in one
+    assert "wire_shipped=false" in one
+    assert "wire_ship_allowed_today=false" in one
+    assert "isolation_rewrite_with_wire" in one
+    assert "this_prep_alone" in _CASE1_WIRE_FIFTH_COREQ_PREP_ANTI_CRITERIA
+    assert "wire_ship_acceptance_design_alone" in _CASE1_WIRE_FIFTH_COREQ_PREP_ANTI_CRITERIA
+    assert "preflight_alone" in _CASE1_WIRE_FIFTH_COREQ_PREP_ANTI_CRITERIA
+    assert "wire_not_shipped" in _OFFLINE_WIRE_BLOCKER_IDS
+    src = inspect.getsource(
+        format_tf_offline_case1_wire_fifth_coreq_operational_prep_howto
+    )
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    assert "offline_case1_wire_fifth_coreq_operational_prep_report(" not in src
+    assert "format_tf_offline_case1_wire_fifth_coreq_operational_prep_howto" in open(
+        ep.__file__, encoding="utf-8"
+    ).read()
+
+
+def test_wire_fifth_coreq_prep_package_surfaces(tmp_path):
+    """E1/E2: wire fifth-coreq prep meta/How_to/Calc_Check dual-ban surfaces."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_wire_fifth_coreq_operational_prep_ready"] is True
+    assert pkg["meta"]["offline_tf_wire_fifth_coreq_prep_present"] is True
+    assert pkg["meta"]["offline_tf_wire_shipped"] is False
+    assert pkg["meta"]["offline_tf_wire_ship_allowed_today"] is False
+    note = str(pkg["meta"].get("offline_tf_case1_wire_fifth_coreq_operational_prep", "")).lower()
+    assert "prep" in note
+    assert "wire" in note
+    wire_prep = pkg.get("tf_offline_case1_wire_fifth_coreq_operational_prep")
+    assert wire_prep is not None
+    assert wire_prep["wire_shipped"] == "false"
+    assert wire_prep["wire_ship_allowed_today"] == "false"
+    assert wire_prep["prep_present"] == "true"
+    assert wire_prep["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert wire_prep["is_first_blocking_coreq"] == "false"
+    assert wire_prep["order_hint_index"] == "4"
+    rows = planner_honesty_check_rows(report)
+    checks = {r["check"]: r for r in rows}
+    assert "offline_tf_wire_fifth_coreq_prep_not_wire_shipped" in checks
+    assert checks["offline_tf_wire_fifth_coreq_prep_not_wire_shipped"]["ok"] is True
     # No Index growth for this residual
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
