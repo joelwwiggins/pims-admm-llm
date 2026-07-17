@@ -97,6 +97,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_honest_blender_pooling_path_available": True,
         "admm_case1_online_linf_gate_criteria_contract_available": True,
         "admm_case1_isolation_rewrite_design_contract_available": True,
+        "admm_case1_wire_ship_acceptance_design_contract_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -189,7 +190,17 @@ def honesty_metadata() -> Dict[str, Any]:
             "design ≠ rewrite shipped ≠ wire ≠ VERDICT ≠ dual L∞ under wire proof; dual-ban; "
             "dual_recovery_path=None; wire_shipped=False; isolation_rewrite_required still in "
             "DEFAULT_WIRE_BLOCKERS; does not clear DEFAULT_WIRE_BLOCKERS; does not redefine "
-            "ready_for_wire_discussion; no excel_pipeline import on hot path; no TF required."
+            "ready_for_wire_discussion; no excel_pipeline import on hot path; no TF required. "
+            "Offline Case-1 dual-honest wire-ship acceptance design/acceptance contract "
+            "available (offline_case1_wire_ship_acceptance_design_contract_report): "
+            "machine-readable criteria for when wire *may* ship; design_present=True; "
+            "wire_ship_allowed_today=False; wire_ship_criteria_met_today=False; "
+            "wire_shipped=False; dual_linf unproven; form classic; isolation rewrite not "
+            "shipped; online_linf_gate open; design ≠ ship allow ≠ wire shipped ≠ VERDICT ≠ "
+            "dual L∞ under wire proof; dual-ban; dual_recovery_path=None; full "
+            "DEFAULT_WIRE_BLOCKERS remain; does not clear DEFAULT_WIRE_BLOCKERS; does not "
+            "redefine ready_for_wire_discussion; no excel_pipeline import on hot path; no "
+            "TF required."
         ),
     }
 
@@ -1514,6 +1525,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_honest_blender_pooling_path: bool = True,
     include_admm_case1_online_linf_gate_criteria_contract: bool = True,
     include_admm_case1_isolation_rewrite_design_contract: bool = True,
+    include_admm_case1_wire_ship_acceptance_design_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1529,7 +1541,8 @@ def offline_block_solve_readiness_report(
     ``admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok``, and
     ``admm_case1_honest_blender_pooling_path_ok``, and
     ``admm_case1_online_linf_gate_criteria_contract_ok``, and
-    ``admm_case1_isolation_rewrite_design_contract_ok`` are
+    ``admm_case1_isolation_rewrite_design_contract_ok``, and
+    ``admm_case1_wire_ship_acceptance_design_contract_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1713,6 +1726,21 @@ def offline_block_solve_readiness_report(
     base["admm_case1_isolation_rewrite_design_contract_ok"] = (
         admm_case1_isolation_rewrite_design_contract_ok
     )
+    admm_case1_wire_ship_acceptance_design_contract_ok: Optional[bool] = None
+    if include_admm_case1_wire_ship_acceptance_design_contract:
+        try:
+            # Additive readiness: pure wire-ship acceptance design-only compose.
+            # design_present; wire_ship_allowed_today=False; wire_shipped=False;
+            # dual_linf unproven; not VERDICT; not wire; not ship allow.
+            wire_ship_rep = offline_case1_wire_ship_acceptance_design_contract_report()
+            admm_case1_wire_ship_acceptance_design_contract_ok = bool(
+                wire_ship_rep.get("design_contract_ok", wire_ship_rep.get("ok"))
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_wire_ship_acceptance_design_contract_ok = False
+    base["admm_case1_wire_ship_acceptance_design_contract_ok"] = (
+        admm_case1_wire_ship_acceptance_design_contract_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1751,10 +1779,14 @@ def offline_block_solve_readiness_report(
         "contract ≠ gate flip ≠ wire ≠ VERDICT); isolation-rewrite design-only contract "
         "formalizes rewrite-with-wire-not-delete while isolation_rewrite_shipped=False and "
         "checklist isolation_rewrite_with_wire stays open (design ≠ rewrite shipped ≠ wire "
-        "≠ VERDICT) — and do not redefine ready_for_wire_discussion. "
+        "≠ VERDICT); wire-ship acceptance design contract formalizes machine-readable "
+        "criteria for when wire *may* ship while wire_ship_allowed_today=False and "
+        "wire_shipped=False (design ≠ ship allow ≠ wire ≠ VERDICT) — and do not redefine "
+        "ready_for_wire_discussion. "
         "admm_case1_honest_blender_pooling_path_ok, "
-        "admm_case1_online_linf_gate_criteria_contract_ok, and "
-        "admm_case1_isolation_rewrite_design_contract_ok are additive only."
+        "admm_case1_online_linf_gate_criteria_contract_ok, "
+        "admm_case1_isolation_rewrite_design_contract_ok, and "
+        "admm_case1_wire_ship_acceptance_design_contract_ok are additive only."
     )
     return base
 
@@ -3987,6 +4019,7 @@ def offline_wire_preflight_report(
     include_admm_case1_honest_blender_pooling_path: bool = True,
     include_admm_case1_online_linf_gate_criteria_contract: bool = True,
     include_admm_case1_isolation_rewrite_design_contract: bool = True,
+    include_admm_case1_wire_ship_acceptance_design_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -4040,6 +4073,9 @@ def offline_wire_preflight_report(
         include_admm_case1_isolation_rewrite_design_contract=(
             include_admm_case1_isolation_rewrite_design_contract
         ),
+        include_admm_case1_wire_ship_acceptance_design_contract=(
+            include_admm_case1_wire_ship_acceptance_design_contract
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -4077,6 +4113,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_isolation_rewrite_design_contract_ok = readiness.get(
         "admm_case1_isolation_rewrite_design_contract_ok"
+    )
+    admm_case1_wire_ship_acceptance_design_contract_ok = readiness.get(
+        "admm_case1_wire_ship_acceptance_design_contract_ok"
     )
 
     blockers_documented = (
@@ -4132,6 +4171,10 @@ def offline_wire_preflight_report(
             admm_case1_isolation_rewrite_design_contract_ok,
             include_admm_case1_isolation_rewrite_design_contract,
         ),
+        (
+            admm_case1_wire_ship_acceptance_design_contract_ok,
+            include_admm_case1_wire_ship_acceptance_design_contract,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -4157,7 +4200,8 @@ def offline_wire_preflight_report(
         "plant_linking/plant_named/case1_shaped/dual_space_form_contract/"
         "dual_space_linf_probe/live_lambda_bridge/live_lambda_seeded_warmstart/"
         "honest_blender_pooling_path/online_linf_gate_criteria_contract/"
-        "isolation_rewrite_design_contract gates) and lists "
+        "isolation_rewrite_design_contract/wire_ship_acceptance_design_contract "
+        "gates) and lists "
         "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
@@ -4207,6 +4251,9 @@ def offline_wire_preflight_report(
         ),
         "admm_case1_isolation_rewrite_design_contract_ok": (
             admm_case1_isolation_rewrite_design_contract_ok
+        ),
+        "admm_case1_wire_ship_acceptance_design_contract_ok": (
+            admm_case1_wire_ship_acceptance_design_contract_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -8160,6 +8207,551 @@ def multi_unit_case1_isolation_rewrite_design_contract_report(
     return offline_case1_isolation_rewrite_design_contract_report(**kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Offline Case-1 dual-honest wire-ship acceptance design/acceptance contract
+# (goal 5 + 3 honesty residual after isolation design)
+# ---------------------------------------------------------------------------
+# Always-on pure compose. Formalizes machine-readable criteria for when a
+# dual-honest TF Case 1 wire *may* ship. Design only:
+# design_present=True; wire_ship_allowed_today=False; wire_shipped=False;
+# wire_ship_criteria_met_today=False. Does NOT ship wire. Does NOT rewrite
+# isolation tests. Does NOT flip form. Does NOT invent BLENDER UNITS.
+# Does NOT clear DEFAULT_WIRE_BLOCKERS. Does NOT redefine
+# ready_for_wire_discussion. No TF / no PuLP / no excel_pipeline on hot path.
+
+CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_KIND = (
+    "offline_case1_wire_ship_acceptance_design_contract"
+)
+CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_ANNOTATION = "present"
+
+# Machine-readable wire-ship acceptance criteria (requirement classes only —
+# not met-today theater). Composes isolation rewrite, form label, dual honesty
+# path, online_linf_gate under TF path, dual L∞ under wire, dual_recovery_path
+# labeling, no_silent_form_reuse, blender honesty, Case 1 package shape, and
+# affine≠plant_blocks feed LP honesty.
+CASE1_WIRE_SHIP_ACCEPTANCE_CRITERIA: Dict[str, str] = {
+    "isolation_rewrite_with_wire": FLIP_CRITERION_REQUIRED,
+    "isolation_tests_rewritten_with_wire_not_deleted": FLIP_CRITERION_REQUIRED,
+    "form_label_change_shipped": FLIP_CRITERION_REQUIRED,
+    # Offline ladder ≠ dual-honest *wire* path — remains required for ship.
+    "dual_honest_tf_aware_path_present": FLIP_CRITERION_REQUIRED,
+    "online_linf_gate_under_tf_path": FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY,
+    "dual_linf_under_wire_proven": FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY,
+    "wire_shipped": FLIP_CRITERION_REQUIRED,
+    "dual_recovery_path_labeled_honestly": FLIP_CRITERION_REQUIRED,
+    "no_silent_form_reuse": FLIP_CRITERION_REQUIRED,
+    "no_blender_offline_affine_kernel_honesty_preserved": FLIP_CRITERION_REQUIRED,
+    "case1_cdu_blender_package_admm_shape_acknowledged": FLIP_CRITERION_REQUIRED,
+    "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp": (
+        FLIP_CRITERION_REQUIRED
+    ),
+}
+
+# Explicit anti-criteria: these are NEVER wire-ship enablers today.
+CASE1_WIRE_SHIP_ANTI_CRITERIA_TODAY: tuple = (
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "packaging_alone",
+    "design_contracts_alone",
+    "isolation_design_contract_alone",
+    "gate_criteria_contract_alone",
+    "this_wire_ship_acceptance_design_alone",
+)
+
+
+def case1_wire_ship_acceptance_criteria() -> Dict[str, str]:
+    """Return a copy of the machine-readable wire-ship acceptance criteria map."""
+    return dict(CASE1_WIRE_SHIP_ACCEPTANCE_CRITERIA)
+
+
+def case1_wire_ship_acceptance_criteria_met_today_map() -> Dict[str, bool]:
+    """Per-criterion met_today snapshot under HEAD defaults.
+
+    Aggregate ship permission remains False while isolation rewrite, form
+    label shipped, dual-honest wire path, dual_linf under wire, and
+    wire_shipped remain open. Individual structural honesty labels that
+    already hold offline (e.g. dual_recovery_path labeled None on TF surface;
+    planned form distinct; blockers documented; affine≠plant_blocks honesty)
+    may be True without flipping the aggregate.
+    """
+    return {
+        "isolation_rewrite_with_wire": False,
+        "isolation_tests_rewritten_with_wire_not_deleted": False,
+        "form_label_change_shipped": False,
+        # Offline ladder ≠ dual-honest *wire* path.
+        "dual_honest_tf_aware_path_present": False,
+        # online_linf_gate closed under shipped TF path only — not today.
+        "online_linf_gate_under_tf_path": False,
+        "dual_linf_under_wire_proven": False,
+        "wire_shipped": False,
+        # TF surface dual_recovery_path is None (labeled honestly offline).
+        "dual_recovery_path_labeled_honestly": True,
+        # Planned form is registered and distinct from classic.
+        "no_silent_form_reuse": True,
+        # Blocker honesty still true (no silent BLENDER UNITS).
+        "no_blender_offline_affine_kernel_honesty_preserved": True,
+        # Case 1 package shape honesty acknowledged (blocker still true).
+        "case1_cdu_blender_package_admm_shape_acknowledged": True,
+        # Affine kernels are yield drivers — honesty still documented.
+        "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp": True,
+    }
+
+
+def case1_wire_ship_allowed_today(
+    criteria_met: Optional[Dict[str, bool]] = None,
+) -> bool:
+    """Hard False while isolation rewrite / form / dual_linf / wire path open.
+
+    Even if some structural honesty labels hold offline, aggregate ship is never
+    allowed until all *required* (not under-wire-only) criteria are met.
+    """
+    met = criteria_met if criteria_met is not None else (
+        case1_wire_ship_acceptance_criteria_met_today_map()
+    )
+    required_keys = [
+        k
+        for k, cls in CASE1_WIRE_SHIP_ACCEPTANCE_CRITERIA.items()
+        if cls == FLIP_CRITERION_REQUIRED
+    ]
+    return all(bool(met.get(k)) for k in required_keys)
+
+
+def case1_wire_ship_criteria_met_today_aggregate(
+    criteria_met: Optional[Dict[str, bool]] = None,
+) -> bool:
+    """Aggregate wire_ship_criteria_met_today — False until all required hold."""
+    return case1_wire_ship_allowed_today(criteria_met)
+
+
+def _case1_wire_ship_acceptance_design_contract_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-wire-shipped / not-VERDICT locks."""
+    return {
+        "kind": CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "design_is_not_wire_shipped": True,
+        "design_is_not_wire": True,
+        "design_is_not_isolation_rewrite_shipped": True,
+        "design_is_not_gate_flip": True,
+        "design_is_not_verdict_gate": True,
+        "design_is_not_dual_linf_under_wire_proof": True,
+        "design_is_not_ship_allow": True,
+        "probe_linf_is_not_ship_criterion_today": True,
+        "bridge_linf_is_not_ship_criterion_today": True,
+        "warmstart_linf_is_not_ship_criterion_today": True,
+        "pooling_linf_is_not_ship_criterion_today": True,
+        "seed_identity_linf_is_not_ship_criterion": True,
+        "recovered_blender_linf_is_not_ship_criterion_today": True,
+        "residual_must_vanish_is_not_ship_criterion": True,
+        "packaging_alone_is_not_ship_criterion": True,
+        "design_contracts_alone_is_not_ship_criterion": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "isolation_rewrite_shipped": False,
+        "scope": "case1_wire_ship_acceptance_design_contract_offline",
+        "note": (
+            "Offline Case-1 dual-honest wire-ship acceptance design/acceptance "
+            "contract: machine-readable criteria for when a dual-honest TF Case 1 "
+            "wire *may* ship. design_present=True; wire_ship_allowed_today=False; "
+            "wire_ship_criteria_met_today=False; wire_shipped=False; dual_linf "
+            "unproven; online_linf_gate open; isolation_rewrite_shipped=False; "
+            "isolation checklist open; gate_flip_allowed_today=False; "
+            "criteria_met_today=False; dual_recovery_path=None; solver=False; "
+            f"on_excel_case1_path=False; case1_form_unchanged ({CASE1_FORM_CURRENT}). "
+            "Design is NOT wire shipped, NOT ship allow, NOT isolation rewrite "
+            "shipped, NOT gate flip, NOT VERDICT gate, NOT dual L∞ under wire "
+            "proof. Probe/bridge/warmstart/pooling/seed-identity/recovered L∞, "
+            "residual-must-vanish, packaging alone, and design contracts alone "
+            "are not ship enablers today. Full DEFAULT_WIRE_BLOCKERS remain "
+            "(isolation_rewrite_required, form_label_change_required, "
+            "dual_linf_under_wire_unproven, case1_is_cdu_blender_package_admm, "
+            "no_blender_offline_affine_kernel, wire_not_shipped, "
+            "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp). UNITS "
+            "stay FCC/COKER/CDU. Does not clear DEFAULT_WIRE_BLOCKERS. Does not "
+            "redefine ready_for_wire_discussion. Always-on numpy; no "
+            "TF/PuLP/excel_pipeline on hot path; no maximizer; isolation suite "
+            "behavior unchanged this cycle. SUGGESTED_NEXT_WAVE still points at "
+            "full dual-honest wire (deferred)."
+        ),
+    }
+
+
+def offline_case1_wire_ship_acceptance_design_contract_report() -> Dict[str, Any]:
+    """Always-on wire-ship acceptance design contract (no TF, no PuLP, no solve).
+
+    Aggregate ``ok`` / ``design_contract_ok`` = design formalized ∧ honesty locks ∧
+    wire_shipped=False ∧ wire_ship_allowed_today=False ∧
+    wire_ship_criteria_met_today=False ∧ dual_linf unproven ∧ form classic ∧
+    isolation rewrite not shipped ∧ isolation checklist open ∧ online_linf_gate
+    open ∧ gate_flip_allowed_today=False ∧ blockers non-empty ∧ dual_recovery_path
+    is None ∧ UNITS FCC/COKER/CDU.
+    **Not** wire shipped. **Not** ship allow. **Not** isolation rewrite shipped.
+    **Not** gate flip. **Not** VERDICT. **Not** dual L∞ under wire proof.
+    Composes form contract / dual_linf checklist / isolation design presence
+    flags / gate met maps / DEFAULT_WIRE_BLOCKERS — does **not** re-run
+    maximizers/probes or rewrite isolation tests.
+    """
+    honesty = _case1_wire_ship_acceptance_design_contract_honesty_fields()
+    form = case1_form_label_contract()
+    dual_linf = case1_dual_linf_proof_checklist()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    checklist = dual_linf["dual_linf_proof_checklist"]
+    open_ids = dual_linf["dual_linf_proof_checklist_open_ids"]
+
+    isolation_status = checklist.get(CASE1_ISOLATION_REWRITE_CHECKLIST_KEY)
+    isolation_still_open = isolation_status == "open"
+    isolation_in_open = CASE1_ISOLATION_REWRITE_CHECKLIST_KEY in open_ids
+
+    gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY)
+    gate_still_open = gate_status == "open"
+    gate_in_open = CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY in open_ids
+
+    form_label_status = checklist.get("form_label_change_shipped")
+    form_label_open = form_label_status == "open" or form_label_status is None
+    # form checklist value may be the string "open" or absent as key status
+    if "form_label_change_shipped" in open_ids:
+        form_label_open = True
+
+    wire_shipped_checklist = checklist.get("wire_shipped")
+    # checklist uses false_today for wire_shipped rather than "open"
+    wire_shipped_still_false = (
+        wire_shipped_checklist in ("false_today", "open", False, None)
+        or "wire_shipped" in open_ids
+    )
+
+    criteria_map = case1_wire_ship_acceptance_criteria()
+    criteria_met_map = case1_wire_ship_acceptance_criteria_met_today_map()
+    wire_ship_allowed_today = case1_wire_ship_allowed_today(criteria_met_map)
+    wire_ship_criteria_met_today = case1_wire_ship_criteria_met_today_aggregate(
+        criteria_met_map
+    )
+
+    # Gate flip discipline (compose — do not re-run gate report recursively).
+    gate_met_map = case1_online_linf_gate_criteria_met_today_map()
+    gate_flip_allowed_today = case1_online_linf_gate_flip_allowed_today(gate_met_map)
+    gate_criteria_met_today = case1_online_linf_gate_criteria_met_today_aggregate(
+        gate_met_map
+    )
+
+    # Isolation design presence without recursive isolation report call —
+    # constants + checklist already lock rewrite_shipped=False.
+    isolation_rewrite_design_present = True
+    isolation_rewrite_shipped = False
+    isolation_tests_rewritten_with_wire = False
+
+    design_present = True
+    wire_shipped = False
+
+    required_keys = set(CASE1_WIRE_SHIP_ACCEPTANCE_CRITERIA.keys())
+    under_wire_keys = {
+        k
+        for k, cls in CASE1_WIRE_SHIP_ACCEPTANCE_CRITERIA.items()
+        if cls == FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY
+    }
+    criteria_formalized = (
+        set(criteria_map.keys()) == required_keys
+        and all(
+            criteria_map[k] == FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY
+            for k in under_wire_keys
+        )
+        and all(
+            criteria_map[k] == FLIP_CRITERION_REQUIRED
+            for k in required_keys
+            if k not in under_wire_keys
+        )
+        and len(CASE1_WIRE_SHIP_ANTI_CRITERIA_TODAY) >= 6
+    )
+
+    units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
+    critical_blockers_present = {
+        "isolation_rewrite_required",
+        "form_label_change_required",
+        "dual_linf_under_wire_unproven",
+        "case1_is_cdu_blender_package_admm",
+        "no_blender_offline_affine_kernel",
+        "wire_not_shipped",
+    }.issubset(set(blockers))
+    affine_blocker_present = (
+        "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp" in blockers
+    )
+    blocker_ok = (
+        critical_blockers_present
+        and affine_blocker_present
+        and honesty["no_blender_offline_affine_kernel_blocker_still_true"] is True
+        and honesty["case1_is_cdu_blender_package_admm_blocker_still_true"] is True
+    )
+    pooling_status = checklist.get("blender_affine_kernel_or_honest_pooling_path")
+    pooling_ok = pooling_status == CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["on_excel_case1_path"] is False
+        and honesty["design_is_not_wire_shipped"] is True
+        and honesty["design_is_not_wire"] is True
+        and honesty["design_is_not_isolation_rewrite_shipped"] is True
+        and honesty["design_is_not_gate_flip"] is True
+        and honesty["design_is_not_verdict_gate"] is True
+        and honesty["design_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["design_is_not_ship_allow"] is True
+        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["probe_linf_is_not_ship_criterion_today"] is True
+        and honesty["seed_identity_linf_is_not_ship_criterion"] is True
+        and honesty["design_contracts_alone_is_not_ship_criterion"] is True
+    )
+    dual_linf_unproven_ok = bool(
+        dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and dual_linf["dual_linf_under_wire_unproven_still_true"] is True
+        and dual_linf["dual_linf_status_unproven_ok"] is True
+    )
+    form_ok = bool(
+        form["form_contract_ok"]
+        and form["form_current"] == CASE1_FORM_CURRENT
+        and form["form_unchanged"] is True
+        and honesty["case1_form_unchanged"] is True
+        and form["planned_form_distinct"] is True
+    )
+    ship_permission_ok = (
+        wire_ship_allowed_today is False and wire_ship_criteria_met_today is False
+    )
+    gate_permission_ok = (
+        gate_flip_allowed_today is False and gate_criteria_met_today is False
+    )
+    gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
+    isolation_open_ok = (
+        isolation_still_open
+        and isolation_in_open
+        and isolation_status == "open"
+        and isolation_rewrite_shipped is False
+        and isolation_tests_rewritten_with_wire is False
+    )
+    rewrite_not_shipped_ok = (
+        isolation_rewrite_shipped is False
+        and isolation_rewrite_design_present is True
+        and honesty["isolation_rewrite_shipped"] is False
+    )
+    wire_not_shipped_ok = (
+        wire_shipped is False
+        and honesty["wire_shipped"] is False
+        and "wire_not_shipped" in blockers
+        and wire_shipped_still_false
+    )
+
+    # Ship-critical met_today keys must remain False under HEAD.
+    ship_critical_false = (
+        criteria_met_map.get("isolation_rewrite_with_wire") is False
+        and criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
+        is False
+        and criteria_met_map.get("form_label_change_shipped") is False
+        and criteria_met_map.get("dual_honest_tf_aware_path_present") is False
+        and criteria_met_map.get("dual_linf_under_wire_proven") is False
+        and criteria_met_map.get("wire_shipped") is False
+        and criteria_met_map.get("online_linf_gate_under_tf_path") is False
+    )
+
+    design_formalized = bool(
+        design_present
+        and criteria_formalized
+        and isolation_rewrite_design_present
+        and CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_ANNOTATION == "present"
+    )
+
+    honesty_ok = bool(
+        dual_ban_ok
+        and units_ok
+        and blocker_ok
+        and dual_linf_unproven_ok
+        and form_ok
+        and ship_permission_ok
+        and gate_permission_ok
+        and gate_open_ok
+        and isolation_open_ok
+        and rewrite_not_shipped_ok
+        and wire_not_shipped_ok
+        and design_formalized
+        and blockers_still_documented
+        and pooling_ok
+        and ship_critical_false
+        and form_label_open
+    )
+    design_contract_ok = honesty_ok
+    ok = design_contract_ok and (honesty["wire_shipped"] is False)
+
+    ok_criteria = (
+        "design formalized ∧ honesty locks ∧ wire_shipped=False ∧ "
+        "wire_ship_allowed_today=False ∧ wire_ship_criteria_met_today=False ∧ "
+        "dual_linf unproven ∧ form classic ∧ isolation rewrite not shipped ∧ "
+        "isolation checklist open ∧ online_linf_gate open ∧ "
+        "gate_flip_allowed_today=False ∧ blockers non-empty ∧ "
+        "dual_recovery_path=None ∧ UNITS FCC/COKER/CDU — "
+        "NOT wire shipped; NOT ship allow; NOT isolation rewrite shipped; "
+        "NOT gate flip; NOT VERDICT; NOT dual L∞ under wire proof"
+    )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "design_contract_ok": design_contract_ok,
+        "contract_ok": design_contract_ok,
+        "design_present": design_present,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "units_ok": units_ok,
+        "blocker_ok": blocker_ok,
+        "form_ok": form_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "ship_permission_ok": ship_permission_ok,
+        "gate_permission_ok": gate_permission_ok,
+        "gate_open_ok": gate_open_ok,
+        "isolation_open_ok": isolation_open_ok,
+        "rewrite_not_shipped_ok": rewrite_not_shipped_ok,
+        "wire_not_shipped_ok": wire_not_shipped_ok,
+        "design_formalized": design_formalized,
+        "criteria_formalized": criteria_formalized,
+        "ok_criteria": ok_criteria,
+        # Design annotation
+        "wire_ship_acceptance_design_contract": (
+            CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_ANNOTATION
+        ),
+        "wire_ship_acceptance_design_present": design_present,
+        # Ship permission (hard False under HEAD)
+        "wire_ship_allowed_today": wire_ship_allowed_today,
+        "wire_ship_criteria_met_today": wire_ship_criteria_met_today,
+        "criteria_map": criteria_map,
+        "acceptance_criteria": criteria_map,
+        "criteria_met_today_map": criteria_met_map,
+        "criteria_status_today": criteria_met_map,
+        "anti_criteria_today": list(CASE1_WIRE_SHIP_ANTI_CRITERIA_TODAY),
+        "acceptance_criterion_required_class": FLIP_CRITERION_REQUIRED,
+        "acceptance_criterion_required_under_wire_only_class": (
+            FLIP_CRITERION_REQUIRED_UNDER_WIRE_ONLY
+        ),
+        # Isolation design presence (compose constants — not recursive report)
+        "isolation_rewrite_design_present": isolation_rewrite_design_present,
+        "isolation_rewrite_shipped": isolation_rewrite_shipped,
+        "isolation_tests_rewritten_with_wire": isolation_tests_rewritten_with_wire,
+        "isolation_rewrite_with_wire": isolation_status,
+        "isolation_rewrite_still_open": isolation_still_open,
+        "isolation_rewrite_checklist_open": isolation_still_open,
+        "design_does_not_close_isolation_rewrite_checklist": True,
+        "design_does_not_set_isolation_met_today": True,
+        # Gate discipline
+        "online_linf_gate_under_tf_path": gate_status,
+        "online_linf_gate_still_open": gate_still_open,
+        "gate_flip_allowed_today": gate_flip_allowed_today,
+        "criteria_met_today": gate_criteria_met_today,
+        "gate_criteria_met_today_map": gate_met_map,
+        # Form
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_unchanged": form["form_unchanged"],
+        "form_contract_ok": form["form_contract_ok"],
+        "form_label_change_required_still_true": form[
+            "form_label_change_required_still_true"
+        ],
+        "form_label_change_shipped_checklist": form_label_status,
+        "form_label_change_still_open": form_label_open,
+        # Dual linf
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_status_unproven_ok": dual_linf["dual_linf_status_unproven_ok"],
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "dual_linf_proof_checklist_n_open": dual_linf[
+            "dual_linf_proof_checklist_n_open"
+        ],
+        # Pooling honesty snapshot
+        "blender_pooling_checklist_status": pooling_status,
+        "blender_pooling_checklist_key": "blender_affine_kernel_or_honest_pooling_path",
+        "honest_pooling_path_present": pooling_ok,
+        "units_affine_unchanged": list(UNITS),
+        # Blockers
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "isolation_rewrite_required_in_default_wire_blockers": (
+            "isolation_rewrite_required" in blockers
+        ),
+        "form_label_change_required_in_default_wire_blockers": (
+            "form_label_change_required" in blockers
+        ),
+        "dual_linf_under_wire_unproven_blocker_still_true": (
+            "dual_linf_under_wire_unproven" in blockers
+        ),
+        "wire_not_shipped_blocker_still_true": "wire_not_shipped" in blockers,
+        "no_blender_offline_affine_kernel_in_default_wire_blockers": (
+            "no_blender_offline_affine_kernel" in blockers
+        ),
+        "no_blender_offline_affine_kernel_in_critical_blockers": (
+            "no_blender_offline_affine_kernel" in critical
+        ),
+        "case1_is_cdu_blender_package_admm_in_default_wire_blockers": (
+            "case1_is_cdu_blender_package_admm" in blockers
+        ),
+        "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp_in_blockers": (
+            affine_blocker_present
+        ),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "suggested_next_wave_after_preflight": SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT,
+        "suggested_next_wave_still_full_wire": (
+            SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT
+            == "dual_honest_tf_case1_wire_with_isolation_rewrite_and_form_label_change"
+        ),
+        "tf_available": tf_available(),
+        "wire_ship_acceptance_design_contract_available": True,
+        "linf_le_15_is_not_gate": True,
+        "residual_must_vanish_is_not_gate": True,
+        "note": honesty["note"],
+    }
+
+
+def case1_wire_ship_acceptance_design_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_wire_ship_acceptance_design_contract_report``."""
+    return offline_case1_wire_ship_acceptance_design_contract_report(**kwargs)
+
+
+def multi_unit_case1_wire_ship_acceptance_design_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_wire_ship_acceptance_design_contract_report``."""
+    return offline_case1_wire_ship_acceptance_design_contract_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -8424,6 +9016,17 @@ __all__ = [
     "offline_case1_isolation_rewrite_design_contract_report",
     "case1_isolation_rewrite_design_contract_report",
     "multi_unit_case1_isolation_rewrite_design_contract_report",
+    "CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_KIND",
+    "CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_ANNOTATION",
+    "CASE1_WIRE_SHIP_ACCEPTANCE_CRITERIA",
+    "CASE1_WIRE_SHIP_ANTI_CRITERIA_TODAY",
+    "case1_wire_ship_acceptance_criteria",
+    "case1_wire_ship_acceptance_criteria_met_today_map",
+    "case1_wire_ship_allowed_today",
+    "case1_wire_ship_criteria_met_today_aggregate",
+    "offline_case1_wire_ship_acceptance_design_contract_report",
+    "case1_wire_ship_acceptance_design_contract_report",
+    "multi_unit_case1_wire_ship_acceptance_design_contract_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
