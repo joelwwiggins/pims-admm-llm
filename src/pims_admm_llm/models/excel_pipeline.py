@@ -1837,6 +1837,74 @@ def format_tf_offline_case1_dual_space_form_contract_howto() -> Dict[str, str]:
     }
 
 
+def format_tf_offline_case1_dual_space_linf_probe_howto() -> Dict[str, str]:
+    """Static offline Case-1 dual-space L∞ probe How_to (isolation-safe #34 packaging).
+
+    Planner-facing note that offline Case-1 dual-space L∞ probe / dual_linf proof-prep
+    readiness exists: stream-aligned L∞ prep (fixture/supplied PRIMARY online λ face vs
+    Case-1-shaped skeleton λ); dual_linf_under_wire=unproven with open checklist
+    (online_linf_gate_under_tf_path); probe ≠ VERDICT gate; probe ≠ dual L∞ under wire
+    proof; dual_recovery_path=None; skeleton λ ≠ Case 1 PRIMARY online / SECONDARY
+    recovered duals; wire_shipped=False; does not clear wire blockers; not form flip;
+    not dual L∞ proven. Does **not** load tf_linear_blocks or tensorflow; does **not**
+    call offline_case1_dual_space_linf_probe_report.
+    """
+    streams = ",".join(_CASE1_SHAPED_LINKING_STREAMS)
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    one_liner = (
+        "Offline Case-1 dual-space L∞ probe readiness exists (static packaging of #34 "
+        f"harness): form_current={_CASE1_FORM_CURRENT}; form_planned={_CASE1_FORM_PLANNED} "
+        f"(registered only; not flip); linking_streams={streams}; stream_alignment_ok=true; "
+        f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; package dual gate=PRIMARY online_lambda; "
+        "SECONDARY recovered blender is not gate; fixture/supplied PRIMARY online λ face vs "
+        "Case-1-shaped skeleton λ (skeleton λ are not Case 1 PRIMARY online λ / not SECONDARY "
+        "recovered duals / not pure-ADMM dual recovery); "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; open checklist "
+        f"({open_ids}); probe_is_not_verdict_gate=true; "
+        "probe_is_not_dual_linf_under_wire_proof=true; dual_recovery_path=None; "
+        "wire_shipped=False; does not clear wire_blockers; not form flip; not dual L∞ proven "
+        "under wire; not full plant mass balance; not live plant_blocks cascade. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender; "
+        "probe L∞ is not the Case 1 VERDICT dual gate."
+    )
+    return {
+        "topic": "tf_offline_case1_dual_space_linf_probe",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "linking_streams": streams,
+        "stream_alignment_ok": "true",
+        "dual_vector_face": _CASE1_DUAL_VECTOR_FACE,
+        "package_dual_gate": "online_lambda",
+        "package_dual_secondary": "recovered_blender",
+        "skeleton_lambda_is_not_case1_online_lambda": "true",
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": "true",
+        "probe_is_not_verdict_gate": "true",
+        "probe_is_not_dual_linf_under_wire_proof": "true",
+        "probe_available_is_not_dual_linf_under_wire_proof": "true",
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -1850,6 +1918,8 @@ _CASE1_SHAPED_BLENDER_SURFACE = "linear_quality_pooling"
 _CASE1_FORM_CURRENT = "classic_2block_excel_path"
 _CASE1_FORM_PLANNED = "tf_affine_cdu_blender_shaped_excel_path"  # mirror CASE1_PLANNED_TF_AWARE_FORM
 _CASE1_DUAL_LINF_UNDER_WIRE_STATUS = "unproven"
+# Excel-local mirror of default probe dual_vector_face (#34). Static only.
+_CASE1_DUAL_VECTOR_FACE = "raw_online_duals"
 _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS = (
     "isolation_rewrite_with_wire",
     "form_label_change_shipped",
@@ -1868,48 +1938,33 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
     "wire_not_shipped",
     "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp",
 )
-# Index OFFLINE_TF one-liner: kernels + priced residual readiness + block-solve timing
-# readiness + ADMM residual readiness + ADMM block subproblem readiness + multi-round
-# ADMM coordination readiness (per-unit synthetic) + multi-block plant-linking readiness
-# (synthetic linking topology + shared λ/z + incidence; not full plant MB) + multi-block
-# plant-named linking readiness (plant product streams + identity incidence; not full plant MB)
-# + wire-preflight readiness (blockers; wire_shipped=False) + Case-1-shaped CDU↔Blender
-# skeleton readiness (linear_quality_pooling; naphtha/distillate/gasoil/residue;
-# wire_shipped=False) + dual-space/form contract readiness (planned form registered;
-# dual_linf unproven; wire_shipped=False). Keep Index clause short — full honesty lives
-# in How_to / Summary / meta, not Index WHAT.
-# Hard negatives: not Case 1; TF dual_recovery_path=None; prices ≠ duals; timings ≠ Case 1
-# wall / ≠ online λ; synthetic residual/subproblem/coordination λ ≠ Case 1 duals / ≠ pure-ADMM
-# dual recovery; per-unit coordination ≠ plant linking; plant-linking λ ≠ duals / ≠ full plant MB
-# / ≠ wire; plant-named λ ≠ duals / ≠ full plant MB / ≠ live cascade / ≠ wire; x_star ≠ online λ;
-# preflight ≠ wire shipped; preflight λ ≠ Case 1 duals; skeleton λ ≠ Case 1 duals; skeleton ≠ wire;
-# dual-space contract ≠ form flip / ≠ dual L∞ proven / ≠ wire.
-# Static only — never call live readiness / residual / subproblem / coordination / plant-linking
-# / plant-named / wire-preflight / case1-shaped skeleton / dual-space form contract reports.
+# Index OFFLINE_TF one-liner: offline ladder through dual-space/form contract + dual-space
+# L∞ probe readiness. Prefer short Index clause — full honesty in How_to / Summary / meta.
+# Hard negatives: not Case 1; dual_recovery_path=None on TF surface; synthetic λ ≠ duals;
+# preflight ≠ wire; skeleton λ ≠ duals; contract ≠ form flip / ≠ dual L∞ proven;
+# probe ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire.
+# Static only — never call live residual / subproblem / coordination / plant-linking /
+# plant-named / wire-preflight / case1-shaped / form-contract / linf-probe reports.
 _OFFLINE_TF_INDEX_WHAT = (
-    "FCC+COKER+CDU exact-linear kernels offline + priced residual readiness + "
-    "block-solve timing readiness + ADMM residual readiness + "
-    "ADMM block subproblem readiness + multi-round ADMM coordination readiness "
-    "(synthetic λ,z,ρ; per-unit synthetic; raw affine under box) + "
-    "multi-block plant-linking readiness "
-    "(synthetic linking topology + shared λ/z + incidence; not full plant MB) + "
+    "FCC+COKER+CDU offline kernels + priced residual readiness + block-solve timing "
+    "readiness + ADMM residual readiness + block subproblem readiness (raw affine under box) + multi-round "
+    "ADMM coordination readiness (synthetic λ,z,ρ; per-unit synthetic) + multi-block "
+    "plant-linking readiness (synthetic linking topology; not full plant MB) + "
     "multi-block plant-named linking readiness "
     "(plant product streams + identity incidence; plant_named_offline_demo; not full plant MB) + "
     "wire-preflight readiness (blockers; wire_shipped=False) + "
-    "Case-1-shaped CDU↔Blender skeleton readiness "
+    "Case-1-shaped skeleton readiness "
     "(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False) + "
     "dual-space/form contract readiness "
-    "(planned≠classic form registered; streams aligned; dual_linf_under_wire=unproven; "
-    "wire_shipped=False) — "
+    "(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) + "
+    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
-    "prices not duals; timings not Case 1 wall / not online λ; "
-    "synthetic residual/subproblem/coordination λ not duals / not pure-ADMM dual recovery; "
-    "per-unit coordination ≠ plant linking; "
-    "plant-linking λ not duals / not pure-ADMM dual recovery / not full plant MB / not wire; "
-    "plant-named λ not duals / not pure-ADMM dual recovery / not full plant MB / not live cascade / not wire; "
-    "preflight ≠ wire shipped; preflight λ not duals; "
-    "skeleton λ not duals / not pure-ADMM dual recovery / not wire; "
-    "contract ≠ form flip / ≠ dual L∞ proven / ≠ wire"
+    "prices/timings/synthetic residual/subproblem/coord/plant-linking/plant-named λ "
+    "not duals / not pure-ADMM dual recovery; "
+    "per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
+    "preflight ≠ wire shipped; skeleton λ not duals / not wire; "
+    "contract ≠ form flip / ≠ dual L∞ proven / ≠ wire; "
+    "probe ≠ VERDICT gate / ≠ dual L∞ under wire proof / ≠ wire"
 )
 _OFFLINE_TF_PRICED_NOTE = (
     "offline priced residual readiness (FCC+COKER+CDU) — synthetic prices not ADMM λ / not Case 1 shadows"
@@ -1970,6 +2025,17 @@ _OFFLINE_TF_CASE1_DUAL_SPACE_FORM_CONTRACT_NOTE = (
     "duals / not pure-ADMM dual recovery; wire_shipped=False; does not clear wire_blockers; "
     "not form flip; not dual L∞ proven under wire"
 )
+_OFFLINE_TF_CASE1_DUAL_SPACE_LINF_PROBE_NOTE = (
+    "offline Case-1 dual-space L∞ probe readiness — "
+    f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+    f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    "probe ≠ VERDICT gate; probe ≠ dual L∞ under wire proof; dual_recovery_path=None; "
+    "skeleton λ not Case 1 PRIMARY online λ / not SECONDARY recovered duals / not pure-ADMM "
+    "dual recovery; wire_shipped=False; does not clear wire_blockers; not form flip; "
+    "not dual L∞ proven under wire"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -1977,11 +2043,13 @@ _OFFLINE_TF_READINESS_NOTE = (
     "Case-1-shaped CDU↔Blender skeleton (linear_quality_pooling; "
     "naphtha/distillate/gasoil/residue; wire_shipped=False) + "
     "dual-space/form contract (planned≠classic form registered; streams aligned; "
-    "dual_linf_under_wire=unproven; wire_shipped=False) — "
+    "dual_linf_under_wire=unproven; wire_shipped=False) + "
+    "dual-space L∞ probe readiness (unproven; not VERDICT; not wire; dual-ban) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
     "contract ≠ form flip / ≠ dual L∞ proven; "
+    "probe ≠ VERDICT gate / ≠ dual L∞ under wire proof; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
 
@@ -1996,15 +2064,17 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     multi_unit_admm_coordination_report / multi_block_plant_linking_admm_report /
     multi_block_plant_named_linking_admm_report / offline_wire_preflight_report /
     offline_case1_shaped_cdu_blender_linking_report /
-    offline_case1_dual_space_form_contract_report.
+    offline_case1_dual_space_form_contract_report /
+    offline_case1_dual_space_linf_probe_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
     ADMM block subproblem + multi-round ADMM coordination + multi-block
     plant-linking (synthetic) + multi-block plant-named linking + wire-preflight
-    + Case-1-shaped CDU↔Blender skeleton + dual-space/form contract (static
-    harness-existence flags only; wire_shipped=False; blockers honesty;
-    blender linear_quality_pooling; dual_linf_under_wire=unproven).
+    + Case-1-shaped CDU↔Blender skeleton + dual-space/form contract + dual-space
+    L∞ probe (static harness-existence flags only; wire_shipped=False; blockers
+    honesty; blender linear_quality_pooling; dual_linf_under_wire=unproven;
+    probe ≠ VERDICT gate / ≠ dual L∞ under wire proof).
     """
     dual = format_dual_honesty_summary(report)
     tf_off = format_tf_offline_units_howto()
@@ -2018,6 +2088,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_preflight = format_tf_offline_wire_preflight_howto()
     tf_case1_shaped = format_tf_offline_case1_shaped_linking_howto()
     tf_dual_space = format_tf_offline_case1_dual_space_form_contract_howto()
+    tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -2055,6 +2126,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_wire_preflight_ready": True,  # static; not live offline_wire_preflight_report
         "offline_tf_case1_shaped_linking_ready": True,  # static; not live skeleton report
         "offline_tf_case1_dual_space_form_contract_ready": True,  # static; not live contract report
+        "offline_tf_case1_dual_space_linf_probe_ready": True,  # static; not live probe report
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -2067,6 +2139,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_shaped_linking": _OFFLINE_TF_CASE1_SHAPED_LINKING_NOTE,
         "offline_tf_case1_dual_space_form_contract": (
             _OFFLINE_TF_CASE1_DUAL_SPACE_FORM_CONTRACT_NOTE
+        ),
+        "offline_tf_case1_dual_space_linf_probe": (
+            _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_PROBE_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -2091,7 +2166,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False; "
             f"skeleton ≠ wire) + "
             f"dual-space/form contract readiness "
-            f"(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) "
+            f"(planned≠classic form registered; dual_linf_under_wire=unproven; wire_shipped=False) + "
+            f"dual-space L∞ probe readiness "
+            f"(unproven; not VERDICT; not wire; dual-ban) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -2130,6 +2207,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_dual_space_form_contract",
             _OFFLINE_TF_CASE1_DUAL_SPACE_FORM_CONTRACT_NOTE,
         ),
+        (
+            "offline_tf_case1_dual_space_linf_probe",
+            _OFFLINE_TF_CASE1_DUAL_SPACE_LINF_PROBE_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -2150,6 +2231,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_wire_preflight": tf_preflight,
         "tf_offline_case1_shaped_linking": tf_case1_shaped,
         "tf_offline_case1_dual_space_form_contract": tf_dual_space,
+        "tf_offline_case1_dual_space_linf_probe": tf_linf_probe,
     }
 
 
@@ -2160,8 +2242,8 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     Non-numeric honesty rows use string notes in predicted/actual; ok is boolean.
     Static only: never runs priced residual, timing, ADMM residual, block
     subproblem, multi-round coordination, plant-linking, plant-named,
-    wire-preflight, Case-1-shaped skeleton, or dual-space/form contract harness
-    (isolation + smoke latency).
+    wire-preflight, Case-1-shaped skeleton, dual-space/form contract, or dual-space
+    L∞ probe harness (isolation + smoke latency).
     """
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -2402,6 +2484,58 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_dual_space_linf_probe_not_duals",
+            "predicted": (
+                "offline Case-1 dual-space L∞ probe readiness packaging exists (static); "
+                f"streams={','.join(_CASE1_SHAPED_LINKING_STREAMS)}; "
+                f"dual_vector_face={_CASE1_DUAL_VECTOR_FACE}; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "skeleton λ not Case 1 PRIMARY online λ / not SECONDARY recovered duals / "
+                "not pure-ADMM dual recovery; dual_recovery_path=None on probe surface; "
+                "package dual gate remains online_lambda"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ probe dual_recovery_path=None; "
+                "skeleton λ ≠ Case 1 duals; dual_linf under wire unproven; "
+                "probe available ≠ dual recovery; not pure-ADMM dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_probe_not_wire",
+            "predicted": (
+                "wire_shipped=False; form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                "dual_linf_under_wire_unproven + wire_not_shipped remain"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ probe packaging only; wire not shipped; "
+                "blockers still true; form classic_2block_excel_path unchanged; "
+                "dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_space_linf_probe_not_verdict_gate",
+            "predicted": (
+                "probe ≠ Case 1 VERDICT dual gate; online L∞ ≤15 gate unchanged; "
+                "probe_ok means honesty/align/finite only (not L∞≤15 under wire); "
+                f"checklist open includes online_linf_gate_under_tf_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}"
+            ),
+            "actual": (
+                "static honesty — dual-space L∞ probe is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY gate; checklist online_linf_gate_under_tf_path open; "
+                "probe L∞ is not Case 1 dual PASS/FAIL"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -2427,6 +2561,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_preflight = format_tf_offline_wire_preflight_howto()
     tf_case1_shaped = format_tf_offline_case1_shaped_linking_howto()
     tf_dual_space = format_tf_offline_case1_dual_space_form_contract_howto()
+    tf_linf_probe = format_tf_offline_case1_dual_space_linf_probe_howto()
     return [
         (
             "goal",
@@ -2509,6 +2644,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_dual_space_form_contract",
             tf_dual_space["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_dual_space_linf_probe",
+            tf_linf_probe["planner_one_liner"],
         ),
         (
             "solve_boundary",
