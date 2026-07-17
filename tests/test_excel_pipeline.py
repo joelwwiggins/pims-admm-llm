@@ -335,6 +335,20 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "dual" in dslow and ("none" in dslow or "primary" in dslow)
     assert "not" in dslow and "wire" in dslow
 
+    # Offline Case-1 dual-space L∞ probe How_to (static packaging of #34)
+    tf_lp = how.get("tf_offline_case1_dual_space_linf_probe", "")
+    assert tf_lp, "How_to_read must include tf_offline_case1_dual_space_linf_probe"
+    lplow = tf_lp.lower()
+    assert "probe" in lplow or "l∞" in lplow or "linf" in lplow
+    assert "unproven" in lplow
+    assert "verdict" in lplow
+    assert "online_linf_gate_under_tf_path" in lplow or "online_linf_gate" in lplow
+    assert "naphtha" in lplow and "residue" in lplow
+    assert "wire_shipped" in lplow or "wire shipped" in lplow or "not wire" in lplow
+    assert "dual" in lplow and ("none" in lplow or "primary" in lplow)
+    assert "not" in lplow and "wire" in lplow
+    assert "raw_online_duals" in lplow or "dual_vector_face" in lplow
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -677,6 +691,74 @@ def test_format_tf_offline_case1_dual_space_form_contract_howto_pure():
     assert "not" in one and "wire" in one
 
 
+def test_format_tf_offline_case1_dual_space_linf_probe_howto_pure():
+    """Static dual-space L∞ probe How_to: dual-ban, unproven, not VERDICT, not wire; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_DUAL_VECTOR_FACE,
+        _CASE1_FORM_CURRENT,
+        _CASE1_FORM_PLANNED,
+        _CASE1_SHAPED_LINKING_STREAMS,
+        format_tf_offline_case1_dual_space_linf_probe_howto,
+    )
+
+    d = format_tf_offline_case1_dual_space_linf_probe_howto()
+    assert d["topic"] == "tf_offline_case1_dual_space_linf_probe"
+    assert "CDU" in d["units"] and "Blender" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["not_case1_solve"] == "true"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["form_planned"] == _CASE1_FORM_PLANNED
+    assert d["form_current"] == "classic_2block_excel_path"
+    assert d["form_planned"] == "tf_affine_cdu_blender_shaped_excel_path"
+    assert d["form_current"] != d["form_planned"]
+    assert d["case1_form_unchanged"] == "true"
+    assert d["form_unchanged"] == "true"
+    assert d["form_label_change_required_still_true"] == "true"
+    assert d["planned_form_distinct"] == "true"
+    assert d["dual_recovery_path"] == "None"
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    streams = d["linking_streams"]
+    for s in _CASE1_SHAPED_LINKING_STREAMS:
+        assert s in streams
+    assert d["stream_alignment_ok"] == "true"
+    assert d["dual_vector_face"] == _CASE1_DUAL_VECTOR_FACE
+    assert d["dual_vector_face"] == "raw_online_duals"
+    assert d["package_dual_gate"] == "online_lambda"
+    assert d["package_dual_secondary"] == "recovered_blender"
+    assert d["skeleton_lambda_is_not_case1_online_lambda"] == "true"
+    assert d["skeleton_lambda_is_not_case1_primary_or_secondary_duals"] == "true"
+    assert d["probe_is_not_verdict_gate"] == "true"
+    assert d["probe_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["probe_available_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    open_ids = d["dual_linf_proof_checklist_open_ids"]
+    for oid in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS:
+        assert oid in open_ids
+    assert "online_linf_gate_under_tf_path" in open_ids
+    assert d["does_not_clear_wire_blockers"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    assert d["not_form_flip"] == "true"
+    assert d["not_dual_linf_under_wire_proven"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "probe" in one or "l∞" in one or "linf" in one
+    assert "classic_2block" in one or "form_current" in one
+    assert "naphtha" in one and "residue" in one
+    assert "unproven" in one
+    assert "verdict" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "primary" in one
+    assert "dual" in one and "none" in one
+    assert "not" in one and "wire" in one
+    assert "online_linf_gate" in one
+
+
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""
     from pims_admm_llm.models.tf_linear_blocks import excel_fcc_matrix_matches_affine
@@ -900,6 +982,12 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "dual-space" in what_l or "dual_space" in what_l or "form contract" in what_l
     assert "unproven" in what_l
     assert "planned" in what_l or "form" in what_l
+    # Dual-space L∞ probe readiness (short Index clause; hold/trim vs prior 1439)
+    assert "probe" in what_l or "l∞" in what_l or "linf" in what_l
+    assert "not verdict" in what_l or "verdict" in what_l
+    assert "dual-ban" in what_l or "dual_recovery_path=none" in what_l or "dual-ban" in what_l.replace(" ", "")
+    from pims_admm_llm.models.excel_pipeline import _OFFLINE_TF_INDEX_WHAT
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439, len(_OFFLINE_TF_INDEX_WHAT)
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
     assert pkg["meta"]["dual_gate"] == "online_lambda"
     assert pkg["meta"]["verdict_dual_gate"] == "online_only"
@@ -917,6 +1005,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_wire_preflight_ready"] is True
     assert pkg["meta"]["offline_tf_case1_shaped_linking_ready"] is True
     assert pkg["meta"]["offline_tf_case1_dual_space_form_contract_ready"] is True
+    assert pkg["meta"]["offline_tf_case1_dual_space_linf_probe_ready"] is True
     assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
@@ -974,6 +1063,13 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "tf_affine_cdu_blender" in ds_note or "form_planned" in ds_note
     assert "unproven" in ds_note
     assert "wire_shipped" in ds_note or "not wire" in ds_note
+    lp_note = str(pkg["meta"]["offline_tf_case1_dual_space_linf_probe"]).lower()
+    assert "probe" in lp_note or "l∞" in lp_note or "linf" in lp_note
+    assert "unproven" in lp_note
+    assert "verdict" in lp_note
+    assert "wire_shipped" in lp_note or "not wire" in lp_note
+    assert "dual" in lp_note
+    assert "online_linf_gate" in lp_note or "online_linf_gate_under_tf_path" in lp_note
     blockers_meta = str(pkg["meta"]["offline_tf_wire_blockers"])
     assert "isolation_rewrite_required" in blockers_meta
     assert "form_label_change_required" in blockers_meta
@@ -992,6 +1088,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "case-1-shaped" in readiness_note or "case1" in readiness_note or "skeleton" in readiness_note
     assert "dual-space" in readiness_note or "form contract" in readiness_note
     assert "unproven" in readiness_note
+    assert "probe" in readiness_note or "l∞" in readiness_note
+    assert "verdict" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
@@ -1002,6 +1100,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "wire-preflight" in one_l or "wire preflight" in one_l
     assert "case-1-shaped" in one_l or "skeleton" in one_l
     assert "dual-space" in one_l or "form contract" in one_l
+    assert "probe" in one_l or "l∞" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -1040,6 +1139,28 @@ def test_planner_honesty_glance_package(tmp_path):
         pkg["tf_offline_case1_dual_space_form_contract"]["dual_linf_under_wire_status"]
         == "unproven"
     )
+    assert pkg.get("tf_offline_case1_dual_space_linf_probe") is not None
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"]["topic"]
+        == "tf_offline_case1_dual_space_linf_probe"
+    )
+    assert pkg["tf_offline_case1_dual_space_linf_probe"]["wire_shipped"] == "false"
+    assert pkg["tf_offline_case1_dual_space_linf_probe"]["dual_recovery_path"] == "None"
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"]["dual_linf_under_wire_status"]
+        == "unproven"
+    )
+    assert pkg["tf_offline_case1_dual_space_linf_probe"]["probe_is_not_verdict_gate"] == "true"
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"][
+            "probe_is_not_dual_linf_under_wire_proof"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"]["dual_vector_face"]
+        == "raw_online_duals"
+    )
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -1052,6 +1173,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_wire_preflight",
         "offline_tf_case1_shaped_linking",
         "offline_tf_case1_dual_space_form_contract",
+        "offline_tf_case1_dual_space_linf_probe",
         "offline_tf_wire_blockers",
         "offline_tf_wire_shipped",
         "offline_tf_readiness_note",
@@ -1079,6 +1201,9 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_shaped_not_wire",
         "offline_tf_case1_dual_space_form_contract_not_duals",
         "offline_tf_case1_dual_space_form_contract_not_wire",
+        "offline_tf_case1_dual_space_linf_probe_not_duals",
+        "offline_tf_case1_dual_space_linf_probe_not_wire",
+        "offline_tf_case1_dual_space_linf_probe_not_verdict_gate",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -1104,6 +1229,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph["offline_tf_wire_preflight_ready"] is True
     assert ph["offline_tf_case1_shaped_linking_ready"] is True
     assert ph["offline_tf_case1_dual_space_form_contract_ready"] is True
+    assert ph["offline_tf_case1_dual_space_linf_probe_ready"] is True
     assert ph["offline_tf_wire_shipped"] is False
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
@@ -1155,6 +1281,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "dual-space" in ph_ds or "form contract" in ph_ds or "form_planned" in ph_ds
     assert "unproven" in ph_ds
     assert "classic_2block" in ph_ds or "form_current" in ph_ds
+    ph_lp = str(ph["offline_tf_case1_dual_space_linf_probe"]).lower()
+    assert "probe" in ph_lp or "l∞" in ph_lp or "linf" in ph_lp
+    assert "unproven" in ph_lp
+    assert "verdict" in ph_lp
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -1190,6 +1320,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "naphtha" in ot and "residue" in ot
     assert "dual-space" in ot or "form contract" in ot
     assert "unproven" in ot
+    assert "probe" in ot or "l∞" in ot or "linf" in ot
+    assert "not verdict" in ot or "verdict" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -1222,6 +1354,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "wire-preflight" in note.lower() or "wire preflight" in note.lower()
     assert "case-1-shaped" in note.lower() or "skeleton" in note.lower()
     assert "dual-space" in note.lower() or "form contract" in note.lower()
+    assert "probe" in note.lower() or "l∞" in note.lower()
     priced_s = str(summary.get("offline_tf_priced") or "").lower()
     timing_s = str(summary.get("offline_tf_timing") or "").lower()
     admm_s = str(summary.get("offline_tf_admm_residual") or "").lower()
@@ -1232,6 +1365,7 @@ def test_planner_honesty_glance_package(tmp_path):
     pre_s = str(summary.get("offline_tf_wire_preflight") or "").lower()
     c1_s = str(summary.get("offline_tf_case1_shaped_linking") or "").lower()
     ds_s = str(summary.get("offline_tf_case1_dual_space_form_contract") or "").lower()
+    lp_s = str(summary.get("offline_tf_case1_dual_space_linf_probe") or "").lower()
     blockers_s = str(summary.get("offline_tf_wire_blockers") or "")
     assert "priced" in priced_s
     assert "not" in priced_s and ("dual" in priced_s or "shadow" in priced_s or "λ" in priced_s or "lambda" in priced_s)
@@ -1273,6 +1407,10 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "unproven" in ds_s
     assert "classic_2block" in ds_s or "form_current" in ds_s
     assert "tf_affine_cdu_blender" in ds_s or "form_planned" in ds_s
+    assert "probe" in lp_s or "l∞" in lp_s or "linf" in lp_s
+    assert "unproven" in lp_s
+    assert "verdict" in lp_s
+    assert "wire_shipped" in lp_s or "not wire" in lp_s
     assert "isolation_rewrite_required" in blockers_s
     assert "wire_not_shipped" in blockers_s
     assert "case1_is_cdu_blender_package_admm" in blockers_s
@@ -1305,6 +1443,9 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get("offline_tf_case1_shaped_not_wire") is True
     assert checks.get("offline_tf_case1_dual_space_form_contract_not_duals") is True
     assert checks.get("offline_tf_case1_dual_space_form_contract_not_wire") is True
+    assert checks.get("offline_tf_case1_dual_space_linf_probe_not_duals") is True
+    assert checks.get("offline_tf_case1_dual_space_linf_probe_not_wire") is True
+    assert checks.get("offline_tf_case1_dual_space_linf_probe_not_verdict_gate") is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
@@ -1327,6 +1468,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_wire_preflight")
     assert how.get("tf_offline_case1_shaped_linking")
     assert how.get("tf_offline_case1_dual_space_form_contract")
+    assert how.get("tf_offline_case1_dual_space_linf_probe")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -1364,6 +1506,9 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_case1_shaped_not_wire",
         "offline_tf_case1_dual_space_form_contract_not_duals",
         "offline_tf_case1_dual_space_form_contract_not_wire",
+        "offline_tf_case1_dual_space_linf_probe_not_duals",
+        "offline_tf_case1_dual_space_linf_probe_not_wire",
+        "offline_tf_case1_dual_space_linf_probe_not_verdict_gate",
     } <= names
     assert all(r["ok"] for r in rows_good)
 
@@ -1383,10 +1528,13 @@ def test_planner_honesty_check_rows_pure():
     assert rows["offline_tf_wire_not_shipped"] is True
     assert rows["offline_tf_case1_dual_space_form_contract_not_duals"] is True
     assert rows["offline_tf_case1_dual_space_form_contract_not_wire"] is True
+    assert rows["offline_tf_case1_dual_space_linf_probe_not_duals"] is True
+    assert rows["offline_tf_case1_dual_space_linf_probe_not_wire"] is True
+    assert rows["offline_tf_case1_dual_space_linf_probe_not_verdict_gate"] is True
 
 
 def test_format_planner_honesty_package_priced_timing_pure():
-    """Pure formatter exposes priced + timing + residual + subproblem + coordination + plant-linking + plant-named + wire-preflight + dual-space contract readiness without TF or full solve."""
+    """Pure formatter exposes priced + timing + residual + subproblem + coordination + plant-linking + plant-named + wire-preflight + dual-space contract + dual-space L∞ probe readiness without TF or full solve."""
     from pims_admm_llm.models.excel_pipeline import format_planner_honesty_package
 
     fake = {
@@ -1414,6 +1562,8 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "wire_shipped=false" in what or "wire_shipped=false" in what.replace(" ", "")
     assert "dual-space" in what or "form contract" in what
     assert "unproven" in what
+    assert "probe" in what or "l∞" in what or "linf" in what
+    assert "not verdict" in what or "verdict" in what
     assert "not" in what and "case 1" in what
     assert "not full plant" in what or "full plant mb" in what
     meta = pkg["meta"]
@@ -1427,6 +1577,7 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert meta["offline_tf_wire_preflight_ready"] is True
     assert meta["offline_tf_case1_shaped_linking_ready"] is True
     assert meta["offline_tf_case1_dual_space_form_contract_ready"] is True
+    assert meta["offline_tf_case1_dual_space_linf_probe_ready"] is True
     assert meta["offline_tf_wire_shipped"] is False
     assert meta["tf_dual_recovery_path"] is None
     assert meta["form"] == "classic_2block_excel_path"
@@ -1445,6 +1596,9 @@ def test_format_planner_honesty_package_priced_timing_pure():
         "planner_one_liner"
     ].lower()
     assert "dual-space" in meta["planner_one_liner"].lower() or "form contract" in meta[
+        "planner_one_liner"
+    ].lower()
+    assert "probe" in meta["planner_one_liner"].lower() or "l∞" in meta[
         "planner_one_liner"
     ].lower()
     admm_note = str(meta["offline_tf_admm_residual"]).lower()
@@ -1475,6 +1629,10 @@ def test_format_planner_honesty_package_priced_timing_pure():
     ds_note = str(meta["offline_tf_case1_dual_space_form_contract"]).lower()
     assert "dual-space" in ds_note or "form contract" in ds_note or "form_planned" in ds_note
     assert "unproven" in ds_note
+    lp_note = str(meta["offline_tf_case1_dual_space_linf_probe"]).lower()
+    assert "probe" in lp_note or "l∞" in lp_note or "linf" in lp_note
+    assert "unproven" in lp_note
+    assert "verdict" in lp_note
     # anti-claim: must not claim wire shipped or full plant mass balance shipped
     readiness = str(meta["offline_tf_readiness_note"]).lower()
     assert "admm residual" in readiness
@@ -1484,6 +1642,8 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert "plant-named" in readiness or "plant named" in readiness
     assert "wire-preflight" in readiness or "wire preflight" in readiness
     assert "dual-space" in readiness or "form contract" in readiness
+    assert "probe" in readiness or "l∞" in readiness
+    assert "verdict" in readiness
     assert "not wire shipped" in readiness or "not on classic case 1" in readiness
     assert "wire shipped" not in readiness.replace("not wire shipped", "")
     assert "full plant mass balance shipped" not in readiness
@@ -1522,6 +1682,29 @@ def test_format_planner_honesty_package_priced_timing_pure():
     assert (
         pkg["tf_offline_case1_dual_space_form_contract"]["dual_linf_under_wire_status"]
         == "unproven"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"]["topic"]
+        == "tf_offline_case1_dual_space_linf_probe"
+    )
+    assert pkg["tf_offline_case1_dual_space_linf_probe"]["dual_recovery_path"] == "None"
+    assert pkg["tf_offline_case1_dual_space_linf_probe"]["wire_shipped"] == "false"
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"]["dual_linf_under_wire_status"]
+        == "unproven"
+    )
+    assert pkg["tf_offline_case1_dual_space_linf_probe"]["probe_is_not_verdict_gate"] == "true"
+    assert (
+        pkg["tf_offline_case1_dual_space_linf_probe"][
+            "probe_is_not_dual_linf_under_wire_proof"
+        ]
+        == "true"
+    )
+    assert (
+        "online_linf_gate_under_tf_path"
+        in pkg["tf_offline_case1_dual_space_linf_probe"][
+            "dual_linf_proof_checklist_open_ids"
+        ]
     )
 
 
