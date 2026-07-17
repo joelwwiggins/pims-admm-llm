@@ -2382,6 +2382,124 @@ def format_tf_offline_case1_wire_ship_acceptance_design_contract_howto() -> Dict
     }
 
 
+
+
+def format_tf_offline_case1_dual_honest_tf_aware_path_design_contract_howto() -> Dict[str, str]:
+    """Static offline Case-1 dual-honest TF-aware path design contract How_to (#48 packaging).
+
+    Planner-facing note that offline dual-honest TF-aware *path design* readiness exists:
+    path_design_present=true (harness-existence packaging); path_shipped=false;
+    dual_honest_tf_aware_path_present ship-met=false; wire_ship_allowed_today=false;
+    wire_shipped=false; dual_linf_under_wire=unproven; form remains classic_2block_excel_path;
+    form_planned registered only; isolation_rewrite_shipped=false; isolation_rewrite
+    with_wire checklist **open**; online_linf_gate_under_tf_path=open;
+    gate_flip_allowed_today=false; criteria_met_today=false; dual_recovery_path=None today;
+    dual_recovery_path_planned_when_shipped labeled honestly (not pure-ADMM);
+    feature_flag reserved + enabled_today=false; topology: CDU offline affine + blender
+    linear_quality_pooling; intermediates naphtha/distillate/gasoil/residue;
+    dual-ban (path design ≠ path shipped ≠ ship-met ≠ wire ≠ VERDICT ≠ dual L∞ under
+    wire proof ≠ isolation rewrite shipped ≠ form flip ≠ ship allow); blockers remain
+    (isolation_rewrite_required, form_label_change_required, dual_linf_under_wire_unproven,
+    no_blender_offline_affine_kernel, wire_not_shipped, case1_is_cdu_blender_package_admm, …);
+    UNITS FCC/COKER/CDU. Does **not** load tf_linear_blocks or tensorflow; does **not**
+    call offline_case1_dual_honest_tf_aware_path_design_contract_report.
+    """
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    anti = ",".join(_CASE1_PATH_DESIGN_ANTI_CRITERIA)
+    streams = ",".join(_CASE1_SHAPED_LINKING_STREAMS)
+    one_liner = (
+        "Offline Case-1 dual-honest TF-aware path design contract readiness exists "
+        f"(static packaging of #48 harness): form_current={_CASE1_FORM_CURRENT}; "
+        f"form_planned={_CASE1_FORM_PLANNED} (registered only; not flip); "
+        "path_design_present=true; path_shipped=false; "
+        "dual_honest_tf_aware_path_present ship-met=false; "
+        "wire_ship_allowed_today=false; wire_shipped=false; "
+        f"isolation_rewrite_shipped=false; "
+        f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+        "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+        "criteria_met_today=false; "
+        f"cdu_surface={_CASE1_PATH_DESIGN_CDU_SURFACE}; "
+        f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+        f"intermediates={streams}; "
+        f"feature_flag_name={_CASE1_PATH_DESIGN_FEATURE_FLAG_NAME}; "
+        "feature_flag_enabled_today=false; "
+        "dual_recovery_path=None today; "
+        f"dual_recovery_path_planned_when_shipped="
+        f"{_CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED} (not pure-ADMM); "
+        "design_is_not_path_shipped=true; design_is_not_path_present_for_ship=true; "
+        "design_is_not_wire=true; design_is_not_wire_ship_allow=true; "
+        "design_is_not_verdict_gate=true; "
+        "design_is_not_dual_linf_under_wire_proof=true; "
+        "design_is_not_isolation_rewrite_shipped=true; design_is_not_form_flip=true; "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+        f"open checklist ({open_ids}); "
+        "no_blender_offline_affine_kernel_blocker_still_true=true; "
+        f"units_affine_unchanged={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+        f"anti_criteria_today={anti}; does not clear wire_blockers; not form flip; "
+        "not dual L∞ proven under wire; not full plant mass balance; packaging alone / "
+        "design alone / this path design alone are not ship / path-ship enablers. "
+        "Case 1 duals remain PRIMARY free online λ / SECONDARY recovered blender; "
+        "path design packaging is not the Case 1 VERDICT dual gate and is not path "
+        "shipped / not ship-met / not wire shipped / not ship allowed."
+    )
+    return {
+        "topic": "tf_offline_case1_dual_honest_tf_aware_path_design_contract",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "dual_recovery_path_planned_when_shipped": _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "path_design_present": "true",
+        "path_shipped": "false",
+        "not_path_shipped": "true",
+        "dual_honest_tf_aware_path_present_ship_met": "false",
+        "dual_honest_tf_aware_path_present": "false",
+        "wire_ship_allowed_today": "false",
+        "wire_ship_criteria_met_today": "false",
+        "isolation_rewrite_shipped": "false",
+        "isolation_rewrite_with_wire": _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        "isolation_rewrite_required_still_in_blockers": "true",
+        "online_linf_gate_under_tf_path": "open",
+        "gate_flip_allowed_today": "false",
+        "criteria_met_today": "false",
+        "cdu_surface": _CASE1_PATH_DESIGN_CDU_SURFACE,
+        "blender_surface": _CASE1_SHAPED_BLENDER_SURFACE,
+        "intermediates": streams,
+        "feature_flag_name": _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": "false",
+        "design_is_not_path_shipped": "true",
+        "design_is_not_path_present_for_ship": "true",
+        "design_is_not_wire_ship_allow": "true",
+        "design_is_not_wire": "true",
+        "design_is_not_verdict_gate": "true",
+        "design_is_not_dual_linf_under_wire_proof": "true",
+        "design_is_not_isolation_rewrite_shipped": "true",
+        "design_is_not_form_flip": "true",
+        "no_blender_offline_affine_kernel_blocker_still_true": "true",
+        "units_affine_unchanged": _OFFLINE_TF_UNITS,
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "anti_criteria_today": anti,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -2463,6 +2581,36 @@ _CASE1_WIRE_SHIP_ANTI_CRITERIA = (
     "packaging_alone",
     "design_contracts_alone",
 )
+
+# Excel-local mirrors of dual-honest TF-aware path design contract (#48). Static only —
+# never import tf_linear_blocks. path_design_present = harness-existence packaging;
+# path_shipped stays False; dual_honest_tf_aware_path_present ship-met stays False;
+# wire_ship_allowed_today stays False; wire_shipped stays False.
+# Packaging alone / path design alone are never path-ship or wire-ship enablers.
+_CASE1_PATH_DESIGN_PRESENT = True
+_CASE1_PATH_SHIPPED = False
+_CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIP_MET = False
+_CASE1_PATH_DESIGN_FEATURE_FLAG_NAME = "enable_tf_affine_case1_wire"
+_CASE1_PATH_DESIGN_FEATURE_FLAG_ENABLED_TODAY = False
+_CASE1_PATH_DESIGN_CDU_SURFACE = "offline_affine_base_delta"
+_CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED = (
+    "online_lambda_under_tf_aware_form_when_shipped"
+)
+_CASE1_PATH_DESIGN_ANTI_CRITERIA = (
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "packaging_alone",
+    "design_contracts_alone",
+    "isolation_design_contract_alone",
+    "gate_criteria_contract_alone",
+    "wire_ship_acceptance_design_alone",
+    "this_path_design_alone",
+)
 # Open dual-L∞-under-wire checklist ids remaining after #40 pooling formalization.
 # blender_affine_or_honest_pooling is NO LONGER open (TF status honest_pooling_path_present).
 # dual_linf_under_wire remains unproven; online_linf_gate_under_tf_path stays open
@@ -2484,7 +2632,7 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
     "wire_not_shipped",
     "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp",
 )
-# Index OFFLINE_TF one-liner: offline ladder through wire-ship acceptance design readiness.
+# Index OFFLINE_TF one-liner: offline ladder through dual-honest TF-aware path design readiness.
 # Prefer short Index clause — full honesty in How_to / Summary / meta.
 # Hard negatives: not Case 1; dual_recovery_path=None on TF surface; synthetic λ ≠ duals;
 # preflight ≠ wire; skeleton λ ≠ duals; contract ≠ form flip / ≠ dual L∞ proven;
@@ -2512,13 +2660,14 @@ _OFFLINE_TF_INDEX_WHAT = (
     "pooling readiness (not affine) + "
     "gate-criteria (gate open; flip=false) + "
     "isolation design (present; rewrite=false) + "
-    "wire-ship design (present; ship=false; wire=false; dual-ban) — "
+    "wire-ship design (present; ship=false; wire=false) + "
+    "path design (present; path=false; ship-met=false; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "synthetic residual/subproblem/coord/plant-linking/plant-named λ not duals; "
     "per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
     "preflight ≠ wire shipped; skeleton λ not duals / not wire; "
     "contract ≠ form flip / ≠ dual L∞ proven; "
-    "probe/bridge/warmstart/pooling/criteria/iso/wire-ship design ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
+    "probe/bridge/warmstart/pooling/criteria/iso/wire-ship/path design ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
     "live_lambda_source must be labeled"
 )
 _OFFLINE_TF_PRICED_NOTE = (
@@ -2672,6 +2821,26 @@ _OFFLINE_TF_CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_NOTE = (
     "does not clear wire_blockers; not form flip; not dual L∞ proven under wire; "
     "packaging ≠ ship allow ≠ wire shipped ≠ VERDICT ≠ isolation rewrite shipped"
 )
+_OFFLINE_TF_CASE1_DUAL_HONEST_TF_AWARE_PATH_DESIGN_CONTRACT_NOTE = (
+    "offline Case-1 dual-honest TF-aware path design contract readiness — "
+    "path_design_present=true; path_shipped=false; "
+    "dual_honest_tf_aware_path_present ship-met=false; "
+    "wire_ship_allowed_today=false; wire_shipped=false; "
+    f"isolation_rewrite_shipped=false; "
+    f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+    "dual-ban; "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+    "criteria_met_today=false; no_blender_offline_affine_kernel still true; "
+    f"cdu_surface={_CASE1_PATH_DESIGN_CDU_SURFACE}; "
+    f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+    f"feature_flag={_CASE1_PATH_DESIGN_FEATURE_FLAG_NAME} enabled_today=false; "
+    f"UNITS={_OFFLINE_TF_UNITS} (no silent BLENDER); dual_recovery_path=None; "
+    f"dual_recovery_path_planned={_CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED}; "
+    "does not clear wire_blockers; not form flip; not dual L∞ proven under wire; "
+    "packaging ≠ path shipped ≠ ship-met ≠ ship allow ≠ wire shipped ≠ VERDICT"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -2692,7 +2861,9 @@ _OFFLINE_TF_READINESS_NOTE = (
     "isolation-rewrite design contract readiness "
     "(design_present; rewrite_shipped=false; checklist open; dual-ban; not wire; not VERDICT) + "
     "wire-ship acceptance design contract readiness "
-    "(design_present; ship_allowed=false; wire_shipped=false; dual-ban; not VERDICT) — "
+    "(design_present; ship_allowed=false; wire_shipped=false; dual-ban; not VERDICT) + "
+    "dual-honest TF-aware path design contract readiness "
+    "(path_design_present; path_shipped=false; ship-met=false; dual-ban; not VERDICT) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
@@ -2704,6 +2875,8 @@ _OFFLINE_TF_READINESS_NOTE = (
     "criteria contract ≠ gate flip / ≠ VERDICT / ≠ dual L∞ under wire proof; "
     "isolation design ≠ rewrite shipped / ≠ VERDICT / ≠ dual L∞ under wire proof; "
     "wire-ship design ≠ ship allow / ≠ wire_shipped / ≠ VERDICT / ≠ dual L∞ under wire proof; "
+    "path design ≠ path shipped / ≠ ship-met / ≠ ship allow / ≠ wire_shipped / ≠ VERDICT / "
+    "≠ dual L∞ under wire proof; "
     "live_lambda_source must be labeled; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
@@ -2726,7 +2899,8 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     offline_case1_honest_blender_pooling_path_report /
     offline_case1_online_linf_gate_criteria_contract_report /
     offline_case1_isolation_rewrite_design_contract_report /
-    offline_case1_wire_ship_acceptance_design_contract_report.
+    offline_case1_wire_ship_acceptance_design_contract_report /
+    offline_case1_dual_honest_tf_aware_path_design_contract_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
@@ -2736,14 +2910,17 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     L∞ probe + dual-space L∞ live-λ bridge + dual-space L∞ live-λ-seeded warm-start
     + honest blender pooling path + online_linf_gate flip-criteria contract
     + isolation-rewrite design contract + wire-ship acceptance design contract
+    + dual-honest TF-aware path design contract
     (static harness-existence flags only; wire_shipped=False; wire_ship_allowed=false;
+    path_design_present; path_shipped=False; dual_honest_tf_aware_path_present ship-met=False;
     blockers honesty;
     blender linear_quality_pooling; checklist honest_pooling_path_present;
     gate stays open; gate_flip_allowed_today=false; criteria_met_today=false;
     isolation_rewrite_shipped=false; isolation checklist open; dual_linf_under_wire=unproven;
-    probe/bridge/warm-start/pooling/criteria/isolation-design/wire-ship-design ≠
+    probe/bridge/warm-start/pooling/criteria/isolation-design/wire-ship-design/path-design ≠
     VERDICT gate / ≠ dual L∞ under wire proof; pooling ≠ affine kernel;
-    criteria ≠ gate flip; design ≠ rewrite shipped; design ≠ ship allow; seed identity ≠ proof; seed_policy/z0_policy
+    criteria ≠ gate flip; design ≠ rewrite shipped; design ≠ ship allow;
+    path design ≠ path shipped ≠ ship-met; seed identity ≠ proof; seed_policy/z0_policy
     documented; live_lambda_source must be labeled).
     """
     dual = format_dual_honesty_summary(report)
@@ -2765,6 +2942,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_criteria = format_tf_offline_case1_online_linf_gate_criteria_contract_howto()
     tf_isolation = format_tf_offline_case1_isolation_rewrite_design_contract_howto()
     tf_wire_ship = format_tf_offline_case1_wire_ship_acceptance_design_contract_howto()
+    tf_path_design = format_tf_offline_case1_dual_honest_tf_aware_path_design_contract_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -2809,6 +2987,11 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_online_linf_gate_criteria_contract_ready": True,  # static; not live criteria report
         "offline_tf_case1_isolation_rewrite_design_contract_ready": True,  # static; not live design report
         "offline_tf_case1_wire_ship_acceptance_design_contract_ready": True,  # static; not live wire-ship design
+        "offline_tf_case1_dual_honest_tf_aware_path_design_contract_ready": True,  # static; not live path design
+        "offline_tf_path_design_present": True,  # static packaging existence only
+        "offline_tf_path_shipped": False,  # hard lock — packaging never claims path shipped
+        "offline_tf_dual_honest_tf_aware_path_present_ship_met": False,  # ship-met remains false
+        "offline_tf_wire_ship_allowed_today": False,  # hard lock
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -2842,6 +3025,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "offline_tf_case1_wire_ship_acceptance_design_contract": (
             _OFFLINE_TF_CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_NOTE
+        ),
+        "offline_tf_case1_dual_honest_tf_aware_path_design_contract": (
+            _OFFLINE_TF_CASE1_DUAL_HONEST_TF_AWARE_PATH_DESIGN_CONTRACT_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -2880,7 +3066,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"isolation-rewrite design contract readiness "
             f"(design_present; rewrite_shipped=false; checklist open; dual-ban; not wire; not VERDICT) + "
             f"wire-ship acceptance design contract readiness "
-            f"(design_present; ship_allowed=false; wire_shipped=false; dual-ban; not VERDICT) "
+            f"(design_present; ship_allowed=false; wire_shipped=false; dual-ban; not VERDICT) + "
+            f"dual-honest TF-aware path design contract readiness "
+            f"(path_design_present; path_shipped=false; ship-met=false; dual-ban; not VERDICT) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -2947,7 +3135,15 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_wire_ship_acceptance_design_contract",
             _OFFLINE_TF_CASE1_WIRE_SHIP_ACCEPTANCE_DESIGN_CONTRACT_NOTE,
         ),
+        (
+            "offline_tf_case1_dual_honest_tf_aware_path_design_contract",
+            _OFFLINE_TF_CASE1_DUAL_HONEST_TF_AWARE_PATH_DESIGN_CONTRACT_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
+        ("offline_tf_path_design_present", True),
+        ("offline_tf_path_shipped", False),
+        ("offline_tf_dual_honest_tf_aware_path_present_ship_met", False),
+        ("offline_tf_wire_ship_allowed_today", False),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
     ]
@@ -2974,6 +3170,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_online_linf_gate_criteria_contract": tf_criteria,
         "tf_offline_case1_isolation_rewrite_design_contract": tf_isolation,
         "tf_offline_case1_wire_ship_acceptance_design_contract": tf_wire_ship,
+        "tf_offline_case1_dual_honest_tf_aware_path_design_contract": tf_path_design,
     }
 
 
@@ -3788,6 +3985,100 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_dual_honest_tf_aware_path_design_contract_not_duals",
+            "predicted": (
+                "offline Case-1 dual-honest TF-aware path design contract readiness packaging "
+                "exists (static); path_design_present=true; path_shipped=false; "
+                "dual_honest_tf_aware_path_present ship-met=false; "
+                "wire_ship_allowed_today=false; wire_shipped=false; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "dual_recovery_path=None on path-design surface; package dual gate remains "
+                "online_lambda; path design packaging is not dual recovery"
+            ),
+            "actual": (
+                "static honesty — path design dual_recovery_path=None; "
+                "PRIMARY online_lambda still owns Case 1 dual gate; dual_linf under wire "
+                "unproven; planned dual_recovery labeled honestly (not pure-ADMM)"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_honest_tf_aware_path_design_contract_not_wire",
+            "predicted": (
+                "wire_shipped=False; wire_ship_allowed_today=false; path_shipped=false; "
+                "form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                f"{_CASE1_ISOLATION_REWRITE_BLOCKER_ID} remains; "
+                "no_blender_offline_affine_kernel remains; dual_linf_under_wire_unproven + "
+                "wire_not_shipped + form_label_change_required remain"
+            ),
+            "actual": (
+                "static honesty — path design packaging only; path not shipped; "
+                "wire not shipped; ship not allowed; blockers still true (incl. "
+                "isolation_rewrite_required + no_blender_offline_affine_kernel + "
+                "wire_not_shipped); form classic_2block_excel_path unchanged; "
+                "dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_honest_tf_aware_path_design_contract_not_verdict_gate",
+            "predicted": (
+                "path design packaging ≠ Case 1 VERDICT dual gate; online L∞ ≤15 gate "
+                "unchanged; ready flag means harness-existence only (not path shipped; "
+                "not ship-met; not ship allowed; not wire shipped; not L∞≤15 under wire); "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}"
+            ),
+            "actual": (
+                "static honesty — path design packaging is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY gate; path_shipped=false; ship-met=false; "
+                "ship_allowed=false; wire_shipped=false; path design packaging is not "
+                "Case 1 dual PASS/FAIL"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_honest_tf_aware_path_design_contract_path_shipped_false_ship_met_false",
+            "predicted": (
+                "path_design_present=true; path_shipped=false; "
+                "dual_honest_tf_aware_path_present ship-met=false; "
+                "wire_ship_allowed_today=false; wire_shipped=false; "
+                "isolation_rewrite_shipped=false; "
+                f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+                f"open_ids ({','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)})"
+            ),
+            "actual": (
+                "static honesty — path design present packaging only; path not shipped; "
+                "ship-met false; ship not allowed; wire not shipped; isolation rewrite "
+                "not shipped; isolation checklist open; packaging ≠ path ship ≠ ship-met "
+                "≠ ship allow ≠ wire shipped"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_dual_honest_tf_aware_path_design_contract_not_dual_linf_under_wire_proof",
+            "predicted": (
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "design_is_not_dual_linf_under_wire_proof=true; "
+                "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+                "criteria_met_today=false; wire_ship_allowed_today=false; "
+                "path_shipped=false"
+            ),
+            "actual": (
+                "static honesty — dual_linf stays unproven; path design packaging never "
+                "treats path_design_present as dual L∞ under wire proof, path ship, "
+                "ship-met, ship allow, or gate flip"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -3820,6 +4111,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_criteria = format_tf_offline_case1_online_linf_gate_criteria_contract_howto()
     tf_isolation = format_tf_offline_case1_isolation_rewrite_design_contract_howto()
     tf_wire_ship = format_tf_offline_case1_wire_ship_acceptance_design_contract_howto()
+    tf_path_design = format_tf_offline_case1_dual_honest_tf_aware_path_design_contract_howto()
     return [
         (
             "goal",
@@ -3930,6 +4222,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_wire_ship_acceptance_design_contract",
             tf_wire_ship["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_dual_honest_tf_aware_path_design_contract",
+            tf_path_design["planner_one_liner"],
         ),
         (
             "solve_boundary",
