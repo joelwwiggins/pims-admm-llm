@@ -91,6 +91,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "wire_preflight_available": True,
         "admm_case1_shaped_linking_available": True,
         "admm_case1_dual_space_form_contract_available": True,
+        "admm_case1_dual_space_linf_probe_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -133,7 +134,13 @@ def honesty_metadata() -> Dict[str, Any]:
             "registry without flipping Case 1; dual-space stream map Case 1 intermediates "
             "↔ skeleton λ slots; dual_linf_under_wire status=unproven + open checklist; "
             "dual-ban; wire_shipped=False; does not clear DEFAULT_WIRE_BLOCKERS; does not "
-            "redefine ready_for_wire_discussion; not wire; not dual L∞ proven under wire."
+            "redefine ready_for_wire_discussion; not wire; not dual L∞ proven under wire. "
+            "Offline Case-1 dual-space L∞ probe available "
+            "(offline_case1_dual_space_linf_probe_report): stream-aligned numeric L∞ between "
+            "fixture/supplied Case 1 PRIMARY online λ and Case-1-shaped skeleton λ — dual-ban; "
+            "dual_linf_under_wire still unproven; checklist online_linf_gate_under_tf_path open; "
+            "probe ≠ dual L∞ under wire proof; probe ≠ Case 1 VERDICT gate; wire_shipped=False; "
+            "does not clear DEFAULT_WIRE_BLOCKERS; does not redefine ready_for_wire_discussion."
         ),
     }
 
@@ -1452,6 +1459,7 @@ def offline_block_solve_readiness_report(
     include_admm_plant_named_linking: bool = True,
     include_admm_case1_shaped_linking: bool = True,
     include_admm_case1_dual_space_form_contract: bool = True,
+    include_admm_case1_dual_space_linf_probe: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1460,8 +1468,9 @@ def offline_block_solve_readiness_report(
 
     ``admm_residual_ok``, ``admm_block_subproblem_ok``, ``admm_coordination_ok``,
     ``admm_plant_linking_ok``, ``admm_plant_named_linking_ok``,
-    ``admm_case1_shaped_linking_ok``, and
-    ``admm_case1_dual_space_form_contract_ok`` are
+    ``admm_case1_shaped_linking_ok``,
+    ``admm_case1_dual_space_form_contract_ok``, and
+    ``admm_case1_dual_space_linf_probe_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1551,6 +1560,22 @@ def offline_block_solve_readiness_report(
     base["admm_case1_dual_space_form_contract_ok"] = (
         admm_case1_dual_space_form_contract_ok
     )
+    admm_case1_dual_space_linf_probe_ok: Optional[bool] = None
+    if include_admm_case1_dual_space_linf_probe:
+        try:
+            # Cheap proof-prep: fixture PRIMARY online λ vs skeleton final_lam (n_rounds=1).
+            # Does not require TF/PuLP/excel_pipeline; does not flip dual_linf under wire.
+            probe_rep = offline_case1_dual_space_linf_probe_report(
+                skeleton_n_rounds=1,
+            )
+            admm_case1_dual_space_linf_probe_ok = bool(
+                probe_rep.get("probe_ok", probe_rep.get("ok"))
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_dual_space_linf_probe_ok = False
+    base["admm_case1_dual_space_linf_probe_ok"] = (
+        admm_case1_dual_space_linf_probe_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1561,16 +1586,18 @@ def offline_block_solve_readiness_report(
         "not Case 1 solve wall time; not a solve. Not pure-ADMM dual recovery. "
         "admm_residual_ok, admm_block_subproblem_ok, admm_coordination_ok, "
         "admm_plant_linking_ok, admm_plant_named_linking_ok, "
-        "admm_case1_shaped_linking_ok, and "
-        "admm_case1_dual_space_form_contract_ok are additive "
+        "admm_case1_shaped_linking_ok, "
+        "admm_case1_dual_space_form_contract_ok, and "
+        "admm_case1_dual_space_linf_probe_ok are additive "
         "pre-wire checklist items (synthetic λ,z,ρ residual / block subproblem / "
         "multi-round coordination / multi-block plant-linking synthetic + plant-named "
         "topology modes / Case-1-shaped CDU↔Blender offline skeleton / dual-space "
-        "form-label contract; coordination is "
+        "form-label contract / dual-space L∞ probe; coordination is "
         "per-unit synthetic not plant linking; plant-linking modes are offline demos; "
         "Case-1-shaped skeleton is offline-only (not wire, not Case 1 duals, not full "
         "plant mass balance); dual-space/form contract registers planned form + stream "
-        "map + dual_linf unproven checklist without flipping Case 1 or shipping wire — "
+        "map + dual_linf unproven checklist without flipping Case 1 or shipping wire; "
+        "dual-space L∞ probe is numeric prep only (status stays unproven; not VERDICT) — "
         "and do not redefine ready_for_wire_discussion."
     )
     return base
@@ -3798,6 +3825,7 @@ def offline_wire_preflight_report(
     include_admm_plant_named_linking: bool = True,
     include_admm_case1_shaped_linking: bool = True,
     include_admm_case1_dual_space_form_contract: bool = True,
+    include_admm_case1_dual_space_linf_probe: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -3833,6 +3861,9 @@ def offline_wire_preflight_report(
         include_admm_case1_dual_space_form_contract=(
             include_admm_case1_dual_space_form_contract
         ),
+        include_admm_case1_dual_space_linf_probe=(
+            include_admm_case1_dual_space_linf_probe
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -3852,6 +3883,9 @@ def offline_wire_preflight_report(
     admm_case1_shaped_linking_ok = readiness.get("admm_case1_shaped_linking_ok")
     admm_case1_dual_space_form_contract_ok = readiness.get(
         "admm_case1_dual_space_form_contract_ok"
+    )
+    admm_case1_dual_space_linf_probe_ok = readiness.get(
+        "admm_case1_dual_space_linf_probe_ok"
     )
 
     blockers_documented = (
@@ -3883,6 +3917,10 @@ def offline_wire_preflight_report(
             admm_case1_dual_space_form_contract_ok,
             include_admm_case1_dual_space_form_contract,
         ),
+        (
+            admm_case1_dual_space_linf_probe_ok,
+            include_admm_case1_dual_space_linf_probe,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -3905,7 +3943,8 @@ def offline_wire_preflight_report(
     note = (
         "Offline dual-honest wire preflight: composes offline_block_solve_readiness_report "
         "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
-        "plant_linking/plant_named/case1_shaped/dual_space_form_contract gates) and lists "
+        "plant_linking/plant_named/case1_shaped/dual_space_form_contract/"
+        "dual_space_linf_probe gates) and lists "
         "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
@@ -3940,6 +3979,7 @@ def offline_wire_preflight_report(
         "admm_plant_named_linking_ok": admm_plant_named_linking_ok,
         "admm_case1_shaped_linking_ok": admm_case1_shaped_linking_ok,
         "admm_case1_dual_space_form_contract_ok": admm_case1_dual_space_form_contract_ok,
+        "admm_case1_dual_space_linf_probe_ok": admm_case1_dual_space_linf_probe_ok,
         # Blockers
         "wire_blockers": wire_blockers,
         "wire_blocker_notes": wire_blocker_notes,
@@ -5059,6 +5099,512 @@ def multi_unit_case1_dual_space_form_contract_report(
     return offline_case1_dual_space_form_contract_report(**kwargs)
 
 
+
+# ---------------------------------------------------------------------------
+# Offline Case-1 dual-space L∞ probe / dual_linf proof-prep (goal 5 + goal 3)
+# ---------------------------------------------------------------------------
+# Always-on numpy. Stream-aligned numeric L∞ between fixture/supplied Case 1
+# PRIMARY online λ and Case-1-shaped skeleton λ (final_lam).
+# dual_recovery_path=None; wire_shipped=False; dual_linf_under_wire stays unproven;
+# checklist online_linf_gate_under_tf_path remains open; probe ≠ VERDICT gate;
+# probe ≠ dual L∞ under wire proof; does NOT clear DEFAULT_WIRE_BLOCKERS;
+# does NOT redefine ready_for_wire_discussion; no TF / no PuLP / no excel_pipeline
+# on the probe hot path.
+
+CASE1_DUAL_SPACE_LINF_PROBE_KIND = "offline_case1_dual_space_linf_probe"
+
+# Frozen demo-shaped Case 1 PRIMARY online λ (raw online_duals face; negative).
+# Snapshot for proof-prep reproducibility — not live dual recovery from this surface.
+CASE1_FIXTURE_PRIMARY_ONLINE_LAMBDA: Dict[str, float] = {
+    "naphtha": -99.4429636359843,
+    "distillate": -136.4898727294246,
+    "gasoil": -54.8569636313148,
+    "residue": -76.76202424579238,
+}
+
+# Optional SECONDARY recovered blender face (diagnostic only; never gate).
+CASE1_FIXTURE_SECONDARY_RECOVERED_LAMBDA: Dict[str, float] = {
+    "naphtha": 108.15126,
+    "distillate": 87.142857,
+    "gasoil": 170.0,
+    "residue": -0.0,
+}
+
+CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE = "raw_online_duals"
+CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW = "economic_shadow_prices"
+CASE1_DUAL_VECTOR_FACE_SECONDARY_RECOVERED = "secondary_recovered_blender"
+
+
+def case1_primary_online_lambda_fixture(
+    *,
+    face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+) -> Dict[str, float]:
+    """Frozen fixture-shaped Case 1 PRIMARY online λ (demo keys; offline constants).
+
+    Default face is raw ``online_duals`` (negative). Pass
+    ``face=CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW`` for the positive economic
+    shadow face (magnitude-matched). Not live dual recovery; not a solve path.
+    """
+    base = {k: float(v) for k, v in CASE1_FIXTURE_PRIMARY_ONLINE_LAMBDA.items()}
+    if face == CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE:
+        return base
+    if face == CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW:
+        return {k: -float(v) for k, v in base.items()}
+    raise ValueError(
+        f"unsupported primary dual vector face {face!r}; "
+        f"use {CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE!r} or "
+        f"{CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW!r}"
+    )
+
+
+def case1_secondary_recovered_lambda_fixture() -> Dict[str, float]:
+    """Frozen SECONDARY recovered blender duals (diagnostic only; never gate)."""
+    return {k: float(v) for k, v in CASE1_FIXTURE_SECONDARY_RECOVERED_LAMBDA.items()}
+
+
+def case1_dual_space_stream_aligned_linf(
+    a: Mapping[str, float],
+    b: Mapping[str, float],
+    *,
+    streams: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Stream-aligned dual-space L∞ / L1 between two λ maps (pure numpy; dual-ban).
+
+    Missing keys → ``alignment_ok=False`` (no silent zero-fill as success).
+    ``probe_ok``-style finite flags are returned; this helper never gates VERDICT.
+    """
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    missing_in_a = [s for s in streams_list if s not in a]
+    missing_in_b = [s for s in streams_list if s not in b]
+    alignment_ok = not missing_in_a and not missing_in_b and len(streams_list) > 0
+    per_stream_abs: Dict[str, float] = {}
+    finite_ok = True
+    if alignment_ok:
+        for s in streams_list:
+            try:
+                av = float(a[s])
+                bv = float(b[s])
+            except (TypeError, ValueError):
+                finite_ok = False
+                per_stream_abs[s] = float("nan")
+                continue
+            if not (np.isfinite(av) and np.isfinite(bv)):
+                finite_ok = False
+                per_stream_abs[s] = float("nan")
+                continue
+            per_stream_abs[s] = float(abs(av - bv))
+    else:
+        for s in streams_list:
+            if s in a and s in b:
+                try:
+                    av = float(a[s])
+                    bv = float(b[s])
+                    gap = float(abs(av - bv)) if (
+                        np.isfinite(av) and np.isfinite(bv)
+                    ) else float("nan")
+                except (TypeError, ValueError):
+                    gap = float("nan")
+                    finite_ok = False
+                per_stream_abs[s] = gap
+                if not np.isfinite(gap):
+                    finite_ok = False
+            else:
+                per_stream_abs[s] = float("nan")
+                finite_ok = False
+
+    gaps = [per_stream_abs[s] for s in streams_list if np.isfinite(per_stream_abs.get(s, float("nan")))]
+    if gaps and finite_ok and alignment_ok:
+        linf = float(max(gaps))
+        l1 = float(sum(gaps))
+    elif gaps:
+        linf = float(max(gaps)) if gaps else float("nan")
+        l1 = float(sum(gaps)) if gaps else float("nan")
+        if not all(np.isfinite(g) for g in gaps):
+            finite_ok = False
+    else:
+        linf = float("nan")
+        l1 = float("nan")
+        finite_ok = False
+
+    return {
+        "streams": streams_list,
+        "per_stream_abs": per_stream_abs,
+        "abs_gap": dict(per_stream_abs),
+        "linf": linf,
+        "l1": l1,
+        "alignment_ok": bool(alignment_ok),
+        "stream_alignment_ok": bool(alignment_ok),
+        "missing_in_a": missing_in_a,
+        "missing_in_b": missing_in_b,
+        "finite_ok": bool(finite_ok and np.isfinite(linf)),
+        "finite_linf": bool(np.isfinite(linf)),
+        "dual_recovery_path": None,
+        "probe_is_not_verdict_gate": True,
+        "note": (
+            "Stream-aligned dual-space L∞ on Case 1 intermediates "
+            "(naphtha/distillate/gasoil/residue). Not Case 1 VERDICT gate; "
+            "not dual L∞ under wire proof; dual_recovery_path=None."
+        ),
+    }
+
+
+# Alias preferred by explorer A naming.
+stream_aligned_dual_linf = case1_dual_space_stream_aligned_linf
+
+
+def extract_case1_shaped_skeleton_lambda(
+    *,
+    n_rounds: int = 1,
+    skeleton_report: Optional[Mapping[str, Any]] = None,
+    **kwargs: Any,
+) -> Dict[str, float]:
+    """Extract Case-1-shaped skeleton linking λ (final_lam) on stream map.
+
+    Reuses ``offline_case1_shaped_cdu_blender_linking_report`` — does **not**
+    re-implement maximizer rounds. Skeleton λ is **not** Case 1 dual recovery.
+    """
+    if skeleton_report is None:
+        skeleton_report = offline_case1_shaped_cdu_blender_linking_report(
+            n_rounds=int(n_rounds), **kwargs
+        )
+    final_lam = skeleton_report.get("final_lam") or {}
+    streams = list(CASE1_SHAPED_LINKING_STREAMS)
+    out: Dict[str, float] = {}
+    for s in streams:
+        if s in final_lam:
+            out[s] = float(final_lam[s])
+    return out
+
+
+def case1_shaped_skeleton_lambda(
+    *,
+    n_rounds: int = 1,
+    skeleton_report: Optional[Mapping[str, Any]] = None,
+    **kwargs: Any,
+) -> Dict[str, float]:
+    """Alias for ``extract_case1_shaped_skeleton_lambda``."""
+    return extract_case1_shaped_skeleton_lambda(
+        n_rounds=n_rounds, skeleton_report=skeleton_report, **kwargs
+    )
+
+
+def _case1_dual_space_linf_probe_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-wire / not-VERDICT locks for the L∞ probe."""
+    checklist = dict(CASE1_DUAL_LINF_PROOF_CHECKLIST)
+    open_ids = [
+        k
+        for k, v in checklist.items()
+        if str(v).lower() in ("open", "false_today", "unproven")
+    ]
+    return {
+        "kind": CASE1_DUAL_SPACE_LINF_PROBE_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "form_current": CASE1_FORM_CURRENT,
+        "form_planned": CASE1_PLANNED_TF_AWARE_FORM,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "skeleton_lambda_is_not_case1_online_lambda": True,
+        "skeleton_lambda_is_not_case1_primary_or_secondary_duals": True,
+        "probe_is_not_verdict_gate": True,
+        "probe_is_not_dual_linf_under_wire_proof": True,
+        "probe_available_is_not_dual_linf_under_wire_proof": True,
+        "secondary_recovered_is_not_gate": True,
+        "package_dual_gate": "online_lambda",
+        "package_dual_secondary": "recovered_blender",
+        "package_dual_gate_role": "PRIMARY",
+        "package_dual_secondary_role": "SECONDARY_not_gate",
+        "dual_linf_under_wire_status": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_under_wire": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_under_wire_unproven_still_true": True,
+        "online_linf_gate_under_tf_path": checklist.get(
+            "online_linf_gate_under_tf_path", "open"
+        ),
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "dual_linf_proof_checklist_n_open": len(open_ids),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "excel_cdu_matrix_matches_affine": None,
+        "excel_blender_matrix_matches_affine": None,
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "blender_is_base_delta_affine_unit": False,
+        "scope": "case1_dual_space_linf_probe_offline",
+        "note": (
+            "Offline Case-1 dual-space L∞ probe / dual_linf proof-prep: stream-aligned "
+            "numeric L∞ between fixture/supplied Case 1 PRIMARY online λ and "
+            "Case-1-shaped skeleton λ on naphtha/distillate/gasoil/residue. "
+            "dual_recovery_path=None; solver=False; on_excel_case1_path=False; "
+            "wire_shipped=False; dual_linf_under_wire_status=unproven; checklist "
+            "online_linf_gate_under_tf_path remains open (probe_available ≠ proven); "
+            "skeleton λ ≠ Case 1 PRIMARY/SECONDARY duals as dual recovery; "
+            "probe ≠ Case 1 VERDICT gate; probe ≠ dual L∞ under wire proof; "
+            "SECONDARY recovered face is diagnostic only; form_current classic "
+            "unchanged; form_planned registered only; not pure-ADMM dual recovery; "
+            "not full plant mass balance; not isolation rewrite; not full TF→ADMM wire. "
+            "Does not clear DEFAULT_WIRE_BLOCKERS. Does not redefine "
+            "ready_for_wire_discussion. Always-on numpy; no TF/PuLP/excel_pipeline "
+            "on hot path; no live Case 1 solve."
+        ),
+    }
+
+
+def offline_case1_dual_space_linf_probe_report(
+    *,
+    case1_primary_online_lambda: Optional[Mapping[str, float]] = None,
+    case1_secondary_recovered_lambda: Optional[Mapping[str, float]] = None,
+    skeleton_lambda: Optional[Mapping[str, float]] = None,
+    skeleton_report: Optional[Mapping[str, Any]] = None,
+    skeleton_n_rounds: int = 1,
+    dual_vector_face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+    streams: Optional[Sequence[str]] = None,
+    dual_gate_threshold_diagnostic: float = 15.0,
+) -> Dict[str, Any]:
+    """Always-on dual-space L∞ probe (no TF, no PuLP, no excel_pipeline, no solve).
+
+    Compare fixture/supplied Case 1 PRIMARY online λ vs Case-1-shaped skeleton λ
+    on stream-aligned slots. Aggregate ``probe_ok`` / ``ok`` =
+    honesty locks ∧ stream alignment ∧ finite L∞ ∧ dual-ban ∧ wire_shipped=False ∧
+    dual_linf still unproven — **never** ``linf <= 15`` under wire; **not** VERDICT.
+
+    Does **not** clear ``DEFAULT_WIRE_BLOCKERS``. Does **not** redefine
+    ``ready_for_wire_discussion``. Does **not** flip Case 1 form.
+    """
+    honesty = _case1_dual_space_linf_probe_honesty_fields()
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    smap = case1_dual_space_stream_map()
+    dual_linf_cl = case1_dual_linf_proof_checklist()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    # Left-hand: PRIMARY online λ (caller or frozen fixture).
+    face = dual_vector_face
+    if case1_primary_online_lambda is None:
+        primary = case1_primary_online_lambda_fixture(face=face)
+        primary_source = "fixture"
+    else:
+        primary = {str(k): float(v) for k, v in case1_primary_online_lambda.items()}
+        primary_source = "caller_supplied"
+
+    secondary_diag: Optional[Dict[str, float]] = None
+    if case1_secondary_recovered_lambda is not None:
+        secondary_diag = {
+            str(k): float(v) for k, v in case1_secondary_recovered_lambda.items()
+        }
+        secondary_source = "caller_supplied"
+    else:
+        secondary_source = "not_provided"
+
+    # Right-hand: skeleton λ (caller, extract from report, or run thin n_rounds extract).
+    if skeleton_lambda is not None:
+        skeleton = {str(k): float(v) for k, v in skeleton_lambda.items()}
+        skeleton_source = "caller_supplied"
+    else:
+        skeleton = extract_case1_shaped_skeleton_lambda(
+            n_rounds=int(skeleton_n_rounds),
+            skeleton_report=skeleton_report,
+        )
+        skeleton_source = (
+            "skeleton_report_final_lam"
+            if skeleton_report is not None
+            else "case1_shaped_extract"
+        )
+
+    gap = case1_dual_space_stream_aligned_linf(
+        primary, skeleton, streams=streams_list
+    )
+    stream_alignment_ok = bool(
+        gap["stream_alignment_ok"] and smap.get("stream_alignment_ok")
+    )
+    finite_linf = bool(gap.get("finite_linf"))
+    linf = gap["linf"]
+    l1 = gap["l1"]
+    per_stream_abs = dict(gap["per_stream_abs"])
+
+    # Optional diagnostic vs gate tol — NEVER part of probe_ok / VERDICT.
+    gate_tol = float(dual_gate_threshold_diagnostic)
+    if finite_linf and np.isfinite(gate_tol):
+        under_gate_tol_diag = bool(float(linf) <= gate_tol)
+    else:
+        under_gate_tol_diag = False
+
+    checklist = dict(honesty["dual_linf_proof_checklist"])
+    online_gate_status = str(checklist.get("online_linf_gate_under_tf_path", "open"))
+    online_gate_open = online_gate_status.lower() in ("open", "false_today", "unproven")
+    dual_linf_status = honesty["dual_linf_under_wire_status"]
+    dual_linf_unproven = dual_linf_status == "unproven"
+    dual_linf_blocker_still = "dual_linf_under_wire_unproven" in blockers
+    wire_not_shipped_blocker = "wire_not_shipped" in blockers
+
+    honesty_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and "BLENDER" not in UNITS
+        and honesty["dual_recovery_path"] is None
+        and honesty["on_excel_case1_path"] is False
+        and honesty["on_case1_solve"] is False
+        and honesty["solver"] is False
+        and honesty["kind"] == CASE1_DUAL_SPACE_LINF_PROBE_KIND
+        and honesty["wire_shipped"] is False
+        and honesty["not_wire_shipped"] is True
+        and honesty["not_full_plant_mass_balance"] is True
+        and honesty["not_pure_admm_dual_recovery"] is True
+        and honesty["not_case1_solve"] is True
+        and honesty["case1_form_unchanged"] is True
+        and honesty["skeleton_lambda_is_not_case1_online_lambda"] is True
+        and honesty["skeleton_lambda_is_not_case1_primary_or_secondary_duals"] is True
+        and honesty["probe_is_not_verdict_gate"] is True
+        and honesty["probe_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["secondary_recovered_is_not_gate"] is True
+        and honesty["excel_cdu_matrix_matches_affine"] is None
+        and honesty["excel_blender_matrix_matches_affine"] is None
+        and honesty["not_isolation_rewrite"] is True
+        and honesty["not_full_tf_admm_wire"] is True
+        and honesty["does_not_clear_default_wire_blockers"] is True
+        and honesty["does_not_redefine_ready_for_wire_discussion"] is True
+        and dual_linf_unproven
+        and dual_linf_blocker_still
+        and online_gate_open
+        and blockers_still_documented
+    )
+
+    dual_ban_ok = bool(
+        honesty["dual_recovery_path"] is None
+        and honesty["probe_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["probe_is_not_verdict_gate"] is True
+        and dual_linf_unproven
+        and online_gate_open
+    )
+
+    # probe_ok NEVER requires linf <= gate threshold.
+    probe_ok = bool(
+        honesty_ok
+        and stream_alignment_ok
+        and finite_linf
+        and dual_ban_ok
+        and honesty["wire_shipped"] is False
+        and dual_linf_unproven
+        and dual_linf_blocker_still
+        and blockers_still_documented
+    )
+    ok = probe_ok
+
+    ok_criteria = (
+        "honesty_ok ∧ stream_alignment_ok ∧ finite_linf ∧ dual_ban ∧ "
+        "wire_shipped=False ∧ dual_linf_unproven ∧ blockers_still_documented; "
+        "NOT linf<=15 under wire; NOT dual_linf proven; NOT VERDICT gate; "
+        "NOT form flip; NOT ready redefined; NOT blockers cleared"
+    )
+
+    # Optional SECONDARY diagnostic gaps (never gate).
+    secondary_gap = None
+    if secondary_diag is not None:
+        secondary_gap = case1_dual_space_stream_aligned_linf(
+            secondary_diag, skeleton, streams=streams_list
+        )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "probe_ok": probe_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "stream_alignment_ok": stream_alignment_ok,
+        "finite_linf": finite_linf,
+        "finite_ok": finite_linf,
+        "blockers_still_documented": blockers_still_documented,
+        "ok_criteria": ok_criteria,
+        "probe_ok_criteria": ok_criteria,
+        # Dual vectors
+        "dual_vector_face": face,
+        "case1_primary_online_lambda": dict(primary),
+        "case1_primary_online_lambda_source": primary_source,
+        "case1_secondary_recovered_lambda": (
+            dict(secondary_diag) if secondary_diag is not None else None
+        ),
+        "case1_secondary_recovered_lambda_source": secondary_source,
+        "skeleton_lambda": dict(skeleton),
+        "skeleton_lambda_source": skeleton_source,
+        "streams": streams_list,
+        "linking_streams": streams_list,
+        "skeleton_lambda_slots": list(CASE1_SHAPED_LINKING_STREAMS),
+        # Gaps
+        "per_stream_abs": per_stream_abs,
+        "abs_gap": dict(per_stream_abs),
+        "linf": linf,
+        "l1": l1,
+        "missing_in_primary": list(gap.get("missing_in_a") or []),
+        "missing_in_skeleton": list(gap.get("missing_in_b") or []),
+        "gap": gap,
+        "secondary_gap_diagnostic": secondary_gap,
+        # Diagnostic only vs gate tol — not VERDICT, not probe_ok
+        "probe_linf_vs_gate_tol_diagnostic": {
+            "gate_tol": gate_tol,
+            "linf": linf,
+            "under_gate_tol": under_gate_tol_diag,
+            "is_not_verdict_gate": True,
+            "is_not_probe_ok_criterion": True,
+            "note": (
+                "Optional diagnostic compare of probe L∞ to Case 1 online dual "
+                "gate tol (default 15). Never a VERDICT hard-fail; never "
+                "probe_ok criterion; never dual_linf_under_wire proof."
+            ),
+        },
+        # dual_linf checklist remains open / unproven
+        "dual_linf_status_unproven_ok": bool(
+            dual_linf_cl.get("dual_linf_status_unproven_ok")
+        ),
+        "online_linf_gate_under_tf_path_open": online_gate_open,
+        "probe_available": True,
+        # Blockers remain (prep surface documents; does not clear)
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "wire_not_shipped_blocker_still_true": wire_not_shipped_blocker,
+        "dual_linf_under_wire_unproven_blocker_still_true": dual_linf_blocker_still,
+        "units_affine_unchanged": list(UNITS),
+        "tf_available": tf_available(),
+        "case1_shaped_streams_source": "CASE1_SHAPED_LINKING_STREAMS",
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "stream_map": smap,
+        "dual_linf_checklist": dual_linf_cl,
+        "note": honesty["note"],
+    }
+
+
+def case1_dual_space_linf_probe(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_linf_probe_report``."""
+    return offline_case1_dual_space_linf_probe_report(**kwargs)
+
+
+def multi_unit_case1_dual_space_linf_probe_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_linf_probe_report``."""
+    return offline_case1_dual_space_linf_probe_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -5257,6 +5803,21 @@ __all__ = [
     "case1_dual_linf_proof_checklist",
     "offline_case1_dual_space_form_contract_report",
     "multi_unit_case1_dual_space_form_contract_report",
+    "CASE1_DUAL_SPACE_LINF_PROBE_KIND",
+    "CASE1_FIXTURE_PRIMARY_ONLINE_LAMBDA",
+    "CASE1_FIXTURE_SECONDARY_RECOVERED_LAMBDA",
+    "CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE",
+    "CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW",
+    "CASE1_DUAL_VECTOR_FACE_SECONDARY_RECOVERED",
+    "case1_primary_online_lambda_fixture",
+    "case1_secondary_recovered_lambda_fixture",
+    "case1_dual_space_stream_aligned_linf",
+    "stream_aligned_dual_linf",
+    "extract_case1_shaped_skeleton_lambda",
+    "case1_shaped_skeleton_lambda",
+    "offline_case1_dual_space_linf_probe_report",
+    "case1_dual_space_linf_probe",
+    "multi_unit_case1_dual_space_linf_probe_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
