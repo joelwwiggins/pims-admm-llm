@@ -218,8 +218,21 @@ def main(argv: list[str] | None = None) -> int:
             f"[NOT VERDICT gate; NOT dual L∞ under wire proof; "
             f"seed identity L∞ ≠ proof]"
         )
+        pool = _tlb.offline_case1_honest_blender_pooling_path_report()
+        print(
+            f"Offline TF honest blender pooling path (diagnostic only): "
+            f"surface={pool.get('blender_surface')}  "
+            f"checklist={pool.get('blender_pooling_checklist_status')}  "
+            f"pooling_path_ok={pool.get('pooling_path_ok')}  "
+            f"affine_unit={pool.get('blender_is_base_delta_affine_unit')}  "
+            f"no_blender_blocker={pool.get('no_blender_offline_affine_kernel_in_default_wire_blockers')}  "
+            f"dual_linf_under_wire={pool.get('dual_linf_under_wire_status')}  "
+            f"dual_recovery_path={pool.get('dual_recovery_path')}  "
+            f"wire_shipped={pool.get('wire_shipped')}  "
+            f"[NOT VERDICT gate; NOT affine kernel; NOT wire proof]"
+        )
     except Exception as exc:  # pragma: no cover - demo soft-skip
-        print(f"Offline TF live-λ bridge/warm-start: skipped ({exc})")
+        print(f"Offline TF live-λ bridge/warm-start/pooling path: skipped ({exc})")
 
     return 0 if report["verdict"].startswith("PASS") else 1
 
