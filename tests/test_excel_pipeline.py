@@ -492,6 +492,30 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "linear_quality_pooling" in pclow or "blender" in pclow
     assert "no_blender" in pclow or "blocker" in pclow
 
+    # Offline Case-1 form_label ship criteria How_to (static packaging of #52)
+    tf_fl = how.get("tf_offline_case1_form_label_change_shipped_criteria_contract", "")
+    assert tf_fl, (
+        "How_to_read must include "
+        "tf_offline_case1_form_label_change_shipped_criteria_contract"
+    )
+    fllow = tf_fl.lower()
+    assert "criteria" in fllow
+    assert "criteria_present" in fllow
+    assert "form_label_ship_allowed" in fllow or "form_label_ship_allowed_today" in fllow
+    assert "form_label_change_shipped" in fllow
+    assert "false" in fllow
+    assert "classic_2block" in fllow or "form_current" in fllow
+    assert "path_design_present" in fllow
+    assert "path_shipped" in fllow
+    assert "wire_ship_allowed_today" in fllow or "ship_allowed" in fllow
+    assert "wire_shipped" in fllow or "wire shipped" in fllow
+    assert "unproven" in fllow
+    assert "verdict" in fllow
+    assert "dual" in fllow and ("none" in fllow or "primary" in fllow)
+    assert "not" in fllow and "wire" in fllow
+    assert "mutation" in fllow or "feature_flag" in fllow
+    assert "no_blender" in fllow or "blocker" in fllow
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -1704,6 +1728,179 @@ def test_format_tf_offline_case1_dual_honest_tf_aware_path_present_criteria_cont
     assert "offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report(" not in src
 
 
+def test_format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto_pure():
+    """Static form_label criteria How_to: criteria_present; form_label ship false; form classic; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIP_MET,
+        _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_FORM_CURRENT,
+        _CASE1_FORM_LABEL_CHANGE_SHIPPED,
+        _CASE1_FORM_LABEL_CRITERIA_ANTI_CRITERIA,
+        _CASE1_FORM_LABEL_CRITERIA_MET_TODAY,
+        _CASE1_FORM_LABEL_CRITERIA_PRESENT,
+        _CASE1_FORM_LABEL_FLIP_CRITERIA_KEYS,
+        _CASE1_FORM_LABEL_MUTATION_PATH_EXECUTED_TODAY,
+        _CASE1_FORM_LABEL_MUTATION_PATH_NAME,
+        _CASE1_FORM_LABEL_SHIP_ALLOWED_TODAY,
+        _CASE1_FORM_PLANNED,
+        _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        _CASE1_PATH_DESIGN_CDU_SURFACE,
+        _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_ENABLED_TODAY,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        _CASE1_PATH_DESIGN_PRESENT,
+        _CASE1_PATH_SHIPPED,
+        _CASE1_SHAPED_BLENDER_SURFACE,
+        _CASE1_SHAPED_LINKING_STREAMS,
+        _CASE1_SHIP_MET_ALLOWED_TODAY,
+        _CASE1_WIRE_SHIP_ALLOWED_TODAY,
+        _CASE1_WIRE_SHIPPED,
+        _OFFLINE_TF_UNITS,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+        format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto,
+    )
+
+    d = format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto()
+    assert d["topic"] == "tf_offline_case1_form_label_change_shipped_criteria_contract"
+    assert "CDU" in d["units"] and "Blender" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["not_case1_solve"] == "true"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["form_planned"] == _CASE1_FORM_PLANNED
+    assert d["form_current"] == "classic_2block_excel_path"
+    assert d["form_planned"] == "tf_affine_cdu_blender_shaped_excel_path"
+    assert d["form_current"] != d["form_planned"]
+    assert d["case1_form_unchanged"] == "true"
+    assert d["form_unchanged"] == "true"
+    assert d["form_label_change_required_still_true"] == "true"
+    assert d["planned_form_distinct"] == "true"
+    assert d["dual_recovery_path"] == "None"
+    assert d["dual_recovery_path_planned_when_shipped"] == _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED
+    assert "pure-admm" not in d["dual_recovery_path_planned_when_shipped"].lower()
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    assert d["criteria_present"] == "true"
+    assert d["form_label_criteria_present"] == "true"
+    assert d["form_label_ship_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["mutation_path_name"] == _CASE1_FORM_LABEL_MUTATION_PATH_NAME
+    assert d["mutation_path_executed_today"] == "false"
+    assert d["path_design_present"] == "true"
+    assert d["path_shipped"] == "false"
+    assert d["not_path_shipped"] == "true"
+    assert d["dual_honest_tf_aware_path_present_ship_met"] == "false"
+    assert d["dual_honest_tf_aware_path_present"] == "false"
+    assert d["ship_met_allowed_today"] == "false"
+    assert d["wire_ship_allowed_today"] == "false"
+    assert d["wire_ship_criteria_met_today"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["isolation_rewrite_with_wire"] == _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS
+    assert d["isolation_rewrite_with_wire"] == "open"
+    assert d["isolation_rewrite_required_still_in_blockers"] == "true"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert d["cdu_surface"] == _CASE1_PATH_DESIGN_CDU_SURFACE
+    assert d["blender_surface"] == _CASE1_SHAPED_BLENDER_SURFACE
+    assert d["blender_surface"] == "linear_quality_pooling"
+    for s in _CASE1_SHAPED_LINKING_STREAMS:
+        assert s in d["intermediates"]
+    assert d["feature_flag_name"] == _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME
+    assert d["feature_flag_enabled_today"] == "false"
+    for k in _CASE1_FORM_LABEL_FLIP_CRITERIA_KEYS:
+        assert k in d["flip_criteria_keys"]
+    assert d["criteria_is_not_form_label_shipped"] == "true"
+    assert d["criteria_is_not_form_flip"] == "true"
+    assert d["criteria_is_not_form_label_ship_allow"] == "true"
+    assert d["criteria_is_not_ship_met"] == "true"
+    assert d["criteria_is_not_path_shipped"] == "true"
+    assert d["criteria_is_not_wire_ship_allow"] == "true"
+    assert d["criteria_is_not_wire"] == "true"
+    assert d["criteria_is_not_verdict_gate"] == "true"
+    assert d["criteria_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["criteria_is_not_isolation_rewrite_shipped"] == "true"
+    assert d["form_registration_is_not_form_label_shipped"] == "true"
+    assert d["no_blender_offline_affine_kernel_blocker_still_true"] == "true"
+    assert d["units_affine_unchanged"] == _OFFLINE_TF_UNITS
+    assert "BLENDER" not in d["units_affine_unchanged"]
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    open_ids = d["dual_linf_proof_checklist_open_ids"]
+    for oid in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS:
+        assert oid in open_ids
+    assert "form_label_change_shipped" in open_ids
+    assert d["does_not_clear_wire_blockers"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    assert d["not_form_flip"] == "true"
+    assert d["not_dual_linf_under_wire_proven"] == "true"
+    assert _CASE1_FORM_LABEL_CRITERIA_PRESENT is True
+    assert _CASE1_FORM_LABEL_SHIP_ALLOWED_TODAY is False
+    assert _CASE1_FORM_LABEL_CRITERIA_MET_TODAY is False
+    assert _CASE1_FORM_LABEL_CHANGE_SHIPPED is False
+    assert _CASE1_FORM_LABEL_MUTATION_PATH_EXECUTED_TODAY is False
+    assert _CASE1_PATH_DESIGN_PRESENT is True
+    assert _CASE1_PATH_SHIPPED is False
+    assert _CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIP_MET is False
+    assert _CASE1_SHIP_MET_ALLOWED_TODAY is False
+    assert _CASE1_PATH_DESIGN_FEATURE_FLAG_ENABLED_TODAY is False
+    assert _CASE1_WIRE_SHIP_ALLOWED_TODAY is False
+    assert _CASE1_WIRE_SHIPPED is False
+    assert "this_form_label_change_shipped_criteria_contract_alone" in _CASE1_FORM_LABEL_CRITERIA_ANTI_CRITERIA
+    assert "form_registration_alone" in _CASE1_FORM_LABEL_CRITERIA_ANTI_CRITERIA
+    assert "packaging_alone" in _CASE1_FORM_LABEL_CRITERIA_ANTI_CRITERIA
+    assert "no_blender_offline_affine_kernel" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "form_label_change_required" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "isolation_rewrite_required" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "wire_not_shipped" in _OFFLINE_WIRE_BLOCKER_IDS
+    one = d["planner_one_liner"].lower()
+    assert "criteria" in one and "form_label" in one
+    assert "criteria_present" in one
+    assert "form_label_ship_allowed_today" in one or "form_label_ship_allowed" in one
+    assert "form_label_change_shipped" in one
+    assert "classic_2block" in one or "form_current" in one
+    assert "path_design_present" in one
+    assert "path_shipped" in one
+    assert "unproven" in one
+    assert "verdict" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "false" in one
+    assert "dual" in one and "none" in one
+    assert "not" in one and "wire" in one
+    assert "no_blender" in one or "blocker" in one
+    assert "fcc" in one and "coker" in one and "cdu" in one
+    assert "mutation" in one
+    assert "packaging" in one or "criteria alone" in one or "anti" in one
+    # multi-way permission coexistence
+    assert d["criteria_present"] == "true"
+    assert d["form_label_ship_allowed_today"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["dual_honest_tf_aware_path_present_ship_met"] == "false"
+    assert d["wire_shipped"] == "false"
+    # isolation: formatter body must not import TF / call live criteria report
+    import ast
+    import inspect
+    src = inspect.getsource(
+        format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto
+    )
+    tree = ast.parse(src)
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imported.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imported.add(node.module.split(".")[0])
+    assert "tf_linear_blocks" not in imported
+    assert "tensorflow" not in imported
+    assert "offline_case1_form_label_change_shipped_criteria_contract_report(" not in src
+
+
 def test_case1_dual_linf_open_ids_no_longer_list_blender_pooling():
     """Excel open-ids realigned after #40: blender pooling no longer open."""
     from pims_admm_llm.models.excel_pipeline import (
@@ -1971,7 +2168,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "path design+criteria" in what_l or "criteria" in what_l
     assert "path=false" in what_l or "path_shipped" in what_l or "path=false" in what_l
     assert "ship-met=false" in what_l or "ship_met" in what_l or "dual-ban" in what_l
-    assert "flip=false" in what_l or "ship-met=false" in what_l
+    assert "form_label_ship=false" in what_l or "form=classic" in what_l or "form_label" in what_l
+    assert "flip=false" in what_l or "ship-met=false" in what_l or "form_label_ship=false" in what_l
     from pims_admm_llm.models.excel_pipeline import _OFFLINE_TF_INDEX_WHAT
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439, len(_OFFLINE_TF_INDEX_WHAT)
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
@@ -2002,11 +2200,17 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"][
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_ready"
     ] is True
+    assert pkg["meta"][
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_ready"
+    ] is True
     assert pkg["meta"]["offline_tf_path_design_present"] is True
     assert pkg["meta"]["offline_tf_path_present_criteria_present"] is True
+    assert pkg["meta"]["offline_tf_form_label_criteria_present"] is True
     assert pkg["meta"]["offline_tf_path_shipped"] is False
     assert pkg["meta"]["offline_tf_dual_honest_tf_aware_path_present_ship_met"] is False
     assert pkg["meta"]["offline_tf_ship_met_allowed_today"] is False
+    assert pkg["meta"]["offline_tf_form_label_ship_allowed_today"] is False
+    assert pkg["meta"]["offline_tf_form_label_change_shipped"] is False
     assert pkg["meta"]["offline_tf_wire_ship_allowed_today"] is False
     assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
@@ -2174,6 +2378,24 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "dual" in pc_note
     assert "dual-ban" in pc_note or "dual_recovery_path" in pc_note
     assert "no_blender" in pc_note or "blocker" in pc_note
+    fl_note = str(
+        pkg["meta"]["offline_tf_case1_form_label_change_shipped_criteria_contract"]
+    ).lower()
+    assert "criteria" in fl_note
+    assert "criteria_present" in fl_note
+    assert "form_label_ship_allowed" in fl_note or "form_label_ship_allowed_today" in fl_note
+    assert "form_label_change_shipped" in fl_note
+    assert "false" in fl_note
+    assert "classic" in fl_note or "form_current" in fl_note
+    assert "path_design_present" in fl_note
+    assert "path_shipped" in fl_note
+    assert "wire_ship_allowed_today" in fl_note or "ship_allowed" in fl_note
+    assert "wire_shipped" in fl_note or "not wire" in fl_note
+    assert "unproven" in fl_note
+    assert "verdict" in fl_note
+    assert "dual" in fl_note
+    assert "dual-ban" in fl_note or "dual_recovery_path" in fl_note
+    assert "no_blender" in fl_note or "blocker" in fl_note
     blockers_meta = str(pkg["meta"]["offline_tf_wire_blockers"])
     assert "isolation_rewrite_required" in blockers_meta
     assert "form_label_change_required" in blockers_meta
@@ -2210,6 +2432,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "path_shipped=false" in readiness_note or "path_shipped" in readiness_note
     assert "ship-met=false" in readiness_note or "ship-met" in readiness_note
     assert "path-present" in readiness_note or "criteria_present" in readiness_note or "ship_met_allowed" in readiness_note
+    assert "form_label" in readiness_note or "form=classic" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
@@ -2228,6 +2451,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "isolation" in one_l and "design" in one_l
     assert "path design" in one_l or "path_design" in one_l or "path_shipped" in one_l
     assert "criteria" in one_l or "ship_met_allowed" in one_l or "path-present" in one_l
+    assert "form_label" in one_l or "form=classic" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -2688,6 +2912,76 @@ def test_planner_honesty_glance_package(tmp_path):
             "dual_linf_proof_checklist_open_ids"
         ]
     )
+    assert pkg.get("tf_offline_case1_form_label_change_shipped_criteria_contract") is not None
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"]["topic"]
+        == "tf_offline_case1_form_label_change_shipped_criteria_contract"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "wire_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "dual_recovery_path"
+        ]
+        == "None"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "dual_linf_under_wire_status"
+        ]
+        == "unproven"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "criteria_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "form_label_ship_allowed_today"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "form_label_change_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "form_current"
+        ]
+        == "classic_2block_excel_path"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "path_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "criteria_is_not_form_label_shipped"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "criteria_is_not_verdict_gate"
+        ]
+        == "true"
+    )
+    assert "form_label_change_shipped" in (
+        pkg["tf_offline_case1_form_label_change_shipped_criteria_contract"][
+            "dual_linf_proof_checklist_open_ids"
+        ]
+    )
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -2709,12 +3003,16 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_wire_ship_acceptance_design_contract",
         "offline_tf_case1_dual_honest_tf_aware_path_design_contract",
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract",
+        "offline_tf_case1_form_label_change_shipped_criteria_contract",
         "offline_tf_wire_blockers",
         "offline_tf_path_design_present",
         "offline_tf_path_present_criteria_present",
+        "offline_tf_form_label_criteria_present",
         "offline_tf_path_shipped",
         "offline_tf_dual_honest_tf_aware_path_present_ship_met",
         "offline_tf_ship_met_allowed_today",
+        "offline_tf_form_label_ship_allowed_today",
+        "offline_tf_form_label_change_shipped",
         "offline_tf_wire_ship_allowed_today",
         "offline_tf_wire_shipped",
         "offline_tf_readiness_note",
@@ -2784,6 +3082,11 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_not_verdict_gate",
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_ship_met_false_path_shipped_false",
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_not_dual_linf_under_wire_proof",
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_not_duals",
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_not_wire",
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_not_verdict_gate",
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_form_label_shipped_false_form_classic",
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_not_dual_linf_under_wire_proof",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -2820,11 +3123,17 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph[
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_ready"
     ] is True
+    assert ph[
+        "offline_tf_case1_form_label_change_shipped_criteria_contract_ready"
+    ] is True
     assert ph["offline_tf_path_design_present"] is True
     assert ph["offline_tf_path_present_criteria_present"] is True
+    assert ph["offline_tf_form_label_criteria_present"] is True
     assert ph["offline_tf_path_shipped"] is False
     assert ph["offline_tf_dual_honest_tf_aware_path_present_ship_met"] is False
     assert ph["offline_tf_ship_met_allowed_today"] is False
+    assert ph["offline_tf_form_label_ship_allowed_today"] is False
+    assert ph["offline_tf_form_label_change_shipped"] is False
     assert ph["offline_tf_wire_ship_allowed_today"] is False
     assert ph["offline_tf_wire_shipped"] is False
     assert "priced" in str(ph["offline_tf_priced"]).lower()
