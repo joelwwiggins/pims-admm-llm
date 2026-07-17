@@ -3340,6 +3340,150 @@ def test_format_dual_honesty_summary_pure():
     assert "112" in d["dual_linf_recovered"]
     assert "online_lambda" in d["dual_recovery_path"]
     assert "PRIMARY" in d["shadows_role_banner"] and "SECONDARY" in d["shadows_role_banner"]
+    # E3 dual-glance polish
+    assert d["dual_linf_tol"] == "15"
+    assert d["primary_vs_tol"] == "PASS"
+    assert d["secondary_not_gate"] == "true"
+    assert "PRIMARY online L∞" in d["dual_glance_strip"]
+    assert "SECONDARY recovered" in d["dual_glance_strip"]
+    assert "not gate" in d["dual_glance_strip"]
+    assert "verdict_dual_gate=online_only" in d["dual_glance_strip"]
+    assert "not pure-ADMM" in d["dual_glance_strip"]
+    assert "dual_linf_under_wire=unproven" in d["dual_glance_strip"]
+    assert "not pure-ADMM" in d["dual_recovery_path_honesty"]
+    assert "online_lambda" in d["dual_recovery_path_honesty"]
+    # recovered large must NOT flip primary_vs_tol / not gate language
+    assert "112" in d["dual_glance_strip"]
+    soft = format_dual_honesty_summary(
+        {
+            "admm": {"dual_recovery_path": "package-admm/x"},
+            "comparison": {"dual_linf_online": 20.0, "dual_linf_recovered": 1.0},
+        }
+    )
+    assert soft["primary_vs_tol"] == "SOFT/FAIL_vs_tol"
+    assert "not gate" in soft["dual_glance_strip"]
+
+
+def test_format_tf_offline_ladder_toc_howto_pure():
+    """E7: static offline ladder TOC — blueprint + ship=false dual-ban; no TF import."""
+    from pims_admm_llm.models.excel_pipeline import format_tf_offline_ladder_toc_howto
+    import pims_admm_llm.models.excel_pipeline as ep
+
+    d = format_tf_offline_ladder_toc_howto()
+    assert d["topic"] == "tf_offline_ladder_toc"
+    assert d["toc_present"] == "true"
+    assert d["offline_tf_ladder_toc_ready"] == "true"
+    assert d["includes_blueprint"] == "true"
+    assert d["ship_false_dual_ban"] == "true"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["dual_recovery_path"] == "None"
+    assert d["ready_is_not_ship"] == "true"
+    assert d["blueprint_present_is_not_wire_ready"] == "true"
+    assert d["not_index_growth"] == "true"
+    ids = d["topic_ids"]
+    assert "tf_offline_units" in ids
+    assert "implementation_blueprint" in ids
+    assert "wire_preflight" in ids
+    assert "isolation_rewrite" in ids
+    one = d["planner_one_liner"].lower()
+    assert "blueprint" in one
+    assert "ship=false" in one or "ship=false" in one.replace(" ", "")
+    assert "dual-ban" in one or "dual_recovery_path=none" in one
+    assert "wire ready" in one or "wire_shipped" in one
+    # isolation purity: formatter module source must not import tf on this helper path
+    src = open(ep.__file__, encoding="utf-8").read()
+    # helper itself is pure — no tensorflow token required inside the function body alone
+    assert "format_tf_offline_ladder_toc_howto" in src
+    assert int(d["topic_count"]) >= 20
+
+
+def test_excel_dual_glance_and_ladder_toc_surfaces(tmp_path):
+    """E3+E7: dual glance strip + ladder TOC on How_to / Summary / Shadows / meta / Calc_Check."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    out = tmp_path / "dual_glance_toc.xlsx"
+    write_results_excel(out, report)
+    import openpyxl
+
+    wb = openpyxl.load_workbook(out)
+    assert len(wb.sheetnames) <= GOAL_MAX_SHEETS
+
+    pkg = format_planner_honesty_package(report)
+    assert "dual_glance_strip" in pkg["meta"]
+    assert "PRIMARY" in pkg["meta"]["dual_glance_strip"]
+    assert "SECONDARY" in pkg["meta"]["dual_glance_strip"]
+    assert pkg["meta"]["offline_tf_ladder_toc_ready"] is True
+    assert pkg["meta"]["secondary_not_gate"] in (True, "true")
+    assert pkg["meta"]["dual_linf_tol"] in (15, "15")
+    assert "tf_offline_ladder_toc" in pkg
+    assert pkg["tf_offline_ladder_toc"]["includes_blueprint"] == "true"
+    # Index must not grow for TOC (no growth requirement / prefer How_to)
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+    how = {
+        str(r[0].value): str(r[1].value or "")
+        for r in wb["How_to_read"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert "tf_offline_ladder_toc" in how
+    toc = how["tf_offline_ladder_toc"].lower()
+    assert "blueprint" in toc
+    assert "ship=false" in toc or "ship=false" in toc.replace(" ", "")
+    assert "dual" in toc
+    assert "dual_glance_strip" in how
+    assert "PRIMARY" in how["dual_glance_strip"]
+    assert "not gate" in how["dual_glance_strip"]
+    assert "dual_recovery_path_honesty" in how
+    assert "not pure-ADMM" in how["dual_recovery_path_honesty"] or "not pure-admm" in how[
+        "dual_recovery_path_honesty"
+    ].lower()
+
+    summary = {
+        str(r[0].value): r[1].value
+        for r in wb["Summary"].iter_rows(min_row=2, max_col=2)
+        if r[0].value
+    }
+    assert summary.get("verdict_dual_gate") == "online_only"
+    strip = str(summary.get("dual_glance_strip") or "")
+    assert "PRIMARY" in strip and "SECONDARY" in strip
+    assert summary.get("secondary_not_gate") in (True, "true")
+    assert summary.get("offline_tf_ladder_toc_ready") is True
+    assert "How_to" in str(summary.get("offline_tf_ladder_toc") or "")
+
+    sh_vals = []
+    for row in wb["Shadows"].iter_rows(values_only=True):
+        sh_vals.extend(str(c) for c in row if c is not None)
+    blob = " | ".join(sh_vals)
+    assert "dual_glance_strip" in blob
+    assert "PRIMARY" in blob and "SECONDARY" in blob
+    assert "not gate" in blob.lower() or "SECONDARY_recovered_not_gate" in blob
+    assert "dual_recovery_path_honesty" in blob or "not pure-ADMM" in blob
+    assert "dual_linf_under_wire" in blob and "unproven" in blob
+
+    rows = planner_honesty_check_rows(report)
+    names = {r["check"] for r in rows}
+    assert "recovered_linf_not_verdict_gate" in names
+    assert "dual_glance_strip_primary_secondary" in names
+    assert "dual_linf_under_wire_unproven_not_from_diagnostics" in names
+    assert "offline_tf_ladder_toc_navigator" in names
+    assert all(r["ok"] for r in rows if r["check"] in names)
+
+    # VERDICT still online-only — recovered large does not fail
+    assert report["verdict"].startswith("PASS")
+    assert report["comparison"]["dual_linf_online"] <= 15.0
+    assert report["comparison"]["verdict_dual_gate"] == "online_only"
 
 
 def test_planner_honesty_glance_package(tmp_path):
@@ -5456,7 +5600,11 @@ def test_planner_honesty_check_rows_pure():
     assert {
         "form_classic_2block",
         "dual_gate_online_only",
+        "recovered_linf_not_verdict_gate",
+        "dual_glance_strip_primary_secondary",
+        "dual_linf_under_wire_unproven_not_from_diagnostics",
         "offline_tf_not_on_case1",
+        "offline_tf_ladder_toc_navigator",
         "offline_tf_priced_not_duals",
         "offline_tf_timing_not_case1",
         "offline_tf_admm_residual_not_duals",

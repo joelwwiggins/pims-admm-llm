@@ -84,7 +84,15 @@ def main(argv: list[str] | None = None) -> int:
         f"Dual SECONDARY (recovered blender face, not gate): L∞={cmp_.get('dual_linf_recovered')}  "
         f"[recovered_secondary=true]"
     )
+    dual_strip = (meta.get("planner_honesty") or {}).get("dual_glance_strip")
+    if dual_strip:
+        print(f"Dual glance: {dual_strip}")
     ph = (meta.get("planner_honesty") or {})
+    if ph.get("offline_tf_ladder_toc_ready"):
+        print(
+            "Offline TF ladder TOC: ready=true (How_to topic tf_offline_ladder_toc; "
+            "ship=false dual-ban; blueprint_present≠wire ready; no Index growth)"
+        )
     offline_units = ph.get("offline_tf_units") or "FCC,COKER,CDU"
     # Static readiness flags from meta only — never import tf_linear_blocks /
     # live residual, block subproblem, multi-round coordination, plant-linking,

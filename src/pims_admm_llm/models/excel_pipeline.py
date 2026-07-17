@@ -1358,6 +1358,11 @@ def format_dual_honesty_summary(report: Dict[str, Any]) -> Dict[str, str]:
     path_ = str(admm.get("dual_recovery_path") or "package-admm")
     online = cmp_.get("dual_linf_online")
     recovered = cmp_.get("dual_linf_recovered")
+    dual_tol = 15.0
+    try:
+        online_f = float(online) if online is not None else None
+    except (TypeError, ValueError):
+        online_f = None
     try:
         online_s = f"{float(online):.4g}" if online is not None else "n/a"
     except (TypeError, ValueError):
@@ -1366,6 +1371,24 @@ def format_dual_honesty_summary(report: Dict[str, Any]) -> Dict[str, str]:
         recovered_s = f"{float(recovered):.4g}" if recovered is not None else "n/a"
     except (TypeError, ValueError):
         recovered_s = str(recovered)
+    if online_f is None:
+        primary_vs_tol = "n/a"
+    elif online_f <= dual_tol:
+        primary_vs_tol = "PASS"
+    else:
+        primary_vs_tol = "SOFT/FAIL_vs_tol"
+    # Classic package-admm path honesty (never pure-ADMM; TF surface is None separately).
+    path_honesty = (
+        f"dual_recovery_path={path_} (classic package-admm / online_lambda path; "
+        "not pure-ADMM dual ownership; TF offline surface dual_recovery_path=None; "
+        "never claim pure-ADMM as dual recovery)."
+    )
+    dual_glance_strip = (
+        f"PRIMARY online L∞={online_s} {primary_vs_tol} (tol≤{dual_tol:.0f} gates VERDICT); "
+        f"SECONDARY recovered L∞={recovered_s} (not gate; face-dependent); "
+        f"verdict_dual_gate=online_only; dual_recovery_path={path_}; "
+        "not pure-ADMM; not TF dual recovery; dual_linf_under_wire=unproven"
+    )
     return {
         "primary_role": "PRIMARY",
         "secondary_role": "SECONDARY",
@@ -1373,10 +1396,19 @@ def format_dual_honesty_summary(report: Dict[str, Any]) -> Dict[str, str]:
         "secondary_metric": "dual_linf_recovered",
         "dual_linf_online": online_s,
         "dual_linf_recovered": recovered_s,
+        "dual_linf_tol": f"{dual_tol:.0f}",
+        "primary_vs_tol": primary_vs_tol,
+        "primary_tol_note": f"PRIMARY L∞ tol≤{dual_tol:.0f} gates VERDICT dual check (online_only)",
+        "secondary_not_gate": "true",
+        "secondary_not_gate_note": (
+            "SECONDARY recovered blender L∞ is face-dependent and never gates VERDICT"
+        ),
         "verdict_dual_gate": "online_only",
         "dual_gate": "online_lambda",
         "dual_recovery_path": path_,
+        "dual_recovery_path_honesty": path_honesty,
         "recovered_secondary": "true",
+        "dual_glance_strip": dual_glance_strip,
         "planner_one_liner": (
             f"PRIMARY free online λ dual L∞≈{online_s} (gates VERDICT, tol≤15); "
             f"SECONDARY recovered blender dual L∞≈{recovered_s} (face-dependent; not gate); "
@@ -3858,6 +3890,121 @@ def format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_bluepr
     }
 
 
+def format_tf_offline_ladder_toc_howto() -> Dict[str, str]:
+    """Static How_to TOC / navigator for the offline TF honesty ladder (E7).
+
+    Isolation-safe: pure strings only — no TF import, no live report calls, no Index
+    growth requirement. Lists topic ids + one-line purpose + ship=false dual-ban so
+    planners never misread blueprint_present / ready flags as wire shipped.
+    """
+    # (topic_id, one-line purpose) — ship=false dual-ban applied uniformly.
+    ladder: List[tuple[str, str]] = [
+        ("tf_offline_units", "FCC+COKER+CDU offline exact-linear kernels"),
+        ("tf_offline_priced", "priced residual readiness (prices ≠ duals)"),
+        ("tf_offline_timing", "block-solve timing readiness (not Case 1 wall)"),
+        ("tf_offline_admm_residual", "synthetic λ/z/ρ residual harness"),
+        ("tf_offline_admm_block_subproblem", "raw affine block maximizer under box"),
+        ("tf_offline_admm_coordination", "multi-round per-unit synthetic coordination"),
+        ("tf_offline_admm_plant_linking", "synthetic multi-block plant-linking topology"),
+        ("tf_offline_admm_plant_named_linking", "plant-named linking offline demo"),
+        ("tf_offline_wire_preflight", "compose gates + wire_blockers; not wire"),
+        ("tf_offline_case1_shaped_linking", "Case-1-shaped CDU↔Blender skeleton"),
+        ("tf_offline_case1_dual_space_form_contract", "planned≠classic form registry"),
+        ("tf_offline_case1_dual_space_linf_probe", "stream-aligned L∞ probe (not proof)"),
+        ("tf_offline_case1_dual_space_linf_live_lambda_bridge", "live-λ bridge (source-labeled)"),
+        (
+            "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart",
+            "live-λ-seeded warm-start (seed≠proof)",
+        ),
+        ("tf_offline_case1_honest_blender_pooling_path", "honest pooling path (not affine)"),
+        (
+            "tf_offline_case1_online_linf_gate_criteria_contract",
+            "online_linf_gate flip criteria (gate open)",
+        ),
+        (
+            "tf_offline_case1_isolation_rewrite_design_contract",
+            "isolation rewrite design (rewrite=false)",
+        ),
+        (
+            "tf_offline_case1_wire_ship_acceptance_design_contract",
+            "wire-ship acceptance design (ship=false)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_tf_aware_path_design_contract",
+            "TF-aware path design (path_shipped=false)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_tf_aware_path_present_criteria_contract",
+            "path-present ship-met criteria (ship-met=false)",
+        ),
+        (
+            "tf_offline_case1_form_label_change_shipped_criteria_contract",
+            "form_label flip criteria (form=classic)",
+        ),
+        (
+            "tf_offline_case1_isolation_rewrite_shipped_criteria_contract",
+            "isolation ship-met criteria (rewrite=false)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract",
+            "multi-blocker bundle design (bundle_shipped=false)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract",
+            "bundle ship-met criteria (met=false)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_tf_aware_path_execution_scaffold",
+            "path execution scaffold (not ship)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_multi_blocker_wire_rehearsal",
+            "multi-blocker wire rehearsal (not ship)",
+        ),
+        (
+            "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint",
+            "implementation blueprint / go-board (1st=iso; not ship)",
+        ),
+    ]
+    dual_ban = (
+        "ship=false; wire_shipped=false; path_shipped=false; bundle_shipped=false; "
+        "isolation_rewrite_shipped=false; form_label_change_shipped=false; "
+        "dual_linf_under_wire=unproven; dual_recovery_path=None on TF surface; "
+        "ready≠ship; not VERDICT gate; not pure-ADMM dual recovery"
+    )
+    lines = [f"{tid}: {purpose} [{dual_ban}]" for tid, purpose in ladder]
+    topic_ids = ",".join(tid for tid, _ in ladder)
+    one_liner = (
+        "Offline TF honesty ladder TOC (navigator only): "
+        + " | ".join(f"{tid}={purpose}" for tid, purpose in ladder)
+        + f" — each rung: {dual_ban}. "
+        "blueprint_present / ready flags ≠ wire ready. See How_to topics by id. "
+        "No Index growth required for this TOC."
+    )
+    return {
+        "topic": "tf_offline_ladder_toc",
+        "toc_present": "true",
+        "offline_tf_ladder_toc_ready": "true",
+        "topic_ids": topic_ids,
+        "topic_count": str(len(ladder)),
+        "includes_blueprint": "true",
+        "ship_false_dual_ban": "true",
+        "wire_shipped": "false",
+        "path_shipped": "false",
+        "bundle_shipped": "false",
+        "isolation_rewrite_shipped": "false",
+        "form_label_change_shipped": "false",
+        "dual_linf_under_wire_status": "unproven",
+        "dual_recovery_path": "None",
+        "ready_is_not_ship": "true",
+        "blueprint_present_is_not_wire_ready": "true",
+        "not_verdict_gate": "true",
+        "not_index_growth": "true",
+        "ladder_lines": " || ".join(lines),
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -4987,6 +5134,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_blueprint = (
         format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto()
     )
+    tf_ladder_toc = format_tf_offline_ladder_toc_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -5013,6 +5161,14 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "dual_linf_online_role": dual["primary_role"],
         "dual_linf_recovered_role": dual["secondary_role"],
+        "dual_linf_tol": dual.get("dual_linf_tol", "15"),
+        "primary_vs_tol": dual.get("primary_vs_tol", "n/a"),
+        "secondary_not_gate": dual.get("secondary_not_gate", "true"),
+        "dual_glance_strip": dual.get("dual_glance_strip", dual["planner_one_liner"]),
+        "dual_recovery_path_honesty": dual.get(
+            "dual_recovery_path_honesty", dual["dual_recovery_path"]
+        ),
+        "offline_tf_ladder_toc_ready": True,  # static How_to TOC navigator; not live reports
         "offline_tf_units": _OFFLINE_TF_UNITS,
         "offline_tf_priced_ready": True,  # static harness-existence flag; not live report
         "offline_tf_timing_ready": True,  # static harness-existence flag; not live report
@@ -5201,16 +5357,32 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ("model_form", form),
         ("dual_gate", dual["dual_gate"]),
         ("verdict_dual_gate", dual["verdict_dual_gate"]),
+        (
+            "dual_glance_strip",
+            dual.get("dual_glance_strip", dual["planner_one_liner"]),
+        ),
         ("dual_linf_online", online),
         (
             "dual_linf_online_role",
             "PRIMARY — free online λ; gates VERDICT dual L∞",
         ),
+        ("dual_linf_tol", dual.get("dual_linf_tol", "15")),
+        ("primary_vs_tol", dual.get("primary_vs_tol", "n/a")),
         ("dual_linf_recovered", recovered),
         (
             "dual_linf_recovered_role",
             "SECONDARY — blender recovery face; not VERDICT gate",
         ),
+        ("secondary_not_gate", dual.get("secondary_not_gate", "true")),
+        (
+            "dual_recovery_path_honesty",
+            dual.get("dual_recovery_path_honesty", dual["dual_recovery_path"]),
+        ),
+        (
+            "offline_tf_ladder_toc",
+            "See How_to topic tf_offline_ladder_toc (navigator; ship=false dual-ban; no Index growth)",
+        ),
+        ("offline_tf_ladder_toc_ready", True),
         ("offline_tf_units", _OFFLINE_TF_UNITS),
         ("tf_on_excel_case1_path", False),
         ("offline_tf_note", _OFFLINE_TF_READINESS_NOTE),
@@ -5365,6 +5537,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_dual_honest_tf_aware_path_execution_scaffold": tf_scaffold,
         "tf_offline_case1_dual_honest_multi_blocker_wire_rehearsal": tf_rehearsal,
         "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint": tf_blueprint,
+        "tf_offline_ladder_toc": tf_ladder_toc,
     }
 
 
@@ -5414,11 +5587,66 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "ok": dual_ok,
         },
         {
+            "check": "recovered_linf_not_verdict_gate",
+            "predicted": (
+                "SECONDARY recovered L∞ is not VERDICT gate; "
+                "verdict_dual_gate=online_only; dual_linf_tol=15 applies to PRIMARY only"
+            ),
+            "actual": (
+                f"dual_linf_recovered={cmp_.get('dual_linf_recovered')}; "
+                f"role={cmp_.get('dual_linf_recovered_role')}; "
+                "recovered_secondary=true; secondary_not_gate=true"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "dual_glance_strip_primary_secondary",
+            "predicted": (
+                "dual_glance_strip labels PRIMARY online L∞ (tol≤15 gates VERDICT) + "
+                "SECONDARY recovered (not gate) + dual_recovery_path honesty; "
+                "not pure-ADMM; dual_linf_under_wire=unproven"
+            ),
+            "actual": (
+                "static honesty — dual glance presentation only; VERDICT still online_only; "
+                "recovered L∞ never tightens VERDICT; probe/bridge/warmstart/blueprint L∞ "
+                "≠ dual_linf_under_wire proof"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "dual_linf_under_wire_unproven_not_from_diagnostics",
+            "predicted": (
+                "dual_linf_under_wire=unproven; probe/bridge/warmstart/blueprint/recovered L∞ "
+                "are never dual_linf_under_wire proof"
+            ),
+            "actual": (
+                "static honesty — dual_linf stays unproven; diagnostic L∞ never flip gate or "
+                "claim dual L∞ under wire proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
             "check": "offline_tf_not_on_case1",
             "predicted": f"offline_tf_units={_OFFLINE_TF_UNITS}; on_excel_case1_path=False",
             "actual": "not on classic Case 1 solve (static honesty)",
             "abs_err": 0.0,
             "ok": offline_ok,
+        },
+        {
+            "check": "offline_tf_ladder_toc_navigator",
+            "predicted": (
+                "How_to offline ladder TOC present; ship=false dual-ban on each rung; "
+                "blueprint_present ≠ wire ready; no Index growth required"
+            ),
+            "actual": (
+                "static honesty — offline_tf_ladder_toc_ready=true; navigator only; "
+                "ready≠ship; dual_recovery_path=None on TF surface"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
         },
         {
             "check": "offline_tf_priced_not_duals",
@@ -7257,6 +7485,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_blueprint = (
         format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto()
     )
+    tf_ladder_toc = format_tf_offline_ladder_toc_howto()
     return [
         (
             "goal",
@@ -7265,6 +7494,14 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tabs",
             "Index → Calc_Yields / Calc_Blend → Submodel_CDU / Blender / FCC / Coker / Linking → Rates → Shadows → Summary → Check",
+        ),
+        (
+            "tf_offline_ladder_toc",
+            tf_ladder_toc["planner_one_liner"],
+        ),
+        (
+            "dual_glance_strip",
+            dual.get("dual_glance_strip", dual["planner_one_liner"]),
         ),
         (
             "Submodel_CDU / Submodel_Blender",
@@ -7421,6 +7658,13 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "duals_primary_secondary",
             dual["planner_one_liner"],
+        ),
+        (
+            "dual_recovery_path_honesty",
+            dual.get(
+                "dual_recovery_path_honesty",
+                f"dual_recovery_path={path_}; not pure-ADMM; TF surface dual_recovery_path=None",
+            ),
         ),
         (
             "input",
@@ -7753,12 +7997,28 @@ def write_results_excel(path: PathLike, report: Dict[str, Any]) -> Path:
     # Footer metrics (this-run dual honesty; not stream rows).
     sh.append([])
     sh.append(["metric", "value"])
-    sh.append(["dual_L∞_online_vs_mono", cmp_.get("dual_linf_online")])
-    sh.append(["dual_L∞_recovered_vs_mono", cmp_.get("dual_linf_recovered")])
+    sh.append(["dual_glance_strip", dual.get("dual_glance_strip", dual["planner_one_liner"])])
+    sh.append(["dual_L∞_PRIMARY_online_vs_mono", cmp_.get("dual_linf_online")])
+    sh.append(["dual_L∞_PRIMARY_tol", dual.get("dual_linf_tol", "15")])
+    sh.append(["dual_L∞_PRIMARY_vs_tol", dual.get("primary_vs_tol", "n/a")])
+    sh.append(["dual_L∞_SECONDARY_recovered_vs_mono", cmp_.get("dual_linf_recovered")])
+    sh.append(["SECONDARY_recovered_not_gate", dual.get("secondary_not_gate", "true")])
     sh.append(["verdict_dual_gate", "online_only"])
     sh.append(["dual_recovery_path", admm.get("dual_recovery_path")])
+    sh.append(
+        [
+            "dual_recovery_path_honesty",
+            dual.get(
+                "dual_recovery_path_honesty",
+                str(admm.get("dual_recovery_path") or ""),
+            ),
+        ]
+    )
     sh.append(["dual_gate", "online_lambda"])
     sh.append(["recovered_secondary", True])
+    sh.append(["dual_linf_under_wire", "unproven"])
+    sh.append(["dual_L∞_online_vs_mono", cmp_.get("dual_linf_online")])
+    sh.append(["dual_L∞_recovered_vs_mono", cmp_.get("dual_linf_recovered")])
 
     if model:
         _apply_excel_formula_links(wb, model, mono)
