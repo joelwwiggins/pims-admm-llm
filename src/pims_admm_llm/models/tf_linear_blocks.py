@@ -96,6 +96,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_dual_space_linf_live_lambda_seeded_warmstart_available": True,
         "admm_case1_honest_blender_pooling_path_available": True,
         "admm_case1_online_linf_gate_criteria_contract_available": True,
+        "admm_case1_isolation_rewrite_design_contract_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -178,7 +179,17 @@ def honesty_metadata() -> Dict[str, Any]:
             "contract ≠ gate flip ≠ wire ≠ VERDICT ≠ dual L∞ under wire proof; dual-ban; "
             "dual_recovery_path=None; wire_shipped=False; does not clear DEFAULT_WIRE_BLOCKERS; "
             "does not redefine ready_for_wire_discussion; no excel_pipeline import on hot "
-            "path; no TF required."
+            "path; no TF required. "
+            "Offline Case-1 isolation-rewrite design-only contract available "
+            "(offline_case1_isolation_rewrite_design_contract_report): formalizes what "
+            "isolation rewrite WITH dual-honest wire means (rewrite-not-delete); "
+            "isolation_rewrite_design_present=True; isolation_rewrite_shipped=False; "
+            "checklist isolation_rewrite_with_wire stays open; dual_linf unproven; "
+            "online_linf_gate open; gate_flip_allowed_today=False; criteria_met_today=False; "
+            "design ≠ rewrite shipped ≠ wire ≠ VERDICT ≠ dual L∞ under wire proof; dual-ban; "
+            "dual_recovery_path=None; wire_shipped=False; isolation_rewrite_required still in "
+            "DEFAULT_WIRE_BLOCKERS; does not clear DEFAULT_WIRE_BLOCKERS; does not redefine "
+            "ready_for_wire_discussion; no excel_pipeline import on hot path; no TF required."
         ),
     }
 
@@ -1502,6 +1513,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart: bool = True,
     include_admm_case1_honest_blender_pooling_path: bool = True,
     include_admm_case1_online_linf_gate_criteria_contract: bool = True,
+    include_admm_case1_isolation_rewrite_design_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1516,7 +1528,8 @@ def offline_block_solve_readiness_report(
     ``admm_case1_dual_space_linf_live_lambda_bridge_ok``, and
     ``admm_case1_dual_space_linf_live_lambda_seeded_warmstart_ok``, and
     ``admm_case1_honest_blender_pooling_path_ok``, and
-    ``admm_case1_online_linf_gate_criteria_contract_ok`` are
+    ``admm_case1_online_linf_gate_criteria_contract_ok``, and
+    ``admm_case1_isolation_rewrite_design_contract_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1685,6 +1698,21 @@ def offline_block_solve_readiness_report(
     base["admm_case1_online_linf_gate_criteria_contract_ok"] = (
         admm_case1_online_linf_gate_criteria_contract_ok
     )
+    admm_case1_isolation_rewrite_design_contract_ok: Optional[bool] = None
+    if include_admm_case1_isolation_rewrite_design_contract:
+        try:
+            # Additive readiness: pure isolation-rewrite design-only compose.
+            # design_present; rewrite_shipped=False; isolation checklist stays open;
+            # dual_linf unproven; not VERDICT; not wire; not isolation rewrite shipped.
+            design_rep = offline_case1_isolation_rewrite_design_contract_report()
+            admm_case1_isolation_rewrite_design_contract_ok = bool(
+                design_rep.get("design_contract_ok", design_rep.get("ok"))
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_isolation_rewrite_design_contract_ok = False
+    base["admm_case1_isolation_rewrite_design_contract_ok"] = (
+        admm_case1_isolation_rewrite_design_contract_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1720,9 +1748,13 @@ def offline_block_solve_readiness_report(
         "kernel still absent; dual_linf unproven); online_linf_gate flip-criteria "
         "contract formalizes machine-readable close criteria while gate stays open "
         "(gate_flip_allowed_today=False; criteria_met_today=False; dual_linf unproven; "
-        "contract ≠ gate flip ≠ wire ≠ VERDICT) — and do not redefine "
-        "ready_for_wire_discussion. admm_case1_honest_blender_pooling_path_ok and "
-        "admm_case1_online_linf_gate_criteria_contract_ok are additive only."
+        "contract ≠ gate flip ≠ wire ≠ VERDICT); isolation-rewrite design-only contract "
+        "formalizes rewrite-with-wire-not-delete while isolation_rewrite_shipped=False and "
+        "checklist isolation_rewrite_with_wire stays open (design ≠ rewrite shipped ≠ wire "
+        "≠ VERDICT) — and do not redefine ready_for_wire_discussion. "
+        "admm_case1_honest_blender_pooling_path_ok, "
+        "admm_case1_online_linf_gate_criteria_contract_ok, and "
+        "admm_case1_isolation_rewrite_design_contract_ok are additive only."
     )
     return base
 
@@ -3954,6 +3986,7 @@ def offline_wire_preflight_report(
     include_admm_case1_dual_space_linf_live_lambda_seeded_warmstart: bool = True,
     include_admm_case1_honest_blender_pooling_path: bool = True,
     include_admm_case1_online_linf_gate_criteria_contract: bool = True,
+    include_admm_case1_isolation_rewrite_design_contract: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -4004,6 +4037,9 @@ def offline_wire_preflight_report(
         include_admm_case1_online_linf_gate_criteria_contract=(
             include_admm_case1_online_linf_gate_criteria_contract
         ),
+        include_admm_case1_isolation_rewrite_design_contract=(
+            include_admm_case1_isolation_rewrite_design_contract
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -4038,6 +4074,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_online_linf_gate_criteria_contract_ok = readiness.get(
         "admm_case1_online_linf_gate_criteria_contract_ok"
+    )
+    admm_case1_isolation_rewrite_design_contract_ok = readiness.get(
+        "admm_case1_isolation_rewrite_design_contract_ok"
     )
 
     blockers_documented = (
@@ -4089,6 +4128,10 @@ def offline_wire_preflight_report(
             admm_case1_online_linf_gate_criteria_contract_ok,
             include_admm_case1_online_linf_gate_criteria_contract,
         ),
+        (
+            admm_case1_isolation_rewrite_design_contract_ok,
+            include_admm_case1_isolation_rewrite_design_contract,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -4113,7 +4156,8 @@ def offline_wire_preflight_report(
         "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
         "plant_linking/plant_named/case1_shaped/dual_space_form_contract/"
         "dual_space_linf_probe/live_lambda_bridge/live_lambda_seeded_warmstart/"
-        "honest_blender_pooling_path/online_linf_gate_criteria_contract gates) and lists "
+        "honest_blender_pooling_path/online_linf_gate_criteria_contract/"
+        "isolation_rewrite_design_contract gates) and lists "
         "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
@@ -4160,6 +4204,9 @@ def offline_wire_preflight_report(
         ),
         "admm_case1_online_linf_gate_criteria_contract_ok": (
             admm_case1_online_linf_gate_criteria_contract_ok
+        ),
+        "admm_case1_isolation_rewrite_design_contract_ok": (
+            admm_case1_isolation_rewrite_design_contract_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -7693,6 +7740,426 @@ def multi_unit_case1_online_linf_gate_criteria_contract_report(
     return offline_case1_online_linf_gate_criteria_contract_report(**kwargs)
 
 
+
+
+# ---------------------------------------------------------------------------
+# Offline Case-1 isolation-rewrite design-only contract (goal 5 + 3 honesty)
+# ---------------------------------------------------------------------------
+# Always-on pure compose. Formalizes what isolation rewrite WITH dual-honest
+# wire means so flip criterion isolation_rewrite_with_wire and blocker
+# isolation_rewrite_required are no longer opaque open names. Design only:
+# isolation_rewrite_design_present=True; isolation_rewrite_shipped=False;
+# checklist stays open; met_today isolation keys stay False. Does NOT rewrite
+# isolation tests. Does NOT ship wire or flip Case 1 form. Does NOT invent
+# BLENDER UNITS. Does NOT clear DEFAULT_WIRE_BLOCKERS. Does NOT redefine
+# ready_for_wire_discussion. No TF / no PuLP / no excel_pipeline on hot path.
+
+CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_KIND = (
+    "offline_case1_isolation_rewrite_design_contract"
+)
+CASE1_ISOLATION_REWRITE_CHECKLIST_KEY = "isolation_rewrite_with_wire"
+CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_ANNOTATION = "present"
+CASE1_ISOLATION_REWRITE_BLOCKER_ID = "isolation_rewrite_required"
+CASE1_ISOLATION_REWRITE_FLIP_KEY = "isolation_rewrite_with_wire"
+CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY = (
+    "isolation_tests_rewritten_with_wire_not_deleted"
+)
+
+# Current isolation invariants that must survive any future dual-honest wire.
+# Static catalog only — not executed rewrites this cycle.
+CASE1_ISOLATION_INVARIANTS_MUST_SURVIVE: tuple = (
+    "excel_pipeline_source_must_not_hard_import_tensorflow_or_tf_linear_blocks_on_classic_path",
+    "models_init_must_not_hard_import_tf_linear_blocks",
+    "case1_form_remains_classic_until_explicit_form_label_change_shipped",
+    "dual_recovery_path_labeled_honestly_none_on_offline_tf_surface_online_lambda_owns_verdict_on_classic",
+    "optional_tf_path_must_remain_skipif_friendly_when_tf_absent",
+    "tf_linear_blocks_importable_without_tensorflow_scaffold_offline",
+)
+
+# Post-wire isolation rewrite *shape* (design-only; not implemented this cycle).
+CASE1_ISOLATION_REWRITE_POST_WIRE_SHAPE: Dict[str, Any] = {
+    "suite_shape": "dual_path_isolation_suite",
+    "classic_path_still_isolated": True,
+    "tf_aware_path_gated_by_form_label_and_feature_flag": True,
+    "isolation_tests_rewritten_with_wire_not_deleted": True,
+    "no_silent_form_reuse": True,
+    "rewrite_shipped": False,
+    "implemented_this_cycle": False,
+    "note": (
+        "Design-only shape for a future wire cycle: keep classic isolation "
+        "gates; add TF-aware path gated by form label + feature flag; rewrite "
+        "isolation tests WITH wire — never delete them. Not shipped today."
+    ),
+}
+
+
+def case1_isolation_invariants_must_survive() -> list:
+    """Return a copy of current isolation invariants that must survive wire."""
+    return list(CASE1_ISOLATION_INVARIANTS_MUST_SURVIVE)
+
+
+def case1_isolation_rewrite_post_wire_shape() -> Dict[str, Any]:
+    """Return a copy of the post-wire isolation rewrite design shape."""
+    return dict(CASE1_ISOLATION_REWRITE_POST_WIRE_SHAPE)
+
+
+def _case1_isolation_rewrite_design_contract_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / not-rewrite-shipped / not-wire locks."""
+    return {
+        "kind": CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_full_tf_admm_wire": True,
+        "design_is_not_isolation_rewrite_shipped": True,
+        "design_is_not_wire": True,
+        "design_is_not_gate_flip": True,
+        "design_is_not_verdict_gate": True,
+        "design_is_not_dual_linf_under_wire_proof": True,
+        "isolation_rewrite_shipped": False,
+        "isolation_tests_rewritten_with_wire": False,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "scope": "case1_isolation_rewrite_design_contract_offline",
+        "note": (
+            "Offline Case-1 isolation-rewrite design-only contract: formalizes "
+            "what isolation rewrite WITH dual-honest wire means "
+            "(rewrite-not-delete). isolation_rewrite_design_present=True; "
+            "isolation_rewrite_shipped=False; isolation_tests_rewritten_with_wire="
+            "False; checklist isolation_rewrite_with_wire stays open; dual_linf "
+            "unproven; online_linf_gate open; gate_flip_allowed_today=False; "
+            "criteria_met_today=False; dual_recovery_path=None; solver=False; "
+            f"on_excel_case1_path=False; wire_shipped=False; case1_form_unchanged "
+            f"({CASE1_FORM_CURRENT}). Design is NOT isolation rewrite shipped, NOT "
+            "wire, NOT gate flip, NOT VERDICT gate, NOT dual L∞ under wire proof. "
+            "isolation_rewrite_required remains in DEFAULT_WIRE_BLOCKERS. UNITS "
+            "stay FCC/COKER/CDU. Does not clear DEFAULT_WIRE_BLOCKERS. Does not "
+            "redefine ready_for_wire_discussion. Always-on numpy; no "
+            "TF/PuLP/excel_pipeline on hot path; no maximizer; isolation suite "
+            "behavior unchanged this cycle."
+        ),
+    }
+
+
+def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
+    """Always-on isolation-rewrite design-only contract (no TF, no PuLP, no solve).
+
+    Aggregate ``ok`` / ``design_contract_ok`` = design formalized ∧ honesty locks ∧
+    rewrite_shipped=False ∧ isolation_rewrite checklist still open ∧ blockers still
+    document isolation_rewrite_required ∧ form classic ∧ dual_linf unproven ∧
+    online_linf_gate open ∧ wire_shipped=False ∧ dual_recovery_path=None ∧
+    gate_flip_allowed_today=False ∧ criteria_met_today=False.
+    **Not** isolation rewrite shipped. **Not** wire. **Not** gate flip. **Not**
+    VERDICT. **Not** dual L∞ under wire proof.
+    Composes checklist / form / blockers / flip met_today map — does **not** re-run
+    maximizers/probes or rewrite isolation tests.
+    """
+    honesty = _case1_isolation_rewrite_design_contract_honesty_fields()
+    form = case1_form_label_contract()
+    dual_linf = case1_dual_linf_proof_checklist()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    checklist = dual_linf["dual_linf_proof_checklist"]
+    isolation_status = checklist.get(CASE1_ISOLATION_REWRITE_CHECKLIST_KEY)
+    isolation_still_open = isolation_status == "open"
+    open_ids = dual_linf["dual_linf_proof_checklist_open_ids"]
+    isolation_in_open = CASE1_ISOLATION_REWRITE_CHECKLIST_KEY in open_ids
+
+    gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY)
+    gate_still_open = gate_status == "open"
+    gate_in_open = CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY in open_ids
+
+    criteria_met_map = case1_online_linf_gate_criteria_met_today_map()
+    gate_flip_allowed_today = case1_online_linf_gate_flip_allowed_today(criteria_met_map)
+    criteria_met_today = case1_online_linf_gate_criteria_met_today_aggregate(
+        criteria_met_map
+    )
+    flip_criteria = case1_online_linf_gate_flip_criteria()
+
+    isolation_rewrite_design_present = True
+    isolation_rewrite_shipped = False
+    isolation_tests_rewritten_with_wire = False
+    isolation_tests_must_be_rewritten_with_wire_not_deleted = True
+
+    isolation_rewrite_required_in_blockers = (
+        CASE1_ISOLATION_REWRITE_BLOCKER_ID in blockers
+    )
+    isolation_rewrite_required_in_critical = (
+        CASE1_ISOLATION_REWRITE_BLOCKER_ID in critical
+    )
+    isolation_rewrite_required_in_notes = (
+        CASE1_ISOLATION_REWRITE_BLOCKER_ID in WIRE_BLOCKER_NOTES
+    )
+
+    met_isolation_false = (
+        criteria_met_map.get(CASE1_ISOLATION_REWRITE_FLIP_KEY) is False
+        and criteria_met_map.get(CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY) is False
+    )
+    flip_keys_required = (
+        flip_criteria.get(CASE1_ISOLATION_REWRITE_FLIP_KEY) == FLIP_CRITERION_REQUIRED
+        and flip_criteria.get(CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY)
+        == FLIP_CRITERION_REQUIRED
+    )
+
+    invariants = case1_isolation_invariants_must_survive()
+    invariants_ok = (
+        len(invariants) >= 5
+        and "excel_pipeline_source_must_not_hard_import_tensorflow_or_tf_linear_blocks_on_classic_path"
+        in invariants
+        and "models_init_must_not_hard_import_tf_linear_blocks" in invariants
+        and "dual_recovery_path_labeled_honestly_none_on_offline_tf_surface_online_lambda_owns_verdict_on_classic"
+        in invariants
+    )
+    post_wire_shape = case1_isolation_rewrite_post_wire_shape()
+    post_wire_shape_ok = bool(
+        post_wire_shape.get("suite_shape") == "dual_path_isolation_suite"
+        and post_wire_shape.get("classic_path_still_isolated") is True
+        and post_wire_shape.get("isolation_tests_rewritten_with_wire_not_deleted")
+        is True
+        and post_wire_shape.get("rewrite_shipped") is False
+        and post_wire_shape.get("implemented_this_cycle") is False
+    )
+
+    units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
+    blocker_ok = (
+        isolation_rewrite_required_in_blockers
+        and "no_blender_offline_affine_kernel" in blockers
+        and honesty["no_blender_offline_affine_kernel_blocker_still_true"] is True
+    )
+    pooling_status = checklist.get("blender_affine_kernel_or_honest_pooling_path")
+    pooling_ok = pooling_status == CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["on_excel_case1_path"] is False
+        and honesty["design_is_not_isolation_rewrite_shipped"] is True
+        and honesty["design_is_not_wire"] is True
+        and honesty["design_is_not_gate_flip"] is True
+        and honesty["design_is_not_verdict_gate"] is True
+        and honesty["design_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_tests_rewritten_with_wire"] is False
+    )
+    dual_linf_unproven_ok = bool(
+        dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and dual_linf["dual_linf_under_wire_unproven_still_true"] is True
+        and dual_linf["dual_linf_status_unproven_ok"] is True
+    )
+    form_ok = bool(
+        form["form_contract_ok"]
+        and form["form_current"] == CASE1_FORM_CURRENT
+        and form["form_unchanged"] is True
+        and honesty["case1_form_unchanged"] is True
+    )
+    flip_permission_ok = (
+        gate_flip_allowed_today is False and criteria_met_today is False
+    )
+    gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
+    isolation_open_ok = (
+        isolation_still_open
+        and isolation_in_open
+        and isolation_status == "open"
+        and met_isolation_false
+        and flip_keys_required
+    )
+    rewrite_not_shipped_ok = (
+        isolation_rewrite_shipped is False
+        and isolation_tests_rewritten_with_wire is False
+        and isolation_tests_must_be_rewritten_with_wire_not_deleted is True
+        and isolation_rewrite_design_present is True
+    )
+
+    design_formalized = bool(
+        isolation_rewrite_design_present
+        and invariants_ok
+        and post_wire_shape_ok
+        and isolation_rewrite_required_in_blockers
+        and isolation_rewrite_required_in_notes
+    )
+
+    honesty_ok = bool(
+        dual_ban_ok
+        and units_ok
+        and blocker_ok
+        and dual_linf_unproven_ok
+        and form_ok
+        and flip_permission_ok
+        and gate_open_ok
+        and isolation_open_ok
+        and rewrite_not_shipped_ok
+        and design_formalized
+        and blockers_still_documented
+        and pooling_ok
+        and isolation_rewrite_required_in_critical
+    )
+    design_contract_ok = honesty_ok
+    ok = design_contract_ok and (honesty["wire_shipped"] is False)
+
+    ok_criteria = (
+        "design formalized ∧ honesty locks ∧ rewrite_shipped=False ∧ "
+        "isolation_rewrite checklist still open ∧ isolation_rewrite_required in "
+        "blockers ∧ form classic ∧ dual_linf unproven ∧ online_linf_gate open ∧ "
+        "wire_shipped=False ∧ dual_recovery_path=None ∧ gate_flip_allowed_today=False "
+        "∧ criteria_met_today=False — NOT isolation rewrite shipped; NOT wire; "
+        "NOT gate flip; NOT VERDICT; NOT dual L∞ under wire proof"
+    )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "design_contract_ok": design_contract_ok,
+        "contract_ok": design_contract_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "units_ok": units_ok,
+        "blocker_ok": blocker_ok,
+        "form_ok": form_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "flip_permission_ok": flip_permission_ok,
+        "gate_open_ok": gate_open_ok,
+        "isolation_open_ok": isolation_open_ok,
+        "rewrite_not_shipped_ok": rewrite_not_shipped_ok,
+        "design_formalized": design_formalized,
+        "invariants_ok": invariants_ok,
+        "post_wire_shape_ok": post_wire_shape_ok,
+        "ok_criteria": ok_criteria,
+        # Design fields
+        "isolation_rewrite_design_present": isolation_rewrite_design_present,
+        "isolation_rewrite_design_contract": (
+            CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_ANNOTATION
+        ),
+        "isolation_rewrite_shipped": isolation_rewrite_shipped,
+        "isolation_tests_rewritten_with_wire": isolation_tests_rewritten_with_wire,
+        "isolation_tests_must_be_rewritten_with_wire_not_deleted": (
+            isolation_tests_must_be_rewritten_with_wire_not_deleted
+        ),
+        "isolation_invariants_must_survive": invariants,
+        "post_wire_rewrite_shape": post_wire_shape,
+        # Checklist / open permanence (design ≠ closed)
+        "isolation_rewrite_with_wire": isolation_status,
+        "isolation_rewrite_checklist_key": CASE1_ISOLATION_REWRITE_CHECKLIST_KEY,
+        "isolation_rewrite_still_open": isolation_still_open,
+        "isolation_rewrite_checklist_open": isolation_still_open,
+        "design_does_not_close_isolation_rewrite_checklist": True,
+        "design_does_not_set_isolation_met_today": True,
+        # Flip / met_today discipline
+        "online_linf_gate_under_tf_path": gate_status,
+        "online_linf_gate_still_open": gate_still_open,
+        "gate_flip_allowed_today": gate_flip_allowed_today,
+        "criteria_met_today": criteria_met_today,
+        "criteria_met_today_map": criteria_met_map,
+        "criteria_status_today": criteria_met_map,
+        "isolation_rewrite_met_today": criteria_met_map.get(
+            CASE1_ISOLATION_REWRITE_FLIP_KEY
+        ),
+        "isolation_tests_rewritten_met_today": criteria_met_map.get(
+            CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY
+        ),
+        "flip_criteria_isolation_keys": {
+            CASE1_ISOLATION_REWRITE_FLIP_KEY: flip_criteria.get(
+                CASE1_ISOLATION_REWRITE_FLIP_KEY
+            ),
+            CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY: flip_criteria.get(
+                CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY
+            ),
+        },
+        # Form
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_unchanged": form["form_unchanged"],
+        "form_contract_ok": form["form_contract_ok"],
+        "form_label_change_required_still_true": form[
+            "form_label_change_required_still_true"
+        ],
+        # Dual linf
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_status_unproven_ok": dual_linf["dual_linf_status_unproven_ok"],
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "dual_linf_proof_checklist_n_open": dual_linf[
+            "dual_linf_proof_checklist_n_open"
+        ],
+        # Pooling honesty snapshot
+        "blender_pooling_checklist_status": pooling_status,
+        "blender_pooling_checklist_key": "blender_affine_kernel_or_honest_pooling_path",
+        "honest_pooling_path_present": pooling_ok,
+        "units_affine_unchanged": list(UNITS),
+        # Blockers
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "isolation_rewrite_required_blocker_id": CASE1_ISOLATION_REWRITE_BLOCKER_ID,
+        "isolation_rewrite_required_in_default_wire_blockers": (
+            isolation_rewrite_required_in_blockers
+        ),
+        "isolation_rewrite_required_in_critical_blockers": (
+            isolation_rewrite_required_in_critical
+        ),
+        "isolation_rewrite_required_in_wire_blocker_notes": (
+            isolation_rewrite_required_in_notes
+        ),
+        "isolation_rewrite_blocker_note": WIRE_BLOCKER_NOTES.get(
+            CASE1_ISOLATION_REWRITE_BLOCKER_ID
+        ),
+        "wire_not_shipped_blocker_still_true": "wire_not_shipped" in blockers,
+        "dual_linf_under_wire_unproven_blocker_still_true": (
+            "dual_linf_under_wire_unproven" in blockers
+        ),
+        "no_blender_offline_affine_kernel_in_default_wire_blockers": (
+            "no_blender_offline_affine_kernel" in blockers
+        ),
+        "no_blender_offline_affine_kernel_in_critical_blockers": (
+            "no_blender_offline_affine_kernel" in critical
+        ),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "tf_available": tf_available(),
+        "isolation_rewrite_design_contract_available": True,
+        "linf_le_15_is_not_gate": True,
+        "residual_must_vanish_is_not_gate": True,
+        "note": honesty["note"],
+    }
+
+
+def case1_isolation_rewrite_design_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_isolation_rewrite_design_contract_report``."""
+    return offline_case1_isolation_rewrite_design_contract_report(**kwargs)
+
+
+def multi_unit_case1_isolation_rewrite_design_contract_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_isolation_rewrite_design_contract_report``."""
+    return offline_case1_isolation_rewrite_design_contract_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -7944,6 +8411,19 @@ __all__ = [
     "offline_case1_online_linf_gate_criteria_contract_report",
     "case1_online_linf_gate_criteria_contract_report",
     "multi_unit_case1_online_linf_gate_criteria_contract_report",
+    "CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_KIND",
+    "CASE1_ISOLATION_REWRITE_CHECKLIST_KEY",
+    "CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_ANNOTATION",
+    "CASE1_ISOLATION_REWRITE_BLOCKER_ID",
+    "CASE1_ISOLATION_REWRITE_FLIP_KEY",
+    "CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY",
+    "CASE1_ISOLATION_INVARIANTS_MUST_SURVIVE",
+    "CASE1_ISOLATION_REWRITE_POST_WIRE_SHAPE",
+    "case1_isolation_invariants_must_survive",
+    "case1_isolation_rewrite_post_wire_shape",
+    "offline_case1_isolation_rewrite_design_contract_report",
+    "case1_isolation_rewrite_design_contract_report",
+    "multi_unit_case1_isolation_rewrite_design_contract_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
