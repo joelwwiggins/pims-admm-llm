@@ -131,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_honest_tf_aware_path_design_contract")
     if ph.get("offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_ready"):
         readiness_bits.append("case1_dual_honest_tf_aware_path_present_criteria_contract")
+    if ph.get("offline_tf_case1_form_label_change_shipped_criteria_contract_ready"):
+        readiness_bits.append("case1_form_label_change_shipped_criteria_contract")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -206,6 +208,14 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_ready")
         else "no case1_dual_honest_tf_aware_path_present_criteria_contract packaging flag"
     )
+    form_label_criteria_note = (
+        "form_label ship criteria packaged (criteria_present; "
+        "form_label_ship_allowed=false; form_label_change_shipped=false; form=classic; "
+        "path_shipped=false; ship-met=false; wire=false; dual-ban; not VERDICT; "
+        "not form flip / not form_label ship / not path ship / not ship allow)"
+        if ph.get("offline_tf_case1_form_label_change_shipped_criteria_contract_ready")
+        else "no case1_form_label_change_shipped_criteria_contract packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -216,7 +226,8 @@ def main(argv: list[str] | None = None) -> int:
         f"preflight λ ≠ duals; {wire_note}; {case1_shaped_note}; {dual_space_note}; "
         f"{linf_probe_note}; {live_bridge_note}; {live_warmstart_note}; "
         f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note}; "
-        f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note})"
+        f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
+        f"{form_label_criteria_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
