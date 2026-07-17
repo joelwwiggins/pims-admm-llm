@@ -92,6 +92,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_shaped_linking_available": True,
         "admm_case1_dual_space_form_contract_available": True,
         "admm_case1_dual_space_linf_probe_available": True,
+        "admm_case1_dual_space_linf_live_lambda_bridge_available": True,
         "formula": "y_raw = y0 + D @ (x - x0)  # pre-postprocess exact linear",
         "note": (
             "Optional exact-linear surface only (FCC + COKER + CDU offline kernels). "
@@ -140,7 +141,15 @@ def honesty_metadata() -> Dict[str, Any]:
             "fixture/supplied Case 1 PRIMARY online λ and Case-1-shaped skeleton λ — dual-ban; "
             "dual_linf_under_wire still unproven; checklist online_linf_gate_under_tf_path open; "
             "probe ≠ dual L∞ under wire proof; probe ≠ Case 1 VERDICT gate; wire_shipped=False; "
-            "does not clear DEFAULT_WIRE_BLOCKERS; does not redefine ready_for_wire_discussion."
+            "does not clear DEFAULT_WIRE_BLOCKERS; does not redefine ready_for_wire_discussion. "
+            "Offline Case-1 dual-space L∞ live-λ bridge available "
+            "(offline_case1_dual_space_linf_live_lambda_bridge_report): pure extract/normalize "
+            "of this-run Case 1 PRIMARY online λ (+ optional SECONDARY recovered) into the "
+            "existing probe; live_lambda_source always labeled (caller_supplied / fixture / "
+            "package_extract); dual-ban; dual_linf still unproven; bridge ≠ VERDICT; bridge ≠ "
+            "wire proof; dual_recovery_path=None; wire_shipped=False; does not clear "
+            "DEFAULT_WIRE_BLOCKERS; does not redefine ready_for_wire_discussion; no "
+            "excel_pipeline import on hot path."
         ),
     }
 
@@ -1460,6 +1469,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_shaped_linking: bool = True,
     include_admm_case1_dual_space_form_contract: bool = True,
     include_admm_case1_dual_space_linf_probe: bool = True,
+    include_admm_case1_dual_space_linf_live_lambda_bridge: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -1469,8 +1479,9 @@ def offline_block_solve_readiness_report(
     ``admm_residual_ok``, ``admm_block_subproblem_ok``, ``admm_coordination_ok``,
     ``admm_plant_linking_ok``, ``admm_plant_named_linking_ok``,
     ``admm_case1_shaped_linking_ok``,
-    ``admm_case1_dual_space_form_contract_ok``, and
-    ``admm_case1_dual_space_linf_probe_ok`` are
+    ``admm_case1_dual_space_form_contract_ok``,
+    ``admm_case1_dual_space_linf_probe_ok``, and
+    ``admm_case1_dual_space_linf_live_lambda_bridge_ok`` are
     **additive** pre-wire checklist info (does **not** change
     ``ready_for_wire_discussion`` semantics: still parity∧priced∧timings∧honesty).
     Never claims wire shipped or full plant mass balance when residual /
@@ -1576,6 +1587,23 @@ def offline_block_solve_readiness_report(
     base["admm_case1_dual_space_linf_probe_ok"] = (
         admm_case1_dual_space_linf_probe_ok
     )
+    admm_case1_dual_space_linf_live_lambda_bridge_ok: Optional[bool] = None
+    if include_admm_case1_dual_space_linf_live_lambda_bridge:
+        try:
+            # Additive readiness: bridge with explicit fixture fallback (source labeled).
+            # Not live dual recovery; not VERDICT; dual_linf stays unproven.
+            bridge_rep = offline_case1_dual_space_linf_live_lambda_bridge_report(
+                allow_fixture_fallback=True,
+                skeleton_n_rounds=1,
+            )
+            admm_case1_dual_space_linf_live_lambda_bridge_ok = bool(
+                bridge_rep.get("bridge_ok", bridge_rep.get("ok"))
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_dual_space_linf_live_lambda_bridge_ok = False
+    base["admm_case1_dual_space_linf_live_lambda_bridge_ok"] = (
+        admm_case1_dual_space_linf_live_lambda_bridge_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -1587,17 +1615,20 @@ def offline_block_solve_readiness_report(
         "admm_residual_ok, admm_block_subproblem_ok, admm_coordination_ok, "
         "admm_plant_linking_ok, admm_plant_named_linking_ok, "
         "admm_case1_shaped_linking_ok, "
-        "admm_case1_dual_space_form_contract_ok, and "
-        "admm_case1_dual_space_linf_probe_ok are additive "
+        "admm_case1_dual_space_form_contract_ok, "
+        "admm_case1_dual_space_linf_probe_ok, and "
+        "admm_case1_dual_space_linf_live_lambda_bridge_ok are additive "
         "pre-wire checklist items (synthetic λ,z,ρ residual / block subproblem / "
         "multi-round coordination / multi-block plant-linking synthetic + plant-named "
         "topology modes / Case-1-shaped CDU↔Blender offline skeleton / dual-space "
-        "form-label contract / dual-space L∞ probe; coordination is "
-        "per-unit synthetic not plant linking; plant-linking modes are offline demos; "
+        "form-label contract / dual-space L∞ probe / live-λ bridge compose; coordination "
+        "is per-unit synthetic not plant linking; plant-linking modes are offline demos; "
         "Case-1-shaped skeleton is offline-only (not wire, not Case 1 duals, not full "
         "plant mass balance); dual-space/form contract registers planned form + stream "
         "map + dual_linf unproven checklist without flipping Case 1 or shipping wire; "
-        "dual-space L∞ probe is numeric prep only (status stays unproven; not VERDICT) — "
+        "dual-space L∞ probe is numeric prep only (status stays unproven; not VERDICT); "
+        "live-λ bridge extracts/accepts caller Case 1 PRIMARY online λ into the existing "
+        "probe with source labeled (fixture fallback only when explicit) — "
         "and do not redefine ready_for_wire_discussion."
     )
     return base
@@ -3826,6 +3857,7 @@ def offline_wire_preflight_report(
     include_admm_case1_shaped_linking: bool = True,
     include_admm_case1_dual_space_form_contract: bool = True,
     include_admm_case1_dual_space_linf_probe: bool = True,
+    include_admm_case1_dual_space_linf_live_lambda_bridge: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -3864,6 +3896,9 @@ def offline_wire_preflight_report(
         include_admm_case1_dual_space_linf_probe=(
             include_admm_case1_dual_space_linf_probe
         ),
+        include_admm_case1_dual_space_linf_live_lambda_bridge=(
+            include_admm_case1_dual_space_linf_live_lambda_bridge
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -3886,6 +3921,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_dual_space_linf_probe_ok = readiness.get(
         "admm_case1_dual_space_linf_probe_ok"
+    )
+    admm_case1_dual_space_linf_live_lambda_bridge_ok = readiness.get(
+        "admm_case1_dual_space_linf_live_lambda_bridge_ok"
     )
 
     blockers_documented = (
@@ -3921,6 +3959,10 @@ def offline_wire_preflight_report(
             admm_case1_dual_space_linf_probe_ok,
             include_admm_case1_dual_space_linf_probe,
         ),
+        (
+            admm_case1_dual_space_linf_live_lambda_bridge_ok,
+            include_admm_case1_dual_space_linf_live_lambda_bridge,
+        ),
     ):
         if included and flag is False:
             compose_ok = False
@@ -3944,7 +3986,7 @@ def offline_wire_preflight_report(
         "Offline dual-honest wire preflight: composes offline_block_solve_readiness_report "
         "(parity/priced/timings/honesty + additive admm residual/subproblem/coordination/"
         "plant_linking/plant_named/case1_shaped/dual_space_form_contract/"
-        "dual_space_linf_probe gates) and lists "
+        "dual_space_linf_probe/live_lambda_bridge gates) and lists "
         "machine-readable wire_blockers true at "
         "HEAD. preflight_ok/blockers_documented are separate from ready_for_wire_discussion "
         "(still structural parity∧priced∧timings∧honesty only — not redefined by preflight "
@@ -3980,6 +4022,9 @@ def offline_wire_preflight_report(
         "admm_case1_shaped_linking_ok": admm_case1_shaped_linking_ok,
         "admm_case1_dual_space_form_contract_ok": admm_case1_dual_space_form_contract_ok,
         "admm_case1_dual_space_linf_probe_ok": admm_case1_dual_space_linf_probe_ok,
+        "admm_case1_dual_space_linf_live_lambda_bridge_ok": (
+            admm_case1_dual_space_linf_live_lambda_bridge_ok
+        ),
         # Blockers
         "wire_blockers": wire_blockers,
         "wire_blocker_notes": wire_blocker_notes,
@@ -5605,6 +5650,781 @@ def multi_unit_case1_dual_space_linf_probe_report(
     return offline_case1_dual_space_linf_probe_report(**kwargs)
 
 
+# ---------------------------------------------------------------------------
+# Offline Case-1 dual-space L∞ live-λ bridge / capture harness (goal 5 + 3)
+# ---------------------------------------------------------------------------
+# Always-on numpy. Pure extract/normalize of this-run Case 1 PRIMARY online λ
+# (+ optional SECONDARY recovered diagnostic) into the existing dual-space L∞
+# probe. Does NOT re-implement L∞ math. dual_recovery_path=None; dual_linf
+# under wire stays unproven; bridge ≠ VERDICT; bridge ≠ wire; no form flip;
+# no excel_pipeline / PuLP / tensorflow on the bridge hot path.
+
+CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_KIND = (
+    "offline_case1_dual_space_linf_live_lambda_bridge"
+)
+
+# Source tags for dual-honesty (fixture ≠ live).
+LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED = "caller_supplied"
+LIVE_LAMBDA_SOURCE_FIXTURE = "fixture"
+LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT = "package_extract"
+LIVE_LAMBDA_SOURCE_MISSING = "missing"
+
+
+def _case1_stream_align_mapping(
+    mapping: Mapping[str, Any],
+    *,
+    streams: Sequence[str],
+) -> Dict[str, Any]:
+    """Align a plain stream→value map onto required streams (no silent zero-fill)."""
+    missing = [s for s in streams if s not in mapping]
+    non_finite: List[str] = []
+    out: Dict[str, float] = {}
+    if not missing:
+        for s in streams:
+            try:
+                v = float(mapping[s])
+            except (TypeError, ValueError):
+                non_finite.append(s)
+                continue
+            if not np.isfinite(v):
+                non_finite.append(s)
+                continue
+            out[s] = v
+    extract_ok = bool(not missing and not non_finite and len(streams) > 0)
+    return {
+        "lambda": out if extract_ok else dict(out),
+        "extract_ok": extract_ok,
+        "stream_alignment_ok": extract_ok,
+        "missing_streams": missing,
+        "non_finite_streams": non_finite,
+        "streams": list(streams),
+        "dual_recovery_path": None,
+    }
+
+
+def case1_primary_online_lambda_from_mapping(
+    mapping: Optional[Mapping[str, Any]],
+    *,
+    face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+    streams: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """Normalize a plain stream→float map onto Case 1 intermediate streams.
+
+    Pure mapping I/O — no excel_pipeline / PuLP / tensorflow. Missing keys →
+    ``extract_ok=False`` (no silent zero-fill as success). Values are treated
+    as already on the requested dual face (no automatic sign flip here).
+
+    Extracted vectors are **inputs to the dual-ban probe**, not dual recovery
+    ownership (``dual_recovery_path`` stays None on this surface).
+    """
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    if face not in (
+        CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+        CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW,
+    ):
+        return {
+            "kind": "case1_primary_online_lambda_from_mapping",
+            "extract_ok": False,
+            "stream_alignment_ok": False,
+            "lambda": {},
+            "case1_primary_online_lambda": {},
+            "missing_streams": list(streams_list),
+            "non_finite_streams": [],
+            "streams": streams_list,
+            "dual_vector_face": face,
+            "source": LIVE_LAMBDA_SOURCE_MISSING,
+            "source_path": "unsupported_face",
+            "dual_recovery_path": None,
+            "note": (
+                f"Unsupported dual_vector_face={face!r}; use "
+                f"{CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE!r} or "
+                f"{CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW!r}."
+            ),
+        }
+    if mapping is None or not isinstance(mapping, Mapping):
+        return {
+            "kind": "case1_primary_online_lambda_from_mapping",
+            "extract_ok": False,
+            "stream_alignment_ok": False,
+            "lambda": {},
+            "case1_primary_online_lambda": {},
+            "missing_streams": list(streams_list),
+            "non_finite_streams": [],
+            "streams": streams_list,
+            "dual_vector_face": face,
+            "source": LIVE_LAMBDA_SOURCE_MISSING,
+            "source_path": "none",
+            "dual_recovery_path": None,
+            "note": "No mapping supplied; extract failed (no silent zero-fill).",
+        }
+    aligned = _case1_stream_align_mapping(mapping, streams=streams_list)
+    return {
+        "kind": "case1_primary_online_lambda_from_mapping",
+        "extract_ok": aligned["extract_ok"],
+        "stream_alignment_ok": aligned["stream_alignment_ok"],
+        "lambda": dict(aligned["lambda"]),
+        "case1_primary_online_lambda": dict(aligned["lambda"]),
+        "missing_streams": list(aligned["missing_streams"]),
+        "non_finite_streams": list(aligned["non_finite_streams"]),
+        "streams": streams_list,
+        "dual_vector_face": face,
+        "source": (
+            LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+            if aligned["extract_ok"]
+            else LIVE_LAMBDA_SOURCE_MISSING
+        ),
+        "source_path": "plain_mapping",
+        "dual_recovery_path": None,
+        "note": (
+            "Pure stream-aligned PRIMARY online λ mapping. dual_recovery_path=None; "
+            "not dual recovery ownership; inputs to dual-ban probe only."
+        ),
+    }
+
+
+def _nested_get(root: Mapping[str, Any], *path: str) -> Any:
+    cur: Any = root
+    for key in path:
+        if not isinstance(cur, Mapping) or key not in cur:
+            return None
+        cur = cur[key]
+    return cur
+
+
+def extract_case1_primary_online_lambda(
+    package_or_dicts: Optional[Mapping[str, Any]] = None,
+    *,
+    face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+    streams: Optional[Sequence[str]] = None,
+    plain_mapping: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Extract/normalize Case 1 PRIMARY online λ from a package-shaped mapping.
+
+    Search order for ``face=raw_online_duals`` (default / PRIMARY gate face):
+      1. ``plain_mapping`` if provided
+      2. package top-level stream map (all CASE1 streams present)
+      3. ``package[\"admm\"][\"online_duals\"]``
+      4. ``package[\"online_duals\"]``
+      5. ``package[\"admm\"][\"shadow_prices\"]`` negated → raw face (economic→raw)
+      6. ``package[\"shadow_prices\"]`` / ``package[\"admm\"]`` economic face negated
+
+    Search order for ``face=economic_shadow_prices``:
+      1. ``plain_mapping`` if provided
+      2. package top-level stream map
+      3. ``package[\"admm\"][\"shadow_prices\"]``
+      4. ``package[\"shadow_prices\"]``
+      5. ``package[\"admm\"][\"online_duals\"]`` negated → economic face
+      6. ``package[\"online_duals\"]`` negated
+
+    Pure dict walk — **no** excel_pipeline / PuLP / tensorflow. Missing keys →
+    ``extract_ok=False``. Extracted vectors are dual-ban probe inputs only.
+    """
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    candidates: List[tuple] = []  # (source_path, mapping, convert_from_face)
+
+    if plain_mapping is not None:
+        candidates.append(("plain_mapping", plain_mapping, face))
+
+    pkg = package_or_dicts if isinstance(package_or_dicts, Mapping) else None
+    if pkg is not None:
+        # Flat package that is itself a stream map
+        if all(s in pkg for s in streams_list) and not any(
+            k in pkg for k in ("admm", "mono", "comparison", "meta", "verdict")
+        ):
+            candidates.append(("top_level_stream_map", pkg, face))
+
+        admm = pkg.get("admm") if isinstance(pkg.get("admm"), Mapping) else None
+
+        if face == CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE:
+            if admm is not None and isinstance(admm.get("online_duals"), Mapping):
+                candidates.append(
+                    ("admm.online_duals", admm["online_duals"], face)
+                )
+            if isinstance(pkg.get("online_duals"), Mapping):
+                candidates.append(
+                    ("online_duals", pkg["online_duals"], face)
+                )
+            # Economic → raw conversion candidates (negate)
+            if admm is not None and isinstance(admm.get("shadow_prices"), Mapping):
+                candidates.append(
+                    (
+                        "admm.shadow_prices_negated_to_raw",
+                        admm["shadow_prices"],
+                        CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW,
+                    )
+                )
+            if isinstance(pkg.get("shadow_prices"), Mapping):
+                candidates.append(
+                    (
+                        "shadow_prices_negated_to_raw",
+                        pkg["shadow_prices"],
+                        CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW,
+                    )
+                )
+        elif face == CASE1_DUAL_VECTOR_FACE_ECONOMIC_SHADOW:
+            if admm is not None and isinstance(admm.get("shadow_prices"), Mapping):
+                candidates.append(
+                    ("admm.shadow_prices", admm["shadow_prices"], face)
+                )
+            if isinstance(pkg.get("shadow_prices"), Mapping):
+                candidates.append(
+                    ("shadow_prices", pkg["shadow_prices"], face)
+                )
+            if admm is not None and isinstance(admm.get("online_duals"), Mapping):
+                candidates.append(
+                    (
+                        "admm.online_duals_negated_to_economic",
+                        admm["online_duals"],
+                        CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+                    )
+                )
+            if isinstance(pkg.get("online_duals"), Mapping):
+                candidates.append(
+                    (
+                        "online_duals_negated_to_economic",
+                        pkg["online_duals"],
+                        CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+                    )
+                )
+        else:
+            return {
+                "kind": "extract_case1_primary_online_lambda",
+                "extract_ok": False,
+                "stream_alignment_ok": False,
+                "lambda": {},
+                "case1_primary_online_lambda": {},
+                "missing_streams": list(streams_list),
+                "non_finite_streams": [],
+                "streams": streams_list,
+                "dual_vector_face": face,
+                "source": LIVE_LAMBDA_SOURCE_MISSING,
+                "source_path": "unsupported_face",
+                "dual_recovery_path": None,
+                "face_converted": False,
+                "note": f"Unsupported dual_vector_face={face!r}.",
+            }
+
+    last_fail: Optional[Dict[str, Any]] = None
+    for source_path, raw_map, source_face in candidates:
+        mapped = dict(raw_map)
+        face_converted = False
+        if source_face != face:
+            # Convert raw ↔ economic by sign flip (magnitude-matched convention).
+            try:
+                mapped = {str(k): -float(v) for k, v in raw_map.items()}
+                face_converted = True
+            except (TypeError, ValueError):
+                last_fail = {
+                    "source_path": source_path,
+                    "error": "face_convert_failed",
+                }
+                continue
+        aligned = case1_primary_online_lambda_from_mapping(
+            mapped, face=face, streams=streams_list
+        )
+        if aligned["extract_ok"]:
+            src = (
+                LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT
+                if source_path not in ("plain_mapping", "top_level_stream_map")
+                else LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+            )
+            if source_path == "plain_mapping":
+                src = LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+            elif source_path == "top_level_stream_map":
+                src = LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+            else:
+                src = LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT
+            return {
+                "kind": "extract_case1_primary_online_lambda",
+                "extract_ok": True,
+                "stream_alignment_ok": True,
+                "lambda": dict(aligned["lambda"]),
+                "case1_primary_online_lambda": dict(aligned["lambda"]),
+                "missing_streams": [],
+                "non_finite_streams": [],
+                "streams": streams_list,
+                "dual_vector_face": face,
+                "source": src,
+                "source_path": source_path,
+                "face_converted": face_converted,
+                "dual_recovery_path": None,
+                "note": (
+                    "Extracted Case 1 PRIMARY online λ stream map for dual-ban "
+                    "probe input only. dual_recovery_path=None; not dual recovery "
+                    "ownership; not VERDICT; not wire."
+                ),
+            }
+        last_fail = aligned
+
+    # Failure path
+    missing = list(streams_list)
+    if last_fail is not None and "missing_streams" in last_fail:
+        missing = list(last_fail.get("missing_streams") or missing)
+    return {
+        "kind": "extract_case1_primary_online_lambda",
+        "extract_ok": False,
+        "stream_alignment_ok": False,
+        "lambda": {},
+        "case1_primary_online_lambda": {},
+        "missing_streams": missing,
+        "non_finite_streams": list(
+            (last_fail or {}).get("non_finite_streams") or []
+        ),
+        "streams": streams_list,
+        "dual_vector_face": face,
+        "source": LIVE_LAMBDA_SOURCE_MISSING,
+        "source_path": "not_found",
+        "face_converted": False,
+        "dual_recovery_path": None,
+        "note": (
+            "Could not extract stream-aligned Case 1 PRIMARY online λ from package "
+            "or plain mapping (no silent zero-fill). dual_recovery_path=None."
+        ),
+    }
+
+
+def extract_case1_secondary_recovered_lambda(
+    package_or_dicts: Optional[Mapping[str, Any]] = None,
+    *,
+    streams: Optional[Sequence[str]] = None,
+    plain_mapping: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Extract SECONDARY recovered blender duals (diagnostic only; never gate).
+
+    Search: plain_mapping → admm.shadow_prices_recovered → shadow_prices_recovered.
+    Pure dict I/O; dual_recovery_path=None; not a VERDICT gate.
+    """
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    candidates: List[tuple] = []
+    if plain_mapping is not None:
+        candidates.append(("plain_mapping", plain_mapping))
+    pkg = package_or_dicts if isinstance(package_or_dicts, Mapping) else None
+    if pkg is not None:
+        admm = pkg.get("admm") if isinstance(pkg.get("admm"), Mapping) else None
+        if admm is not None and isinstance(
+            admm.get("shadow_prices_recovered"), Mapping
+        ):
+            candidates.append(
+                ("admm.shadow_prices_recovered", admm["shadow_prices_recovered"])
+            )
+        if isinstance(pkg.get("shadow_prices_recovered"), Mapping):
+            candidates.append(
+                ("shadow_prices_recovered", pkg["shadow_prices_recovered"])
+            )
+
+    for source_path, raw_map in candidates:
+        aligned = _case1_stream_align_mapping(raw_map, streams=streams_list)
+        if aligned["extract_ok"]:
+            return {
+                "kind": "extract_case1_secondary_recovered_lambda",
+                "extract_ok": True,
+                "stream_alignment_ok": True,
+                "lambda": dict(aligned["lambda"]),
+                "case1_secondary_recovered_lambda": dict(aligned["lambda"]),
+                "missing_streams": [],
+                "non_finite_streams": [],
+                "streams": streams_list,
+                "dual_vector_face": CASE1_DUAL_VECTOR_FACE_SECONDARY_RECOVERED,
+                "source": (
+                    LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+                    if source_path == "plain_mapping"
+                    else LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT
+                ),
+                "source_path": source_path,
+                "dual_recovery_path": None,
+                "secondary_recovered_is_not_gate": True,
+                "note": (
+                    "SECONDARY recovered blender dual extract — diagnostic only; "
+                    "never VERDICT gate; dual_recovery_path=None."
+                ),
+            }
+
+    return {
+        "kind": "extract_case1_secondary_recovered_lambda",
+        "extract_ok": False,
+        "stream_alignment_ok": False,
+        "lambda": {},
+        "case1_secondary_recovered_lambda": {},
+        "missing_streams": list(streams_list),
+        "non_finite_streams": [],
+        "streams": streams_list,
+        "dual_vector_face": CASE1_DUAL_VECTOR_FACE_SECONDARY_RECOVERED,
+        "source": LIVE_LAMBDA_SOURCE_MISSING,
+        "source_path": "not_found",
+        "dual_recovery_path": None,
+        "secondary_recovered_is_not_gate": True,
+        "note": (
+            "SECONDARY recovered duals not found (optional diagnostic only; "
+            "never gate)."
+        ),
+    }
+
+
+def _case1_dual_space_linf_live_lambda_bridge_honesty_fields() -> Dict[str, Any]:
+    """Dual-ban / not-wire / not-VERDICT locks for the live-λ bridge."""
+    base = _case1_dual_space_linf_probe_honesty_fields()
+    base = dict(base)
+    base["kind"] = CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_KIND
+    base["scope"] = "case1_dual_space_linf_live_lambda_bridge_offline"
+    base["bridge_is_not_verdict_gate"] = True
+    base["bridge_is_not_dual_linf_under_wire_proof"] = True
+    base["probe_is_not_verdict_gate"] = True
+    base["probe_is_not_dual_linf_under_wire_proof"] = True
+    base["live_lambda_is_not_dual_recovery"] = True
+    base["extracted_lambda_is_probe_input_only"] = True
+    base["note"] = (
+        "Offline Case-1 dual-space L∞ live-λ bridge: extract/accept this-run "
+        "Case 1 PRIMARY online λ (+ optional SECONDARY recovered diagnostic) and "
+        "compose into offline_case1_dual_space_linf_probe_report. "
+        "live_lambda_source always labeled (caller_supplied / package_extract / "
+        "fixture). dual_recovery_path=None; solver=False; on_excel_case1_path=False; "
+        "wire_shipped=False; dual_linf_under_wire_status=unproven; checklist "
+        "online_linf_gate_under_tf_path remains open; bridge ≠ Case 1 VERDICT gate; "
+        "bridge ≠ dual L∞ under wire proof; skeleton λ ≠ Case 1 duals as recovery; "
+        "SECONDARY recovered is diagnostic only; form_current classic unchanged; "
+        "does not clear DEFAULT_WIRE_BLOCKERS; does not redefine "
+        "ready_for_wire_discussion. Always-on numpy; no TF/PuLP/excel_pipeline "
+        "on hot path; no live Case 1 solve ownership."
+    )
+    return base
+
+
+def offline_case1_dual_space_linf_live_lambda_bridge_report(
+    *,
+    case1_package: Optional[Mapping[str, Any]] = None,
+    case1_primary_online_lambda: Optional[Mapping[str, float]] = None,
+    case1_secondary_recovered_lambda: Optional[Mapping[str, float]] = None,
+    include_secondary_recovered: bool = True,
+    allow_fixture_fallback: bool = False,
+    skeleton_lambda: Optional[Mapping[str, float]] = None,
+    skeleton_report: Optional[Mapping[str, Any]] = None,
+    skeleton_n_rounds: int = 1,
+    dual_vector_face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+    streams: Optional[Sequence[str]] = None,
+    dual_gate_threshold_diagnostic: float = 15.0,
+) -> Dict[str, Any]:
+    """Always-on live-λ bridge: extract Case 1 PRIMARY online λ → existing probe.
+
+    Compose only — does **not** re-implement stream L∞. ``bridge_ok`` /
+    ``ok`` = extract honesty ∧ probe honesty ∧ finite ∧ aligned ∧ dual-ban ∧
+    **source documented** — **never** ``linf <= 15``; **never** VERDICT.
+
+    Live mode requires caller-supplied PRIMARY (plain map or package extract)
+    unless ``allow_fixture_fallback=True`` (then ``live_lambda_source=fixture``
+    and never claimed live).
+
+    Does **not** clear ``DEFAULT_WIRE_BLOCKERS``. Does **not** redefine
+    ``ready_for_wire_discussion``. Does **not** flip Case 1 form.
+    """
+    honesty = _case1_dual_space_linf_live_lambda_bridge_honesty_fields()
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    # --- PRIMARY extract / resolve ---
+    extract_rep: Dict[str, Any]
+    if case1_primary_online_lambda is not None:
+        extract_rep = case1_primary_online_lambda_from_mapping(
+            case1_primary_online_lambda,
+            face=dual_vector_face,
+            streams=streams_list,
+        )
+        extract_rep = dict(extract_rep)
+        extract_rep["kind"] = "extract_case1_primary_online_lambda"
+        extract_rep["source"] = LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+        extract_rep["source_path"] = "case1_primary_online_lambda_arg"
+        extract_rep["face_converted"] = False
+    elif case1_package is not None:
+        extract_rep = extract_case1_primary_online_lambda(
+            case1_package,
+            face=dual_vector_face,
+            streams=streams_list,
+        )
+    else:
+        extract_rep = {
+            "kind": "extract_case1_primary_online_lambda",
+            "extract_ok": False,
+            "stream_alignment_ok": False,
+            "lambda": {},
+            "case1_primary_online_lambda": {},
+            "missing_streams": list(streams_list),
+            "non_finite_streams": [],
+            "streams": streams_list,
+            "dual_vector_face": dual_vector_face,
+            "source": LIVE_LAMBDA_SOURCE_MISSING,
+            "source_path": "none",
+            "face_converted": False,
+            "dual_recovery_path": None,
+        }
+
+    used_fixture = False
+    if not extract_rep.get("extract_ok"):
+        if allow_fixture_fallback:
+            primary = case1_primary_online_lambda_fixture(face=dual_vector_face)
+            live_lambda_source = LIVE_LAMBDA_SOURCE_FIXTURE
+            primary_source_path = "fixture"
+            used_fixture = True
+            extract_ok = True
+        else:
+            primary = {}
+            live_lambda_source = LIVE_LAMBDA_SOURCE_MISSING
+            primary_source_path = str(extract_rep.get("source_path") or "missing")
+            extract_ok = False
+    else:
+        primary = dict(extract_rep["lambda"])
+        live_lambda_source = str(
+            extract_rep.get("source") or LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED
+        )
+        primary_source_path = str(
+            extract_rep.get("source_path") or "caller_supplied"
+        )
+        extract_ok = True
+
+    # Source honesty: never claim live when fixture used.
+    source_documented = live_lambda_source in (
+        LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED,
+        LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT,
+        LIVE_LAMBDA_SOURCE_FIXTURE,
+    )
+    source_honest = not (
+        used_fixture and live_lambda_source != LIVE_LAMBDA_SOURCE_FIXTURE
+    )
+    # Explicit ban: fixture path must never be labeled caller_supplied / package_extract
+    if used_fixture:
+        live_lambda_source = LIVE_LAMBDA_SOURCE_FIXTURE
+        source_honest = True
+        source_documented = True
+
+    # --- Optional SECONDARY diagnostic ---
+    secondary_map: Optional[Dict[str, float]] = None
+    secondary_extract: Optional[Dict[str, Any]] = None
+    if case1_secondary_recovered_lambda is not None:
+        sec = _case1_stream_align_mapping(
+            case1_secondary_recovered_lambda, streams=streams_list
+        )
+        secondary_extract = {
+            "extract_ok": sec["extract_ok"],
+            "source": LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED,
+            "source_path": "case1_secondary_recovered_lambda_arg",
+            "secondary_recovered_is_not_gate": True,
+            "dual_recovery_path": None,
+        }
+        if sec["extract_ok"]:
+            secondary_map = dict(sec["lambda"])
+    elif include_secondary_recovered and case1_package is not None:
+        secondary_extract = extract_case1_secondary_recovered_lambda(
+            case1_package, streams=streams_list
+        )
+        if secondary_extract.get("extract_ok"):
+            secondary_map = dict(secondary_extract["lambda"])
+
+    # --- Compose existing probe (no second L∞ engine) ---
+    if extract_ok and primary:
+        probe = offline_case1_dual_space_linf_probe_report(
+            case1_primary_online_lambda=primary,
+            case1_secondary_recovered_lambda=secondary_map,
+            skeleton_lambda=skeleton_lambda,
+            skeleton_report=skeleton_report,
+            skeleton_n_rounds=int(skeleton_n_rounds),
+            dual_vector_face=dual_vector_face,
+            streams=streams_list,
+            dual_gate_threshold_diagnostic=dual_gate_threshold_diagnostic,
+        )
+    else:
+        # Still call probe with fixture only for structural fields when missing?
+        # Prefer honest failure without fabricating live vectors.
+        probe = offline_case1_dual_space_linf_probe_report(
+            case1_primary_online_lambda={s: 0.0 for s in streams_list},
+            skeleton_lambda={s: 0.0 for s in streams_list},
+            dual_vector_face=dual_vector_face,
+            streams=streams_list,
+            dual_gate_threshold_diagnostic=dual_gate_threshold_diagnostic,
+        )
+        # Force probe_ok path fields but bridge will fail on extract.
+        # Override sources below.
+
+    # Dual-ban / unproven locks from honesty + probe
+    dual_linf_unproven = (
+        honesty["dual_linf_under_wire_status"] == "unproven"
+        and probe.get("dual_linf_under_wire_status") == "unproven"
+    )
+    online_gate_open = bool(probe.get("online_linf_gate_under_tf_path_open", True))
+    dual_ban_ok = bool(
+        honesty["dual_recovery_path"] is None
+        and probe.get("dual_recovery_path") is None
+        and honesty["bridge_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["bridge_is_not_verdict_gate"] is True
+        and dual_linf_unproven
+        and online_gate_open
+    )
+    checklist = dict(honesty["dual_linf_proof_checklist"])
+    online_gate_status = str(checklist.get("online_linf_gate_under_tf_path", "open"))
+    if online_gate_status.lower() not in ("open", "false_today", "unproven"):
+        online_gate_open = False
+        dual_ban_ok = False
+
+    honesty_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and list(UNITS) == ["FCC", "COKER", "CDU"]
+        and "BLENDER" not in UNITS
+        and honesty["dual_recovery_path"] is None
+        and honesty["wire_shipped"] is False
+        and honesty["bridge_is_not_verdict_gate"] is True
+        and honesty["bridge_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["does_not_clear_default_wire_blockers"] is True
+        and honesty["does_not_redefine_ready_for_wire_discussion"] is True
+        and dual_linf_unproven
+        and "dual_linf_under_wire_unproven" in blockers
+        and "wire_not_shipped" in blockers
+        and blockers_still_documented
+        and online_gate_open
+    )
+
+    probe_ok = bool(probe.get("probe_ok")) if extract_ok else False
+    stream_alignment_ok = bool(
+        extract_ok and probe.get("stream_alignment_ok", False)
+    )
+    finite_linf = bool(probe.get("finite_linf")) if extract_ok else False
+
+    # bridge_ok NEVER requires linf <= 15
+    bridge_ok = bool(
+        extract_ok
+        and source_documented
+        and source_honest
+        and honesty_ok
+        and dual_ban_ok
+        and probe_ok
+        and stream_alignment_ok
+        and finite_linf
+        and honesty["wire_shipped"] is False
+        and dual_linf_unproven
+        and blockers_still_documented
+    )
+    ok = bridge_ok
+
+    ok_criteria = (
+        "extract_ok ∧ source_documented ∧ source_honest ∧ honesty_ok ∧ "
+        "dual_ban ∧ probe_ok ∧ stream_alignment_ok ∧ finite_linf ∧ "
+        "wire_shipped=False ∧ dual_linf_unproven ∧ blockers_still_documented; "
+        "NOT linf<=15 under wire; NOT dual_linf proven; NOT VERDICT gate; "
+        "NOT form flip; NOT ready redefined; NOT blockers cleared; "
+        "fixture never labeled as live/caller_supplied"
+    )
+
+    linf = probe.get("linf") if extract_ok else float("nan")
+    l1 = probe.get("l1") if extract_ok else float("nan")
+    per_stream_abs = (
+        dict(probe.get("per_stream_abs") or {}) if extract_ok else {}
+    )
+
+    return {
+        **honesty,
+        "ok": ok,
+        "bridge_ok": bridge_ok,
+        "probe_ok": probe_ok,
+        "extract_ok": extract_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "stream_alignment_ok": stream_alignment_ok,
+        "finite_linf": finite_linf,
+        "finite_ok": finite_linf,
+        "blockers_still_documented": blockers_still_documented,
+        "source_documented": source_documented,
+        "source_honest": source_honest,
+        "ok_criteria": ok_criteria,
+        "bridge_ok_criteria": ok_criteria,
+        # Source labeling (fixture ≠ live)
+        "live_lambda_source": live_lambda_source,
+        "case1_primary_online_lambda_source": live_lambda_source,
+        "primary_source_path": primary_source_path,
+        "used_fixture_fallback": used_fixture,
+        "allow_fixture_fallback": bool(allow_fixture_fallback),
+        "fixture_is_not_live": True,
+        # Dual vectors
+        "dual_vector_face": dual_vector_face,
+        "case1_primary_online_lambda": dict(primary) if extract_ok else {},
+        "case1_secondary_recovered_lambda": (
+            dict(secondary_map) if secondary_map is not None else None
+        ),
+        "secondary_recovered_is_not_gate": True,
+        "primary_extract": extract_rep,
+        "secondary_extract": secondary_extract,
+        "skeleton_lambda": dict(probe.get("skeleton_lambda") or {}),
+        "skeleton_lambda_source": probe.get("skeleton_lambda_source"),
+        "streams": streams_list,
+        "linking_streams": streams_list,
+        "skeleton_lambda_slots": list(CASE1_SHAPED_LINKING_STREAMS),
+        # Gaps from composed probe
+        "per_stream_abs": per_stream_abs,
+        "abs_gap": dict(per_stream_abs),
+        "linf": linf,
+        "l1": l1,
+        "missing_in_primary": list(probe.get("missing_in_primary") or []),
+        "missing_in_skeleton": list(probe.get("missing_in_skeleton") or []),
+        "gap": probe.get("gap") if extract_ok else None,
+        "secondary_gap_diagnostic": (
+            probe.get("secondary_gap_diagnostic") if extract_ok else None
+        ),
+        "probe_linf_vs_gate_tol_diagnostic": {
+            **dict(probe.get("probe_linf_vs_gate_tol_diagnostic") or {}),
+            "is_not_verdict_gate": True,
+            "is_not_bridge_ok_criterion": True,
+            "is_not_probe_ok_criterion": True,
+        },
+        "online_linf_gate_under_tf_path_open": online_gate_open,
+        "probe_available": True,
+        "bridge_available": True,
+        "composed_probe_kind": CASE1_DUAL_SPACE_LINF_PROBE_KIND,
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "wire_not_shipped_blocker_still_true": "wire_not_shipped" in blockers,
+        "dual_linf_under_wire_unproven_blocker_still_true": (
+            "dual_linf_under_wire_unproven" in blockers
+        ),
+        "units_affine_unchanged": list(UNITS),
+        "tf_available": tf_available(),
+        "case1_shaped_streams_source": "CASE1_SHAPED_LINKING_STREAMS",
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "probe": {
+            "kind": probe.get("kind"),
+            "probe_ok": probe.get("probe_ok"),
+            "linf": probe.get("linf"),
+            "dual_linf_under_wire_status": probe.get("dual_linf_under_wire_status"),
+            "wire_shipped": probe.get("wire_shipped"),
+            "dual_recovery_path": probe.get("dual_recovery_path"),
+        },
+        "note": honesty["note"],
+    }
+
+
+def case1_dual_space_linf_live_lambda_bridge(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_linf_live_lambda_bridge_report``."""
+    return offline_case1_dual_space_linf_live_lambda_bridge_report(**kwargs)
+
+
+def multi_unit_case1_dual_space_linf_live_lambda_bridge_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_space_linf_live_lambda_bridge_report``."""
+    return offline_case1_dual_space_linf_live_lambda_bridge_report(**kwargs)
+
+
 def excel_fcc_matrix_matches_affine(
     atol: float = 1e-12,
 ) -> Dict[str, Any]:
@@ -5818,6 +6638,17 @@ __all__ = [
     "offline_case1_dual_space_linf_probe_report",
     "case1_dual_space_linf_probe",
     "multi_unit_case1_dual_space_linf_probe_report",
+    "CASE1_DUAL_SPACE_LINF_LIVE_LAMBDA_BRIDGE_KIND",
+    "LIVE_LAMBDA_SOURCE_CALLER_SUPPLIED",
+    "LIVE_LAMBDA_SOURCE_FIXTURE",
+    "LIVE_LAMBDA_SOURCE_PACKAGE_EXTRACT",
+    "LIVE_LAMBDA_SOURCE_MISSING",
+    "case1_primary_online_lambda_from_mapping",
+    "extract_case1_primary_online_lambda",
+    "extract_case1_secondary_recovered_lambda",
+    "offline_case1_dual_space_linf_live_lambda_bridge_report",
+    "case1_dual_space_linf_live_lambda_bridge",
+    "multi_unit_case1_dual_space_linf_live_lambda_bridge_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
