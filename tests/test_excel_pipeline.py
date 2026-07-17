@@ -2941,6 +2941,234 @@ def test_format_tf_offline_case1_dual_honest_multi_blocker_wire_rehearsal_howto_
     # import it themselves (checked above via formatter AST).
 
 
+
+def test_format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto_pure():
+    """Static blueprint packaging How_to: present; first_blocking; ship flags false; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_BLUEPRINT_ANTI_CRITERIA,
+        _CASE1_BLUEPRINT_PRESENT,
+        _CASE1_BUNDLE_CRITERIA_MET_TODAY,
+        _CASE1_BUNDLE_SHIP_ALLOWED_TODAY,
+        _CASE1_BUNDLE_SHIPPED,
+        _CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIP_MET,
+        _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_EXECUTION_SCAFFOLD_PRESENT,
+        _CASE1_FIRST_BLOCKING_COREQ,
+        _CASE1_FORM_CURRENT,
+        _CASE1_FORM_LABEL_CHANGE_SHIPPED,
+        _CASE1_FORM_LABEL_SHIP_ALLOWED_TODAY,
+        _CASE1_FORM_PLANNED,
+        _CASE1_IMPLEMENTATION_BLUEPRINT_PRESENT,
+        _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        _CASE1_ISOLATION_REWRITE_SHIPPED,
+        _CASE1_PATH_DESIGN_CDU_SURFACE,
+        _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_ENABLED_TODAY,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        _CASE1_PATH_DESIGN_PRESENT,
+        _CASE1_PATH_SHIPPED,
+        _CASE1_REHEARSAL_PRESENT,
+        _CASE1_SCAFFOLD_PRESENT,
+        _CASE1_SHAPED_BLENDER_SURFACE,
+        _CASE1_SHAPED_LINKING_STREAMS,
+        _CASE1_SHIP_MET_ALLOWED_TODAY,
+        _CASE1_WIRE_GO_BOARD_PRESENT,
+        _CASE1_WIRE_REHEARSAL_PRESENT,
+        _CASE1_WIRE_SHIP_ALLOWED_TODAY,
+        _CASE1_WIRE_SHIPPED,
+        _OFFLINE_TF_UNITS,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+        format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto,
+    )
+
+    d = format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto()
+    assert d["topic"] == "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"
+    assert "CDU" in d["units"] and "Blender" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["not_case1_solve"] == "true"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["form_planned"] == _CASE1_FORM_PLANNED
+    assert d["form_current"] == "classic_2block_excel_path"
+    assert d["case1_form_unchanged"] == "true"
+    assert d["form_unchanged"] == "true"
+    assert d["form_label_change_required_still_true"] == "true"
+    assert d["dual_recovery_path"] == "None"
+    assert d["dual_recovery_path_planned_when_shipped"] == _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED
+    assert "pure-admm" not in d["dual_recovery_path_planned_when_shipped"].lower()
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["blueprint_present"] == "true"
+    assert d["implementation_blueprint_present"] == "true"
+    assert d["wire_go_board_present"] == "true"
+    assert d["first_blocking_coreq"] == _CASE1_FIRST_BLOCKING_COREQ
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["rehearsal_present"] == "true"
+    assert d["wire_rehearsal_present"] == "true"
+    assert d["scaffold_present"] == "true"
+    assert d["execution_scaffold_present"] == "true"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    assert d["path_design_present"] == "true"
+    assert d["path_shipped"] == "false"
+    assert d["not_path_shipped"] == "true"
+    assert d["dual_honest_tf_aware_path_present_ship_met"] == "false"
+    assert d["ship_met_allowed_today"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["bundle_ship_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["isolation_rewrite_with_wire"] == _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS
+    assert d["isolation_rewrite_with_wire"] == "open"
+    assert d["rewrite_with_wire_not_delete"] == "true"
+    assert d["isolation_tests_rewritten_with_wire"] == "false"
+    assert d["isolation_rewrite_required_still_in_blockers"] == "true"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["form_label_ship_allowed_today"] == "false"
+    assert d["wire_ship_allowed_today"] == "false"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert d["cdu_surface"] == _CASE1_PATH_DESIGN_CDU_SURFACE
+    assert d["blender_surface"] == _CASE1_SHAPED_BLENDER_SURFACE
+    assert d["blender_surface"] == "linear_quality_pooling"
+    for s in _CASE1_SHAPED_LINKING_STREAMS:
+        assert s in d["intermediates"]
+    assert d["feature_flag_name"] == _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME
+    assert d["feature_flag_enabled_today"] == "false"
+    assert d["blueprint_is_not_path_shipped"] == "true"
+    assert d["blueprint_is_not_ship_met"] == "true"
+    assert d["blueprint_is_not_wire"] == "true"
+    assert d["blueprint_is_not_bundle_shipped"] == "true"
+    assert d["blueprint_is_not_isolation_rewrite_shipped"] == "true"
+    assert d["blueprint_is_not_form_label_change_shipped"] == "true"
+    assert d["blueprint_is_not_form_flip"] == "true"
+    assert d["blueprint_is_not_verdict_gate"] == "true"
+    assert d["blueprint_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["first_blocking_coreq_alone_is_not_ship"] == "true"
+    assert d["prep_map_is_not_ship"] == "true"
+    assert d["packaging_is_not_path_shipped"] == "true"
+    assert d["packaging_is_not_wire_shipped"] == "true"
+    assert d["packaging_is_not_bundle_shipped"] == "true"
+    assert d["order_hint_is_not_executor"] == "true"
+    assert d["no_auto_wire"] == "true"
+    assert d["distinct_from_scaffold_and_rehearsal_and_bundle_design_and_ship_met_criteria_packaging"] == "true"
+    assert d["no_blender_offline_affine_kernel_blocker_still_true"] == "true"
+    assert d["units_affine_unchanged"] == _OFFLINE_TF_UNITS
+    assert "BLENDER" not in d["units_affine_unchanged"]
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    open_ids = d["dual_linf_proof_checklist_open_ids"]
+    for oid in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS:
+        assert oid in open_ids
+    assert "isolation_rewrite_with_wire" in open_ids
+    assert d["does_not_clear_wire_blockers"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    assert d["not_form_flip"] == "true"
+    assert d["not_dual_linf_under_wire_proven"] == "true"
+    assert _CASE1_BLUEPRINT_PRESENT is True
+    assert _CASE1_IMPLEMENTATION_BLUEPRINT_PRESENT is True
+    assert _CASE1_WIRE_GO_BOARD_PRESENT is True
+    assert _CASE1_FIRST_BLOCKING_COREQ == "isolation_rewrite_with_wire"
+    assert _CASE1_REHEARSAL_PRESENT is True
+    assert _CASE1_WIRE_REHEARSAL_PRESENT is True
+    assert _CASE1_SCAFFOLD_PRESENT is True
+    assert _CASE1_EXECUTION_SCAFFOLD_PRESENT is True
+    assert _CASE1_BUNDLE_SHIPPED is False
+    assert _CASE1_BUNDLE_SHIP_ALLOWED_TODAY is False
+    assert _CASE1_BUNDLE_CRITERIA_MET_TODAY is False
+    assert _CASE1_ISOLATION_REWRITE_SHIPPED is False
+    assert _CASE1_FORM_LABEL_CHANGE_SHIPPED is False
+    assert _CASE1_FORM_LABEL_SHIP_ALLOWED_TODAY is False
+    assert _CASE1_PATH_DESIGN_PRESENT is True
+    assert _CASE1_PATH_SHIPPED is False
+    assert _CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIP_MET is False
+    assert _CASE1_SHIP_MET_ALLOWED_TODAY is False
+    assert _CASE1_PATH_DESIGN_FEATURE_FLAG_ENABLED_TODAY is False
+    assert _CASE1_WIRE_SHIP_ALLOWED_TODAY is False
+    assert _CASE1_WIRE_SHIPPED is False
+    assert "this_blueprint_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "go_board_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "first_blocking_coreq_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "prep_map_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "scaffold_plus_rehearsal_plus_blueprint_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "packaging_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "this_rehearsal_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "this_scaffold_alone" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "residual_must_vanish" in _CASE1_BLUEPRINT_ANTI_CRITERIA
+    assert "no_blender_offline_affine_kernel" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "form_label_change_required" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "isolation_rewrite_required" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "wire_not_shipped" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "dual_linf_under_wire_unproven" in _OFFLINE_WIRE_BLOCKER_IDS
+    one = d["planner_one_liner"].lower()
+    assert "blueprint" in one
+    assert "blueprint_present" in one
+    assert "implementation_blueprint_present" in one or "go-board" in one or "go_board" in one
+    assert "first_blocking" in one or "isolation_rewrite_with_wire" in one
+    assert "scaffold_present" in one
+    assert "rehearsal_present" in one
+    assert "path_shipped" in one
+    assert "bundle_shipped" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "classic_2block" in one or "form_current" in one
+    assert "unproven" in one
+    assert "verdict" in one
+    assert "false" in one
+    assert "dual" in one and "none" in one
+    assert "not" in one and "wire" in one
+    assert "no_blender" in one or "blocker" in one
+    assert "fcc" in one and "coker" in one and "cdu" in one
+    assert "packaging" in one or "alone" in one or "anti" in one
+    assert "order_hint" in one or "go-board" in one or "go_board" in one or "prep" in one
+    assert "isolation_rewrite_with_wire" in d["go_board_status_glance"] or "first_blocking" in d["go_board_status_glance"]
+    # multi-way permission coexistence
+    assert d["blueprint_present"] == "true"
+    assert d["implementation_blueprint_present"] == "true"
+    assert d["path_shipped"] == "false"
+    assert d["dual_honest_tf_aware_path_present_ship_met"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    # isolation: formatter body must not import TF / call live blueprint report
+    import ast
+    import inspect
+
+    src = inspect.getsource(
+        format_tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_howto
+    )
+    tree = ast.parse(src)
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imported.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imported.add(node.module.split(".")[0])
+    assert "tf_linear_blocks" not in imported
+    assert "tensorflow" not in imported
+    assert "pulp" not in imported
+    assert "offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report(" not in src
+    # module-level: excel packaging never *calls* live TF blueprint report
+    import pims_admm_llm.models.excel_pipeline as ep
+    from pathlib import Path as _Path
+
+    ep_src = _Path(ep.__file__).read_text(encoding="utf-8")
+    assert "offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report(" not in ep_src
+    tree_mod = ast.parse(ep_src)
+    for node in ast.walk(tree_mod):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                assert "tf_linear_blocks" not in alias.name
+                assert "tensorflow" not in alias.name
+        elif isinstance(node, ast.ImportFrom):
+            mod = node.module or ""
+            assert "tf_linear_blocks" not in mod
+            assert "tensorflow" not in mod
+
+
 def test_case1_dual_linf_open_ids_no_longer_list_blender_pooling():
     """Excel open-ids realigned after #40: blender pooling no longer open."""
     from pims_admm_llm.models.excel_pipeline import (
@@ -3239,6 +3467,15 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "scaffold+rehearse" in _OFFLINE_TF_INDEX_WHAT or (
         "scaffold" in _OFFLINE_TF_INDEX_WHAT and "rehearse" in _OFFLINE_TF_INDEX_WHAT
     )
+    # blueprint / go-board signal (fold: scaffold+rehearse+bp; 1st=iso maps first_blocking)
+    assert (
+        "bp" in _OFFLINE_TF_INDEX_WHAT
+        or "blueprint" in _OFFLINE_TF_INDEX_WHAT
+        or "1st=iso" in _OFFLINE_TF_INDEX_WHAT
+        or "go-board" in _OFFLINE_TF_INDEX_WHAT
+    )
+    assert "1st=iso" in _OFFLINE_TF_INDEX_WHAT or "isolation" in _OFFLINE_TF_INDEX_WHAT
+    assert "scaffold+rehearse+bp" in _OFFLINE_TF_INDEX_WHAT or "bp" in _OFFLINE_TF_INDEX_WHAT
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
     assert pkg["meta"]["dual_gate"] == "online_lambda"
     assert pkg["meta"]["verdict_dual_gate"] == "online_only"
@@ -3289,6 +3526,13 @@ def test_planner_honesty_glance_package(tmp_path):
     ] is True
     assert pkg["meta"]["offline_tf_rehearsal_present"] is True
     assert pkg["meta"]["offline_tf_wire_rehearsal_present"] is True
+    assert pkg["meta"][
+        "offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ready"
+    ] is True
+    assert pkg["meta"]["offline_tf_blueprint_present"] is True
+    assert pkg["meta"]["offline_tf_implementation_blueprint_present"] is True
+    assert pkg["meta"]["offline_tf_wire_go_board_present"] is True
+    assert pkg["meta"]["offline_tf_first_blocking_coreq"] == "isolation_rewrite_with_wire"
     assert pkg["meta"]["offline_tf_bundle_design_present"] is True
     assert pkg["meta"]["offline_tf_bundle_criteria_present"] is True
     assert pkg["meta"]["offline_tf_bundle_shipped"] is False
@@ -4417,6 +4661,131 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_case1_dual_honest_multi_blocker_wire_rehearsal_ready"] is True
     assert pkg["meta"]["offline_tf_rehearsal_present"] is True
     assert pkg["meta"]["offline_tf_wire_rehearsal_present"] is True
+    assert pkg["meta"]["offline_tf_path_shipped"] is False
+    assert pkg["meta"]["offline_tf_wire_shipped"] is False
+    assert pkg["meta"]["offline_tf_bundle_shipped"] is False
+    assert pkg["meta"]["offline_tf_isolation_rewrite_shipped"] is False
+    assert pkg["meta"]["offline_tf_form_label_change_shipped"] is False
+    # blueprint packaging twin
+    assert pkg.get("tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint") is not None
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"]["topic"]
+        == "tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "blueprint_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "implementation_blueprint_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "wire_go_board_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "first_blocking_coreq"
+        ]
+        == "isolation_rewrite_with_wire"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "rehearsal_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "scaffold_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "path_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "dual_honest_tf_aware_path_present_ship_met"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "wire_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "bundle_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "isolation_rewrite_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "form_label_change_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "dual_recovery_path"
+        ]
+        == "None"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "dual_linf_under_wire_status"
+        ]
+        == "unproven"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "blueprint_is_not_verdict_gate"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "feature_flag_enabled_today"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "first_blocking_coreq_alone_is_not_ship"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint"][
+            "order_hint_is_not_executor"
+        ]
+        == "true"
+    )
+    # dual-ban coexistence: blueprint ready never coexists with ship flags true
+    assert pkg["meta"]["offline_tf_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ready"] is True
+    assert pkg["meta"]["offline_tf_blueprint_present"] is True
+    assert pkg["meta"]["offline_tf_implementation_blueprint_present"] is True
+    assert pkg["meta"]["offline_tf_wire_go_board_present"] is True
+    assert pkg["meta"]["offline_tf_first_blocking_coreq"] == "isolation_rewrite_with_wire"
     assert pkg["meta"]["offline_tf_path_shipped"] is False
     assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert pkg["meta"]["offline_tf_bundle_shipped"] is False
