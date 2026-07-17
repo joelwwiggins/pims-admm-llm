@@ -127,6 +127,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_isolation_rewrite_design_contract")
     if ph.get("offline_tf_case1_wire_ship_acceptance_design_contract_ready"):
         readiness_bits.append("case1_wire_ship_acceptance_design_contract")
+    if ph.get("offline_tf_case1_dual_honest_tf_aware_path_design_contract_ready"):
+        readiness_bits.append("case1_dual_honest_tf_aware_path_design_contract")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -188,6 +190,13 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_wire_ship_acceptance_design_contract_ready")
         else "no case1_wire_ship_acceptance_design_contract packaging flag"
     )
+    path_design_note = (
+        "dual-honest TF-aware path design packaged (path_design_present; "
+        "path_shipped=false; ship-met=false; wire=false; dual-ban; not VERDICT; "
+        "not path ship / not ship allow)"
+        if ph.get("offline_tf_case1_dual_honest_tf_aware_path_design_contract_ready")
+        else "no case1_dual_honest_tf_aware_path_design_contract packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -198,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
         f"preflight λ ≠ duals; {wire_note}; {case1_shaped_note}; {dual_space_note}; "
         f"{linf_probe_note}; {live_bridge_note}; {live_warmstart_note}; "
         f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note}; "
-        f"{wire_ship_design_note})"
+        f"{wire_ship_design_note}; {path_design_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
