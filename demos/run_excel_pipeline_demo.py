@@ -263,8 +263,24 @@ def main(argv: list[str] | None = None) -> int:
             f"wire_shipped={crit.get('wire_shipped')}  "
             f"[NOT VERDICT gate; NOT gate flip; NOT dual L∞ under wire proof]"
         )
+        design = _tlb.offline_case1_isolation_rewrite_design_contract_report()
+        print(
+            f"Offline TF isolation-rewrite design contract (diagnostic only): "
+            f"design_present={design.get('isolation_rewrite_design_present')}  "
+            f"rewrite_shipped={design.get('isolation_rewrite_shipped')}  "
+            f"isolation_open={design.get('isolation_rewrite_with_wire')}  "
+            f"design_contract_ok={design.get('design_contract_ok')}  "
+            f"blocker_present={design.get('isolation_rewrite_required_in_default_wire_blockers')}  "
+            f"dual_linf_under_wire={design.get('dual_linf_under_wire_status')}  "
+            f"dual_recovery_path={design.get('dual_recovery_path')}  "
+            f"wire_shipped={design.get('wire_shipped')}  "
+            f"[NOT VERDICT gate; NOT isolation rewrite shipped; NOT wire]"
+        )
     except Exception as exc:  # pragma: no cover - demo soft-skip
-        print(f"Offline TF live-λ bridge/warm-start/pooling/criteria contract: skipped ({exc})")
+        print(
+            f"Offline TF live-λ bridge/warm-start/pooling/criteria/design contract: "
+            f"skipped ({exc})"
+        )
 
     return 0 if report["verdict"].startswith("PASS") else 1
 
