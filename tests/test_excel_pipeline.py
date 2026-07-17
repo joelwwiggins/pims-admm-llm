@@ -3377,6 +3377,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d["includes_first_blocker_operational_prep"] == "true"
     assert d.get("includes_form_label_second_coreq_operational_prep") == "true"
     assert d.get("includes_path_third_coreq_operational_prep") == "true"
+    assert d.get("includes_dual_linf_fourth_coreq_operational_prep") == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -6526,5 +6527,102 @@ def test_path_third_coreq_prep_package_surfaces(tmp_path):
     checks = {r["check"]: r for r in rows}
     assert "offline_tf_path_third_coreq_prep_not_path_ship" in checks
     assert checks["offline_tf_path_third_coreq_prep_not_path_ship"]["ok"] is True
+    # No Index growth for this residual
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+
+def test_format_tf_offline_case1_dual_linf_fourth_coreq_operational_prep_howto_pure():
+    """E1/E2 Excel: dual_linf fourth-coreq operational prep How_to dual-ban (static)."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_case1_dual_linf_fourth_coreq_operational_prep_howto,
+        _CASE1_DUAL_LINF_FOURTH_COREQ_PREP_ANTI_CRITERIA,
+        _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+    )
+    import inspect
+    import pims_admm_llm.models.excel_pipeline as ep
+
+    d = format_tf_offline_case1_dual_linf_fourth_coreq_operational_prep_howto()
+    assert d["topic"] == "tf_offline_case1_dual_linf_fourth_coreq_operational_prep"
+    assert d["prep_present"] == "true"
+    assert d["dual_linf_fourth_coreq_prep_present"] == "true"
+    assert d["operational_prep_present"] == "true"
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["dual_linf_proof_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert d["feature_flag_enabled_today"] == "false"
+    assert d["feature_flag_name"] == _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["is_first_blocking_coreq"] == "false"
+    assert d["order_hint_index"] == "3"
+    assert d["order_hint_coreq"] == "dual_linf_under_wire_proven"
+    assert d["dual_recovery_path"] == "None"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["prep_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["prep_is_not_criteria_met"] == "true"
+    assert d["prep_is_not_gate_flip"] == "true"
+    assert d["distinct_from_dual_linf_criteria_contract"] == "true"
+    assert d["distinct_from_online_linf_gate_criteria_contract"] == "true"
+    assert d["distinct_from_probe_bridge_warmstart"] == "true"
+    assert d["this_prep_alone_is_not_proof"] == "true"
+    assert d["packaging_alone_is_not_proof"] == "true"
+    one = d["planner_one_liner"].lower()
+    assert "prep_present" in one
+    assert "unproven" in one
+    assert "proof_allowed" in one or "dual_linf_proof_allowed_today=false" in one
+    assert "isolation_rewrite_with_wire" in one
+    assert "this_prep_alone" in _CASE1_DUAL_LINF_FOURTH_COREQ_PREP_ANTI_CRITERIA
+    assert "dual_linf_criteria_alone" in _CASE1_DUAL_LINF_FOURTH_COREQ_PREP_ANTI_CRITERIA
+    assert "probe_linf" in _CASE1_DUAL_LINF_FOURTH_COREQ_PREP_ANTI_CRITERIA
+    assert "wire_not_shipped" in _OFFLINE_WIRE_BLOCKER_IDS
+    src = inspect.getsource(
+        format_tf_offline_case1_dual_linf_fourth_coreq_operational_prep_howto
+    )
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    assert "offline_case1_dual_linf_fourth_coreq_operational_prep_report(" not in src
+    assert "format_tf_offline_case1_dual_linf_fourth_coreq_operational_prep_howto" in open(
+        ep.__file__, encoding="utf-8"
+    ).read()
+
+
+def test_dual_linf_fourth_coreq_prep_package_surfaces(tmp_path):
+    """E1/E2: dual_linf fourth-coreq prep meta/How_to/Calc_Check dual-ban surfaces."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_dual_linf_fourth_coreq_operational_prep_ready"] is True
+    assert pkg["meta"]["offline_tf_dual_linf_fourth_coreq_prep_present"] is True
+    assert pkg["meta"]["offline_tf_dual_linf_under_wire_status"] == "unproven"
+    assert pkg["meta"]["offline_tf_dual_linf_proof_allowed_today"] is False
+    note = str(pkg["meta"].get("offline_tf_case1_dual_linf_fourth_coreq_operational_prep", "")).lower()
+    assert "prep" in note
+    assert "unproven" in note or "proof" in note
+    dl_prep = pkg.get("tf_offline_case1_dual_linf_fourth_coreq_operational_prep")
+    assert dl_prep is not None
+    assert dl_prep["dual_linf_under_wire_status"] == "unproven"
+    assert dl_prep["dual_linf_proof_allowed_today"] == "false"
+    assert dl_prep["prep_present"] == "true"
+    assert dl_prep["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert dl_prep["is_first_blocking_coreq"] == "false"
+    assert dl_prep["order_hint_index"] == "3"
+    rows = planner_honesty_check_rows(report)
+    checks = {r["check"]: r for r in rows}
+    assert "offline_tf_dual_linf_fourth_coreq_prep_not_dual_linf_proof" in checks
+    assert checks["offline_tf_dual_linf_fourth_coreq_prep_not_dual_linf_proof"]["ok"] is True
     # No Index growth for this residual
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
