@@ -416,6 +416,24 @@ def test_write_results_excel_lean_goal(tmp_path):
     assert "online_linf_gate" in crlow
     assert "no_blender" in crlow or "blocker" in crlow
 
+    # Offline Case-1 isolation-rewrite design contract How_to (static packaging of #44)
+    tf_iso = how.get("tf_offline_case1_isolation_rewrite_design_contract", "")
+    assert tf_iso, "How_to_read must include tf_offline_case1_isolation_rewrite_design_contract"
+    isolow = tf_iso.lower()
+    assert "isolation" in isolow and "design" in isolow
+    assert "design_present" in isolow or "isolation_rewrite_design_present" in isolow
+    assert "rewrite_shipped" in isolow or "isolation_rewrite_shipped" in isolow
+    assert "false" in isolow
+    assert "open" in isolow
+    assert "unproven" in isolow
+    assert "verdict" in isolow
+    assert "wire_shipped" in isolow or "wire shipped" in isolow or "not wire" in isolow
+    assert "dual" in isolow and ("none" in isolow or "primary" in isolow)
+    assert "not" in isolow and "wire" in isolow
+    assert "isolation_rewrite_with_wire" in isolow or "checklist" in isolow
+    assert "no_blender" in isolow or "blocker" in isolow
+    assert "rewrite" in isolow and "delete" in isolow or "not_deleted" in isolow
+
 
 def test_format_tf_offline_units_howto_pure():
     """Static helper: no solve, isolation-safe contract strings."""
@@ -1149,6 +1167,96 @@ def test_format_tf_offline_case1_online_linf_gate_criteria_contract_howto_pure()
     assert "fcc" in one and "coker" in one and "cdu" in one
 
 
+def test_format_tf_offline_case1_isolation_rewrite_design_contract_howto_pure():
+    """Static isolation-rewrite design How_to: design_present; rewrite=false; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_FORM_CURRENT,
+        _CASE1_FORM_PLANNED,
+        _CASE1_ISOLATION_REWRITE_BLOCKER_ID,
+        _CASE1_ISOLATION_REWRITE_CHECKLIST_KEY,
+        _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        _CASE1_ISOLATION_REWRITE_DESIGN_PRESENT,
+        _CASE1_ISOLATION_REWRITE_NOT_DELETE,
+        _CASE1_ISOLATION_REWRITE_SHIPPED,
+        _OFFLINE_TF_UNITS,
+        _OFFLINE_WIRE_BLOCKER_IDS,
+        format_tf_offline_case1_isolation_rewrite_design_contract_howto,
+    )
+
+    d = format_tf_offline_case1_isolation_rewrite_design_contract_howto()
+    assert d["topic"] == "tf_offline_case1_isolation_rewrite_design_contract"
+    assert "CDU" in d["units"] and "Blender" in d["units"]
+    assert d["on_case1_solve"] == "false"
+    assert d["not_case1_solve"] == "true"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["form_planned"] == _CASE1_FORM_PLANNED
+    assert d["form_current"] == "classic_2block_excel_path"
+    assert d["form_planned"] == "tf_affine_cdu_blender_shaped_excel_path"
+    assert d["form_current"] != d["form_planned"]
+    assert d["case1_form_unchanged"] == "true"
+    assert d["form_unchanged"] == "true"
+    assert d["form_label_change_required_still_true"] == "true"
+    assert d["planned_form_distinct"] == "true"
+    assert d["dual_recovery_path"] == "None"
+    assert d["solver"] == "false"
+    assert d["on_excel_case1_path"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["not_wire_shipped"] == "true"
+    assert d["isolation_rewrite_design_present"] == "true"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["isolation_tests_rewritten_with_wire"] == "false"
+    assert d["isolation_tests_must_be_rewritten_with_wire_not_deleted"] == "true"
+    assert d["isolation_rewrite_with_wire"] == _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS
+    assert d["isolation_rewrite_with_wire"] == "open"
+    assert d["isolation_rewrite_required_still_in_blockers"] == "true"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["design_is_not_isolation_rewrite_shipped"] == "true"
+    assert d["design_is_not_wire"] == "true"
+    assert d["design_is_not_verdict_gate"] == "true"
+    assert d["design_is_not_dual_linf_under_wire_proof"] == "true"
+    assert d["design_is_not_gate_flip"] == "true"
+    assert d["no_blender_offline_affine_kernel_blocker_still_true"] == "true"
+    assert d["units_affine_unchanged"] == _OFFLINE_TF_UNITS
+    assert "BLENDER" not in d["units_affine_unchanged"]
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    open_ids = d["dual_linf_proof_checklist_open_ids"]
+    for oid in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS:
+        assert oid in open_ids
+    assert "isolation_rewrite_with_wire" in open_ids
+    assert _CASE1_ISOLATION_REWRITE_CHECKLIST_KEY in open_ids
+    assert d["does_not_clear_wire_blockers"] == "true"
+    assert d["not_full_plant_mass_balance"] == "true"
+    assert d["not_pure_admm_dual_recovery"] == "true"
+    assert d["not_form_flip"] == "true"
+    assert d["not_dual_linf_under_wire_proven"] == "true"
+    assert _CASE1_ISOLATION_REWRITE_DESIGN_PRESENT is True
+    assert _CASE1_ISOLATION_REWRITE_SHIPPED is False
+    assert _CASE1_ISOLATION_REWRITE_NOT_DELETE is True
+    assert _CASE1_ISOLATION_REWRITE_BLOCKER_ID in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "isolation_rewrite_required" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "no_blender_offline_affine_kernel" in _OFFLINE_WIRE_BLOCKER_IDS
+    one = d["planner_one_liner"].lower()
+    assert "isolation" in one and "design" in one
+    assert "classic_2block" in one or "form_current" in one
+    assert "unproven" in one
+    assert "verdict" in one
+    assert "wire_shipped" in one or "wire shipped" in one
+    assert "dual" in one and "none" in one
+    assert "not" in one and "wire" in one
+    assert "rewrite_shipped" in one or "isolation_rewrite_shipped" in one
+    assert "false" in one
+    assert "open" in one
+    assert "design_present" in one or "isolation_rewrite_design_present" in one
+    assert "no_blender" in one or "blocker" in one
+    assert "fcc" in one and "coker" in one and "cdu" in one
+    assert "not_deleted" in one or "not-delete" in one or "not delete" in one
+
+
 def test_case1_dual_linf_open_ids_no_longer_list_blender_pooling():
     """Excel open-ids realigned after #40: blender pooling no longer open."""
     from pims_admm_llm.models.excel_pipeline import (
@@ -1162,6 +1270,7 @@ def test_case1_dual_linf_open_ids_no_longer_list_blender_pooling():
     assert "online_linf_gate_under_tf_path" in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS
     assert "wire_shipped_false_today" in _CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS
     assert "no_blender_offline_affine_kernel" in _OFFLINE_WIRE_BLOCKER_IDS
+    assert "isolation_rewrite_required" in _OFFLINE_WIRE_BLOCKER_IDS
 
 def test_excel_fcc_export_matches_affine_coeffs():
     """E10 always-on: matrix builder MB_* == affine package (no TF, no solve)."""
@@ -1403,6 +1512,9 @@ def test_planner_honesty_glance_package(tmp_path):
     # Gate-criteria contract readiness (short Index clause; co-exists with pooling)
     assert "gate-criteria" in what_l or "criteria" in what_l or "flip=false" in what_l
     assert "gate open" in what_l or "flip=false" in what_l or "dual-ban" in what_l
+    # Isolation-rewrite design readiness (short Index clause; co-exists with criteria)
+    assert "isolation-rewrite" in what_l or "isolation design" in what_l or "design_present" in what_l
+    assert "rewrite=false" in what_l or "rewrite_shipped" in what_l or "design_present" in what_l
     from pims_admm_llm.models.excel_pipeline import _OFFLINE_TF_INDEX_WHAT
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439, len(_OFFLINE_TF_INDEX_WHAT)
     assert pkg["meta"]["form"] == "classic_2block_excel_path"
@@ -1427,6 +1539,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert pkg["meta"]["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready"] is True
     assert pkg["meta"]["offline_tf_case1_honest_blender_pooling_path_ready"] is True
     assert pkg["meta"]["offline_tf_case1_online_linf_gate_criteria_contract_ready"] is True
+    assert pkg["meta"]["offline_tf_case1_isolation_rewrite_design_contract_ready"] is True
     assert pkg["meta"]["offline_tf_wire_shipped"] is False
     assert "priced" in str(pkg["meta"]["offline_tf_priced"]).lower()
     assert "timing" in str(pkg["meta"]["offline_tf_timing"]).lower()
@@ -1534,6 +1647,18 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "dual-ban" in crit_note or "dual_recovery_path" in crit_note
     assert "online_linf_gate" in crit_note
     assert "no_blender" in crit_note or "blocker" in crit_note
+    iso_note = str(pkg["meta"]["offline_tf_case1_isolation_rewrite_design_contract"]).lower()
+    assert "isolation" in iso_note and "design" in iso_note
+    assert "design_present" in iso_note or "rewrite_shipped" in iso_note
+    assert "false" in iso_note
+    assert "open" in iso_note
+    assert "unproven" in iso_note
+    assert "verdict" in iso_note
+    assert "wire_shipped" in iso_note or "not wire" in iso_note
+    assert "dual" in iso_note
+    assert "dual-ban" in iso_note or "dual_recovery_path" in iso_note
+    assert "isolation_rewrite" in iso_note
+    assert "no_blender" in iso_note or "blocker" in iso_note
     blockers_meta = str(pkg["meta"]["offline_tf_wire_blockers"])
     assert "isolation_rewrite_required" in blockers_meta
     assert "form_label_change_required" in blockers_meta
@@ -1562,6 +1687,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "not affine" in readiness_note or "affine" in readiness_note
     assert "criteria" in readiness_note or "gate-criteria" in readiness_note or "flip-criteria" in readiness_note
     assert "gate open" in readiness_note or "flip=false" in readiness_note or "flip" in readiness_note
+    assert "isolation" in readiness_note and "design" in readiness_note
+    assert "rewrite_shipped" in readiness_note or "design_present" in readiness_note
     one_l = str(pkg["meta"]["planner_one_liner"]).lower()
     assert "priced" in one_l and "timing" in one_l
     assert "admm residual" in one_l
@@ -1577,6 +1704,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "warm-start" in one_l or "warmstart" in one_l or "seeded" in one_l or "seed_policy" in one_l
     assert "pooling" in one_l or "honest blender" in one_l or "honest_pooling" in one_l
     assert "criteria" in one_l or "gate" in one_l or "flip" in one_l
+    assert "isolation" in one_l and "design" in one_l
     assert "PRIMARY" in pkg["meta"]["dual_linf_online_role"]
     assert "SECONDARY" in pkg["meta"]["dual_linf_recovered_role"]
     assert pkg.get("tf_offline_admm_block_subproblem") is not None
@@ -1805,6 +1933,56 @@ def test_planner_honesty_glance_package(tmp_path):
             "dual_linf_proof_checklist_open_ids"
         ]
     )
+    assert pkg.get("tf_offline_case1_isolation_rewrite_design_contract") is not None
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"]["topic"]
+        == "tf_offline_case1_isolation_rewrite_design_contract"
+    )
+    assert pkg["tf_offline_case1_isolation_rewrite_design_contract"]["wire_shipped"] == "false"
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"]["dual_recovery_path"] == "None"
+    )
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "dual_linf_under_wire_status"
+        ]
+        == "unproven"
+    )
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "isolation_rewrite_design_present"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "isolation_rewrite_shipped"
+        ]
+        == "false"
+    )
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "isolation_rewrite_with_wire"
+        ]
+        == "open"
+    )
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "design_is_not_isolation_rewrite_shipped"
+        ]
+        == "true"
+    )
+    assert (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "design_is_not_verdict_gate"
+        ]
+        == "true"
+    )
+    assert "isolation_rewrite_with_wire" in (
+        pkg["tf_offline_case1_isolation_rewrite_design_contract"][
+            "dual_linf_proof_checklist_open_ids"
+        ]
+    )
     summary_keys = {k for k, _ in pkg["summary_pairs"]}
     assert {
         "offline_tf_priced",
@@ -1822,6 +2000,7 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart",
         "offline_tf_case1_honest_blender_pooling_path",
         "offline_tf_case1_online_linf_gate_criteria_contract",
+        "offline_tf_case1_isolation_rewrite_design_contract",
         "offline_tf_wire_blockers",
         "offline_tf_wire_shipped",
         "offline_tf_readiness_note",
@@ -1871,6 +2050,11 @@ def test_planner_honesty_glance_package(tmp_path):
         "offline_tf_case1_online_linf_gate_criteria_contract_not_verdict_gate",
         "offline_tf_case1_online_linf_gate_criteria_contract_gate_open_flip_false",
         "offline_tf_case1_online_linf_gate_criteria_contract_not_dual_linf_under_wire_proof",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_duals",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_wire",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_verdict_gate",
+        "offline_tf_case1_isolation_rewrite_design_contract_rewrite_not_shipped_checklist_open",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_dual_linf_under_wire_proof",
     } <= names
     assert all(r["ok"] is True for r in rows)
 
@@ -1901,6 +2085,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert ph["offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready"] is True
     assert ph["offline_tf_case1_honest_blender_pooling_path_ready"] is True
     assert ph["offline_tf_case1_online_linf_gate_criteria_contract_ready"] is True
+    assert ph["offline_tf_case1_isolation_rewrite_design_contract_ready"] is True
     assert ph["offline_tf_wire_shipped"] is False
     assert "priced" in str(ph["offline_tf_priced"]).lower()
     assert "timing" in str(ph["offline_tf_timing"]).lower()
@@ -1980,6 +2165,13 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "open" in ph_crit
     assert "false" in ph_crit
     assert "online_linf_gate" in ph_crit
+    ph_iso = str(ph["offline_tf_case1_isolation_rewrite_design_contract"]).lower()
+    assert "isolation" in ph_iso and "design" in ph_iso
+    assert "design_present" in ph_iso or "rewrite_shipped" in ph_iso
+    assert "unproven" in ph_iso
+    assert "verdict" in ph_iso
+    assert "open" in ph_iso
+    assert "false" in ph_iso
 
     # --- Submodel_Index OFFLINE_TF readiness ---
     ih = [c.value for c in wb["Submodel_Index"][1]]
@@ -2024,6 +2216,8 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "pooling" in ot or "honest blender" in ot
     assert "not affine" in ot or "affine" in ot
     assert "gate-criteria" in ot or "criteria" in ot or "flip=false" in ot
+    assert "isolation-rewrite" in ot or "isolation design" in ot or "design_present" in ot
+    assert "rewrite=false" in ot or "design_present" in ot
     # FCC/COKER export-vs-live wording
     assert "export" in index_rows["FCC"].lower() or "teaching" in index_rows["FCC"].lower()
     assert "not live" in index_rows["FCC"].lower() or "not" in index_rows["FCC"].lower()
@@ -2079,6 +2273,9 @@ def test_planner_honesty_glance_package(tmp_path):
     ).lower()
     crit_s = str(
         summary.get("offline_tf_case1_online_linf_gate_criteria_contract") or ""
+    ).lower()
+    iso_s = str(
+        summary.get("offline_tf_case1_isolation_rewrite_design_contract") or ""
     ).lower()
     blockers_s = str(summary.get("offline_tf_wire_blockers") or "")
     assert "priced" in priced_s
@@ -2151,6 +2348,13 @@ def test_planner_honesty_glance_package(tmp_path):
     assert "false" in crit_s
     assert "wire_shipped" in crit_s or "not wire" in crit_s
     assert "online_linf_gate" in crit_s
+    assert "isolation" in iso_s and "design" in iso_s
+    assert "design_present" in iso_s or "rewrite_shipped" in iso_s
+    assert "unproven" in iso_s
+    assert "verdict" in iso_s
+    assert "open" in iso_s
+    assert "false" in iso_s
+    assert "wire_shipped" in iso_s or "not wire" in iso_s
     assert "isolation_rewrite_required" in blockers_s
     assert "wire_not_shipped" in blockers_s
     assert "case1_is_cdu_blender_package_admm" in blockers_s
@@ -2215,6 +2419,15 @@ def test_planner_honesty_glance_package(tmp_path):
     assert checks.get(
         "offline_tf_case1_online_linf_gate_criteria_contract_not_dual_linf_under_wire_proof"
     ) is True
+    assert checks.get("offline_tf_case1_isolation_rewrite_design_contract_not_duals") is True
+    assert checks.get("offline_tf_case1_isolation_rewrite_design_contract_not_wire") is True
+    assert checks.get("offline_tf_case1_isolation_rewrite_design_contract_not_verdict_gate") is True
+    assert checks.get(
+        "offline_tf_case1_isolation_rewrite_design_contract_rewrite_not_shipped_checklist_open"
+    ) is True
+    assert checks.get(
+        "offline_tf_case1_isolation_rewrite_design_contract_not_dual_linf_under_wire_proof"
+    ) is True
     for name, ok in checks.items():
         assert ok is True, (name, ok)
 
@@ -2242,6 +2455,7 @@ def test_planner_honesty_glance_package(tmp_path):
     assert how.get("tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart")
     assert how.get("tf_offline_case1_honest_blender_pooling_path")
     assert how.get("tf_offline_case1_online_linf_gate_criteria_contract")
+    assert how.get("tf_offline_case1_isolation_rewrite_design_contract")
     assert "PRIMARY" in how.get("duals_online_lambda", "") or "PRIMARY" in how.get(
         "duals_primary_secondary", ""
     )
@@ -2301,6 +2515,11 @@ def test_planner_honesty_check_rows_pure():
         "offline_tf_case1_online_linf_gate_criteria_contract_not_verdict_gate",
         "offline_tf_case1_online_linf_gate_criteria_contract_gate_open_flip_false",
         "offline_tf_case1_online_linf_gate_criteria_contract_not_dual_linf_under_wire_proof",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_duals",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_wire",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_verdict_gate",
+        "offline_tf_case1_isolation_rewrite_design_contract_rewrite_not_shipped_checklist_open",
+        "offline_tf_case1_isolation_rewrite_design_contract_not_dual_linf_under_wire_proof",
     } <= names
     assert all(r["ok"] for r in rows_good)
 
@@ -2345,6 +2564,15 @@ def test_planner_honesty_check_rows_pure():
     ] is True
     assert rows[
         "offline_tf_case1_online_linf_gate_criteria_contract_not_dual_linf_under_wire_proof"
+    ] is True
+    assert rows["offline_tf_case1_isolation_rewrite_design_contract_not_duals"] is True
+    assert rows["offline_tf_case1_isolation_rewrite_design_contract_not_wire"] is True
+    assert rows["offline_tf_case1_isolation_rewrite_design_contract_not_verdict_gate"] is True
+    assert rows[
+        "offline_tf_case1_isolation_rewrite_design_contract_rewrite_not_shipped_checklist_open"
+    ] is True
+    assert rows[
+        "offline_tf_case1_isolation_rewrite_design_contract_not_dual_linf_under_wire_proof"
     ] is True
     assert rows["offline_tf_case1_dual_space_form_contract_not_wire"] is True
     assert rows["offline_tf_case1_dual_space_linf_probe_not_duals"] is True
