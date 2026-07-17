@@ -2656,7 +2656,8 @@ def format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto() 
     dual_linf_under_wire_unproven, no_blender_offline_affine_kernel, wire_not_shipped, …);
     UNITS FCC/COKER/CDU. Flip criteria keys names-only mirror of #52. Does **not** load
     tf_linear_blocks or tensorflow; does **not** call
-    offline_case1_form_label_change_shipped_criteria_contract_report.
+    offline_case1_form_label_change_shipped_criteria_contract_report /
+    offline_case1_isolation_rewrite_shipped_criteria_contract_report.
     """
     open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
     anti = ",".join(_CASE1_FORM_LABEL_CRITERIA_ANTI_CRITERIA)
@@ -2763,6 +2764,159 @@ def format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto() 
         "criteria_is_not_dual_linf_under_wire_proof": "true",
         "criteria_is_not_isolation_rewrite_shipped": "true",
         "form_registration_is_not_form_label_shipped": "true",
+        "no_blender_offline_affine_kernel_blocker_still_true": "true",
+        "units_affine_unchanged": _OFFLINE_TF_UNITS,
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "anti_criteria_today": anti,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
+
+def format_tf_offline_case1_isolation_rewrite_shipped_criteria_contract_howto() -> Dict[str, str]:
+    """Static offline Case-1 isolation-rewrite ship-met / flip criteria How_to (#54 packaging).
+
+    Planner-facing note that offline isolation_rewrite_shipped *flip criteria*
+    packaging exists: criteria_present=true (packaging existence);
+    isolation_ship_allowed_today=false; criteria_met_today=false;
+    isolation_rewrite_shipped=false; isolation_rewrite_design_present=true;
+    isolation_rewrite_with_wire checklist **open**; rewrite-with-wire-not-delete;
+    isolation_tests_rewritten_with_wire=false; form remains classic_2block_excel_path;
+    form_label_change_shipped=false; form_label_ship_allowed_today=false;
+    path_design_present=true; path_shipped=false;
+    dual_honest_tf_aware_path_present ship-met=false;
+    wire_ship_allowed_today=false; wire_shipped=false;
+    dual_linf_under_wire=unproven; online_linf_gate_under_tf_path=open;
+    gate_flip_allowed_today=false; dual_recovery_path=None today;
+    dual_recovery_path_planned_when_shipped labeled honestly (not pure-ADMM);
+    feature_flag reserved + enabled_today=false; multi-way dual-ban
+    (criteria_present ≠ isolation_ship_allowed ≠ isolation_rewrite_shipped
+    ≠ isolation design alone ≠ form_label_change_shipped ≠ path_shipped
+    ≠ ship-met ≠ wire_shipped / wire_ship_allowed ≠ VERDICT ≠ dual L∞ under wire proof);
+    packaging alone / this isolation ship criteria alone / isolation design alone are
+    not isolation-rewrite-ship enablers; blockers remain (isolation_rewrite_required,
+    form_label_change_required, dual_linf_under_wire_unproven,
+    no_blender_offline_affine_kernel, wire_not_shipped, …); UNITS FCC/COKER/CDU.
+    Flip criteria keys names-only mirror of #54. Does **not** load
+    tf_linear_blocks or tensorflow; does **not** call
+    offline_case1_isolation_rewrite_shipped_criteria_contract_report.
+    """
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    anti = ",".join(_CASE1_ISOLATION_SHIP_CRITERIA_ANTI_CRITERIA)
+    streams = ",".join(_CASE1_SHAPED_LINKING_STREAMS)
+    flip_keys = ",".join(_CASE1_ISOLATION_SHIP_FLIP_CRITERIA_KEYS)
+    one_liner = (
+        "Offline Case-1 isolation_rewrite_shipped flip criteria contract readiness "
+        "exists (static packaging of #54 harness): "
+        f"form_current={_CASE1_FORM_CURRENT}; "
+        "criteria_present=true; isolation_ship_allowed_today=false; "
+        "criteria_met_today=false; isolation_rewrite_shipped=false; "
+        f"isolation_rewrite_design_present=true; "
+        f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+        "rewrite_with_wire_not_delete=true; "
+        "isolation_tests_rewritten_with_wire=false; "
+        "form_label_change_shipped=false; form_label_ship_allowed_today=false; "
+        "path_design_present=true; path_shipped=false; "
+        "dual_honest_tf_aware_path_present ship-met=false; "
+        "wire_ship_allowed_today=false; wire_shipped=false; "
+        "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+        f"cdu_surface={_CASE1_PATH_DESIGN_CDU_SURFACE}; "
+        f"blender_surface={_CASE1_SHAPED_BLENDER_SURFACE}; "
+        f"intermediates={streams}; "
+        f"feature_flag_name={_CASE1_PATH_DESIGN_FEATURE_FLAG_NAME}; "
+        "feature_flag_enabled_today=false; "
+        "dual_recovery_path=None today; "
+        f"dual_recovery_path_planned_when_shipped="
+        f"{_CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED} (not pure-ADMM); "
+        f"flip_criteria_keys={flip_keys}; "
+        "criteria_is_not_isolation_rewrite_shipped=true; "
+        "criteria_is_not_isolation_ship_allow=true; "
+        "criteria_is_not_form_label_shipped=true; criteria_is_not_form_flip=true; "
+        "criteria_is_not_path_shipped=true; criteria_is_not_ship_met=true; "
+        "criteria_is_not_wire=true; criteria_is_not_wire_ship_allow=true; "
+        "criteria_is_not_verdict_gate=true; "
+        "criteria_is_not_dual_linf_under_wire_proof=true; "
+        "isolation_design_is_not_isolation_rewrite_shipped=true; "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+        f"open checklist ({open_ids}); "
+        "no_blender_offline_affine_kernel_blocker_still_true=true; "
+        f"units_affine_unchanged={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+        f"anti_criteria_today={anti}; does not clear wire_blockers; not form flip; "
+        "not dual L∞ proven under wire; not full plant mass balance; packaging alone / "
+        "this isolation ship criteria contract alone / isolation_design_alone / "
+        "form_label criteria alone / dual_space_form_contract_alone / this path design "
+        "alone / this ship-met criteria alone are not isolation-rewrite-ship / form-label-ship "
+        "/ path-ship / ship-met / wire-ship enablers. Case 1 duals remain PRIMARY free "
+        "online λ / SECONDARY recovered blender; isolation ship criteria packaging is not "
+        "the Case 1 VERDICT dual gate and is not isolation_rewrite_shipped / not form "
+        "flip / not form_label_change_shipped / not path shipped / not ship-met / not "
+        "wire shipped / not ship allowed."
+    )
+    return {
+        "topic": "tf_offline_case1_isolation_rewrite_shipped_criteria_contract",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "dual_recovery_path_planned_when_shipped": _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "criteria_present": "true",
+        "isolation_ship_criteria_present": "true",
+        "isolation_ship_allowed_today": "false",
+        "criteria_met_today": "false",
+        "isolation_rewrite_shipped": "false",
+        "isolation_rewrite_design_present": "true",
+        "isolation_rewrite_with_wire": _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        "rewrite_with_wire_not_delete": "true",
+        "isolation_tests_rewritten_with_wire": "false",
+        "isolation_rewrite_required_still_in_blockers": "true",
+        "form_label_criteria_present": "true",
+        "form_label_ship_allowed_today": "false",
+        "form_label_change_shipped": "false",
+        "path_design_present": "true",
+        "path_shipped": "false",
+        "not_path_shipped": "true",
+        "dual_honest_tf_aware_path_present_ship_met": "false",
+        "dual_honest_tf_aware_path_present": "false",
+        "ship_met_allowed_today": "false",
+        "wire_ship_allowed_today": "false",
+        "wire_ship_criteria_met_today": "false",
+        "online_linf_gate_under_tf_path": "open",
+        "gate_flip_allowed_today": "false",
+        "cdu_surface": _CASE1_PATH_DESIGN_CDU_SURFACE,
+        "blender_surface": _CASE1_SHAPED_BLENDER_SURFACE,
+        "intermediates": streams,
+        "feature_flag_name": _CASE1_PATH_DESIGN_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": "false",
+        "flip_criteria_keys": flip_keys,
+        "criteria_is_not_isolation_rewrite_shipped": "true",
+        "criteria_is_not_isolation_ship_allow": "true",
+        "criteria_is_not_form_label_shipped": "true",
+        "criteria_is_not_form_flip": "true",
+        "criteria_is_not_form_label_ship_allow": "true",
+        "criteria_is_not_ship_met": "true",
+        "criteria_is_not_path_shipped": "true",
+        "criteria_is_not_wire_ship_allow": "true",
+        "criteria_is_not_wire": "true",
+        "criteria_is_not_verdict_gate": "true",
+        "criteria_is_not_dual_linf_under_wire_proof": "true",
+        "isolation_design_is_not_isolation_rewrite_shipped": "true",
         "no_blender_offline_affine_kernel_blocker_still_true": "true",
         "units_affine_unchanged": _OFFLINE_TF_UNITS,
         "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
@@ -2974,6 +3128,55 @@ _CASE1_FORM_LABEL_CRITERIA_ANTI_CRITERIA = (
     "form_label_contract_alone",
     "this_form_label_change_shipped_criteria_contract_alone",
 )
+
+# Excel-local mirrors of isolation_rewrite_shipped flip criteria (#54). Static only —
+# never import tf_linear_blocks. criteria_present = packaging existence;
+# isolation_ship_allowed_today stays False; criteria_met_today stays False;
+# isolation_rewrite_shipped stays False; checklist isolation_rewrite_with_wire stays open;
+# rewrite-with-wire-not-delete; isolation_tests_rewritten_with_wire stays False.
+# Packaging alone / this isolation ship criteria alone / isolation design alone are
+# never isolation-rewrite-ship or form-ship or path-ship or wire-ship enablers.
+_CASE1_ISOLATION_SHIP_CRITERIA_PRESENT = True
+_CASE1_ISOLATION_SHIP_ALLOWED_TODAY = False
+_CASE1_ISOLATION_SHIP_CRITERIA_MET_TODAY = False
+_CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE = False
+# Names-only mirror of CASE1_ISOLATION_REWRITE_SHIPPED_FLIP_CRITERIA keys (#54).
+_CASE1_ISOLATION_SHIP_FLIP_CRITERIA_KEYS = (
+    "isolation_rewrite_design_present",
+    "rewrite_with_wire_not_delete",
+    "isolation_rewrite_required_blocker_documented",
+    "isolation_tests_rewritten_with_wire_not_deleted",
+    "no_silent_isolation_suite_deletion",
+    "feature_flag_reserved_and_named",
+    "dual_recovery_path_planned_labeled_honestly",
+    "path_design_present",
+    "form_label_change_shipped",
+)
+# Excel-local mirror of CASE1_ISOLATION_REWRITE_SHIPPED_ANTI_CRITERIA_TODAY (#54).
+_CASE1_ISOLATION_SHIP_CRITERIA_ANTI_CRITERIA = (
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "packaging_alone",
+    "design_contracts_alone",
+    "isolation_design_contract_alone",
+    "isolation_design_alone",
+    "gate_criteria_contract_alone",
+    "wire_ship_acceptance_design_alone",
+    "this_path_design_alone",
+    "this_ship_met_criteria_contract_alone",
+    "this_path_present_criteria_contract_alone",
+    "dual_space_form_contract_alone",
+    "form_registration_alone",
+    "form_label_contract_alone",
+    "this_form_label_change_shipped_criteria_contract_alone",
+    "this_isolation_rewrite_shipped_criteria_contract_alone",
+    "this_isolation_ship_met_criteria_contract_alone",
+)
 # Open dual-L∞-under-wire checklist ids remaining after #40 pooling formalization.
 # blender_affine_or_honest_pooling is NO LONGER open (TF status honest_pooling_path_present).
 # dual_linf_under_wire remains unproven; online_linf_gate_under_tf_path stays open
@@ -3022,7 +3225,7 @@ _OFFLINE_TF_INDEX_WHAT = (
     "warm-start (seed_policy; seed≠proof) + "
     "pooling (not affine) + "
     "gate-criteria (open; flip=false) + "
-    "isolation design (present; rewrite=false) + "
+    "iso design+crit (present; rew=false; ship=false) + "
     "wire-ship (present; ship=false; wire=false) + "
     "path design+criteria (present; path=false; ship-met=false; form_label_ship=false; form=classic; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
@@ -3251,6 +3454,30 @@ _OFFLINE_TF_CASE1_FORM_LABEL_CHANGE_SHIPPED_CRITERIA_CONTRACT_NOTE = (
     "ship allow ≠ wire shipped ≠ VERDICT; "
     "criteria_present ≠ form_label_ship_allowed ≠ form_label_change_shipped ≠ form flip"
 )
+_OFFLINE_TF_CASE1_ISOLATION_REWRITE_SHIPPED_CRITERIA_CONTRACT_NOTE = (
+    "offline Case-1 isolation_rewrite_shipped flip criteria contract readiness — "
+    "criteria_present=true; isolation_ship_allowed_today=false; criteria_met_today=false; "
+    "isolation_rewrite_shipped=false; isolation_rewrite_design_present=true; "
+    f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+    "rewrite_with_wire_not_delete=true; isolation_tests_rewritten_with_wire=false; "
+    f"form_current={_CASE1_FORM_CURRENT}; form_label_change_shipped=false; "
+    "form_label_ship_allowed_today=false; "
+    "path_design_present=true; path_shipped=false; "
+    "dual_honest_tf_aware_path_present ship-met=false; "
+    "wire_ship_allowed_today=false; wire_shipped=false; "
+    "dual-ban; "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+    "no_blender_offline_affine_kernel still true; "
+    f"feature_flag={_CASE1_PATH_DESIGN_FEATURE_FLAG_NAME} enabled_today=false; "
+    f"UNITS={_OFFLINE_TF_UNITS} (no silent BLENDER); dual_recovery_path=None; "
+    f"dual_recovery_path_planned={_CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED}; "
+    "does not clear wire_blockers; not form flip; not dual L∞ proven under wire; "
+    "packaging ≠ isolation_rewrite_shipped ≠ isolation ship allow ≠ form_label_change_shipped "
+    "≠ form flip ≠ path shipped ≠ ship-met ≠ ship allow ≠ wire shipped ≠ VERDICT; "
+    "criteria_present ≠ isolation_ship_allowed ≠ isolation_rewrite_shipped ≠ isolation design alone"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -3279,7 +3506,10 @@ _OFFLINE_TF_READINESS_NOTE = (
     "dual-ban; not VERDICT) + "
     "form_label_change_shipped flip criteria readiness "
     "(criteria_present; form_label_ship=false; form_label_change_shipped=false; "
-    "form=classic; dual-ban; not VERDICT) — "
+    "form=classic; dual-ban; not VERDICT) + "
+    "isolation_rewrite_shipped flip criteria readiness "
+    "(criteria_present; isolation_ship=false; isolation_rewrite_shipped=false; "
+    "checklist open; rewrite-not-delete; dual-ban; not VERDICT) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
@@ -3297,6 +3527,8 @@ _OFFLINE_TF_READINESS_NOTE = (
     "≠ VERDICT / ≠ dual L∞ under wire proof; "
     "form_label criteria ≠ form_label_change_shipped / ≠ form flip / ≠ path shipped / "
     "≠ ship-met / ≠ ship allow / ≠ wire_shipped / ≠ VERDICT / ≠ dual L∞ under wire proof; "
+    "isolation ship criteria ≠ isolation_rewrite_shipped / ≠ isolation ship allow / ≠ form ship / "
+    "≠ path shipped / ≠ ship-met / ≠ ship allow / ≠ wire_shipped / ≠ VERDICT / ≠ dual L∞ under wire proof; "
     "live_lambda_source must be labeled; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
@@ -3335,11 +3567,14 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     + dual-honest TF-aware path design contract
     + dual_honest_tf_aware_path_present ship-met / path-present-for-ship criteria contract
     + form_label_change_shipped flip criteria contract
+    + isolation_rewrite_shipped flip criteria contract
     (static harness-existence flags only; wire_shipped=False; wire_ship_allowed=false;
     path_design_present; path_shipped=False; dual_honest_tf_aware_path_present ship-met=False;
     criteria_present packaging; ship_met_allowed_today=False;
     form_label_criteria_present packaging; form_label_ship_allowed_today=False;
     form_label_change_shipped=False; form classic;
+    isolation_ship_criteria_present packaging; isolation_ship_allowed_today=False;
+    isolation_rewrite_shipped=False; isolation checklist open; rewrite-not-delete;
     blockers honesty;
     blender linear_quality_pooling; checklist honest_pooling_path_present;
     gate stays open; gate_flip_allowed_today=false; criteria_met_today=false;
@@ -3348,6 +3583,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     VERDICT gate / ≠ dual L∞ under wire proof; pooling ≠ affine kernel;
     criteria ≠ gate flip; design ≠ rewrite shipped; design ≠ ship allow;
     path design ≠ path shipped ≠ ship-met; form_label criteria ≠ form_label_change_shipped;
+    isolation ship criteria ≠ isolation_rewrite_shipped ≠ isolation ship allow;
     seed identity ≠ proof; seed_policy/z0_policy
     documented; live_lambda_source must be labeled).
     """
@@ -3376,6 +3612,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     )
     tf_form_label_criteria = (
         format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto()
+    )
+    tf_isolation_ship_criteria = (
+        format_tf_offline_case1_isolation_rewrite_shipped_criteria_contract_howto()
     )
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
@@ -3424,14 +3663,18 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_dual_honest_tf_aware_path_design_contract_ready": True,  # static; not live path design
         "offline_tf_case1_dual_honest_tf_aware_path_present_criteria_contract_ready": True,  # static; not live criteria
         "offline_tf_case1_form_label_change_shipped_criteria_contract_ready": True,  # static; not live form_label criteria
+        "offline_tf_case1_isolation_rewrite_shipped_criteria_contract_ready": True,  # static; not live isolation ship criteria
         "offline_tf_path_design_present": True,  # static packaging existence only
         "offline_tf_path_present_criteria_present": True,  # static packaging existence only
         "offline_tf_form_label_criteria_present": True,  # static packaging existence only
+        "offline_tf_isolation_ship_criteria_present": True,  # static packaging existence only
         "offline_tf_path_shipped": False,  # hard lock — packaging never claims path shipped
         "offline_tf_dual_honest_tf_aware_path_present_ship_met": False,  # ship-met remains false
         "offline_tf_ship_met_allowed_today": False,  # hard lock — criteria packaging ≠ ship allow
         "offline_tf_form_label_ship_allowed_today": False,  # hard lock — form_label packaging ≠ ship allow
         "offline_tf_form_label_change_shipped": False,  # hard lock — form label not shipped
+        "offline_tf_isolation_ship_allowed_today": False,  # hard lock — isolation ship packaging ≠ ship allow
+        "offline_tf_isolation_rewrite_shipped": False,  # hard lock — isolation rewrite not shipped
         "offline_tf_wire_ship_allowed_today": False,  # hard lock
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
@@ -3475,6 +3718,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "offline_tf_case1_form_label_change_shipped_criteria_contract": (
             _OFFLINE_TF_CASE1_FORM_LABEL_CHANGE_SHIPPED_CRITERIA_CONTRACT_NOTE
+        ),
+        "offline_tf_case1_isolation_rewrite_shipped_criteria_contract": (
+            _OFFLINE_TF_CASE1_ISOLATION_REWRITE_SHIPPED_CRITERIA_CONTRACT_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -3521,7 +3767,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"dual-ban; not VERDICT) + "
             f"form_label_change_shipped flip criteria readiness "
             f"(criteria_present; form_label_ship=false; form_label_change_shipped=false; "
-            f"form=classic; dual-ban; not VERDICT) "
+            f"form=classic; dual-ban; not VERDICT) + "
+            f"isolation_rewrite_shipped flip criteria readiness "
+            f"(criteria_present; isolation_ship=false; isolation_rewrite_shipped=false; "
+            f"checklist open; rewrite-not-delete; dual-ban; not VERDICT) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -3600,15 +3849,22 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_form_label_change_shipped_criteria_contract",
             _OFFLINE_TF_CASE1_FORM_LABEL_CHANGE_SHIPPED_CRITERIA_CONTRACT_NOTE,
         ),
+        (
+            "offline_tf_case1_isolation_rewrite_shipped_criteria_contract",
+            _OFFLINE_TF_CASE1_ISOLATION_REWRITE_SHIPPED_CRITERIA_CONTRACT_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_path_design_present", True),
         ("offline_tf_path_present_criteria_present", True),
         ("offline_tf_form_label_criteria_present", True),
+        ("offline_tf_isolation_ship_criteria_present", True),
         ("offline_tf_path_shipped", False),
         ("offline_tf_dual_honest_tf_aware_path_present_ship_met", False),
         ("offline_tf_ship_met_allowed_today", False),
         ("offline_tf_form_label_ship_allowed_today", False),
         ("offline_tf_form_label_change_shipped", False),
+        ("offline_tf_isolation_ship_allowed_today", False),
+        ("offline_tf_isolation_rewrite_shipped", False),
         ("offline_tf_wire_ship_allowed_today", False),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -3642,6 +3898,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "tf_offline_case1_form_label_change_shipped_criteria_contract": (
             tf_form_label_criteria
+        ),
+        "tf_offline_case1_isolation_rewrite_shipped_criteria_contract": (
+            tf_isolation_ship_criteria
         ),
     }
 
@@ -4754,6 +5013,119 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+
+        {
+            "check": "offline_tf_case1_isolation_rewrite_shipped_criteria_contract_not_duals",
+            "predicted": (
+                "offline Case-1 isolation_rewrite_shipped flip criteria contract readiness "
+                "packaging exists (static); criteria_present=true; "
+                "isolation_ship_allowed_today=false; isolation_rewrite_shipped=false; "
+                "isolation_rewrite_design_present=true; rewrite_with_wire_not_delete=true; "
+                "isolation_tests_rewritten_with_wire=false; "
+                f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+                "form remains classic_2block_excel_path; path_design_present=true; "
+                "path_shipped=false; ship_met_allowed_today=false; "
+                "dual_honest_tf_aware_path_present ship-met=false; "
+                "form_label_change_shipped=false; form_label_ship_allowed_today=false; "
+                "wire_ship_allowed_today=false; wire_shipped=false; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "dual_recovery_path=None on isolation-ship-criteria surface; package dual "
+                "gate remains online_lambda; isolation ship criteria packaging is not dual recovery"
+            ),
+            "actual": (
+                "static honesty — isolation ship criteria dual_recovery_path=None; "
+                "PRIMARY online_lambda still owns Case 1 dual gate; dual_linf under wire "
+                "unproven; planned dual_recovery labeled honestly (not pure-ADMM)"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_shipped_criteria_contract_not_wire",
+            "predicted": (
+                "wire_shipped=False; wire_ship_allowed_today=false; path_shipped=false; "
+                "isolation_ship_allowed_today=false; isolation_rewrite_shipped=false; "
+                "form_label_ship_allowed_today=false; form_label_change_shipped=false; "
+                "ship_met_allowed_today=false; dual_honest_tf_aware_path_present ship-met=false; "
+                "form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                f"{_CASE1_ISOLATION_REWRITE_BLOCKER_ID} remains; "
+                "no_blender_offline_affine_kernel remains; dual_linf_under_wire_unproven + "
+                "wire_not_shipped + form_label_change_required remain"
+            ),
+            "actual": (
+                "static honesty — isolation ship criteria packaging only; isolation rewrite "
+                "not shipped; ship not allowed; form classic; path not shipped; wire not "
+                "shipped; blockers still true (incl. isolation_rewrite_required + "
+                "no_blender_offline_affine_kernel + form_label_change_required + "
+                "wire_not_shipped); dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_shipped_criteria_contract_not_verdict_gate",
+            "predicted": (
+                "isolation ship criteria packaging ≠ Case 1 VERDICT dual gate; online L∞ ≤15 "
+                "gate unchanged; ready flag means harness-existence only (not isolation "
+                "rewrite shipped; not form flip; not path shipped; not ship-met; not ship "
+                "allowed; not wire shipped; not L∞≤15 under wire); "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}"
+            ),
+            "actual": (
+                "static honesty — isolation ship criteria packaging is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY gate; isolation_rewrite_shipped=false; "
+                "isolation_ship_allowed=false; form classic; form_label_change_shipped=false; "
+                "path_shipped=false; ship-met=false; wire_shipped=false; criteria packaging "
+                "is not Case 1 dual PASS/FAIL"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_shipped_criteria_contract_rewrite_shipped_false_checklist_open",
+            "predicted": (
+                "criteria_present=true; isolation_ship_allowed_today=false; "
+                "criteria_met_today=false; isolation_rewrite_shipped=false; "
+                "isolation_rewrite_design_present=true; rewrite_with_wire_not_delete=true; "
+                "isolation_tests_rewritten_with_wire=false; "
+                f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+                f"form_current={_CASE1_FORM_CURRENT}; "
+                "form_label_change_shipped=false; path_design_present=true; path_shipped=false; "
+                "dual_honest_tf_aware_path_present ship-met=false; "
+                "wire_ship_allowed_today=false; wire_shipped=false; "
+                f"open_ids ({','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)})"
+            ),
+            "actual": (
+                "static honesty — criteria packaging present only; isolation rewrite not "
+                "shipped; isolation_ship_allowed false; checklist open; rewrite-not-delete; "
+                "suite not rewritten; form classic; form_label not shipped; path not shipped; "
+                "ship-met false; wire not shipped; packaging ≠ isolation rewrite ship ≠ form "
+                "flip ≠ path ship ≠ ship-met ≠ wire"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_shipped_criteria_contract_not_dual_linf_under_wire_proof",
+            "predicted": (
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "criteria_is_not_dual_linf_under_wire_proof=true; "
+                "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+                "criteria_met_today=false; isolation_ship_allowed_today=false; "
+                "isolation_rewrite_shipped=false; path_shipped=false; "
+                "dual_honest_tf_aware_path_present ship-met=false"
+            ),
+            "actual": (
+                "static honesty — dual_linf stays unproven; isolation ship criteria packaging "
+                "never treats criteria_present as dual L∞ under wire proof, isolation "
+                "rewrite ship, form flip, path ship, ship-met, ship allow, or gate flip"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -4792,6 +5164,9 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     )
     tf_form_label_criteria = (
         format_tf_offline_case1_form_label_change_shipped_criteria_contract_howto()
+    )
+    tf_isolation_ship_criteria = (
+        format_tf_offline_case1_isolation_rewrite_shipped_criteria_contract_howto()
     )
     return [
         (
@@ -4915,6 +5290,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_form_label_change_shipped_criteria_contract",
             tf_form_label_criteria["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_isolation_rewrite_shipped_criteria_contract",
+            tf_isolation_ship_criteria["planner_one_liner"],
         ),
         (
             "solve_boundary",
