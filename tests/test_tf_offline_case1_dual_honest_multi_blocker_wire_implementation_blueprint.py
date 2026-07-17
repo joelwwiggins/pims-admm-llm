@@ -158,9 +158,9 @@ def test_report_always_on_honesty_locks():
     assert report["blender_surface"] == "linear_quality_pooling"
     assert report["any_ship_allowed_today"] is False
     assert report["all_ship_flags_false"] is True
-    # Blueprint packaging twin deferred; rehearsal packaging present after #63
-    assert report["excel_packaging_twin_deferred"] is True
-    assert report["excel_packaging_twin_present"] is False
+    # Blueprint packaging twin present after Excel packaging ship (existence only)
+    assert report["excel_packaging_twin_deferred"] is False
+    assert report["excel_packaging_twin_present"] is True
     assert report["excel_rehearsal_packaging_twin_deferred"] is False
     assert report["excel_rehearsal_packaging_twin_present"] is True
     anti = set(report["anti_criteria_today"])

@@ -16522,9 +16522,10 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
         "dual_honest_multi_blocker_wire_implementation_blueprint_available": True,
         "linf_le_15_is_not_gate": True,
         "residual_must_vanish_is_not_gate": True,
-        # Excel packaging twin of *this blueprint* is deferred (Index 6 free).
-        "excel_packaging_twin_deferred": True,
-        "excel_packaging_twin_present": False,
+        # Excel packaging twin of *this blueprint* present after packaging ship
+        # (existence only — not path/wire/bundle/isolation/form ship).
+        "excel_packaging_twin_deferred": False,
+        "excel_packaging_twin_present": True,
         # Rehearsal packaging twin exists after #63 (existence only — not ship).
         "excel_rehearsal_packaging_twin_deferred": False,
         "excel_rehearsal_packaging_twin_present": True,
