@@ -2212,6 +2212,89 @@ def format_tf_offline_case1_online_linf_gate_criteria_contract_howto() -> Dict[s
     }
 
 
+def format_tf_offline_case1_isolation_rewrite_design_contract_howto() -> Dict[str, str]:
+    """Static offline Case-1 isolation-rewrite design-only contract How_to (#44 packaging).
+
+    Planner-facing note that offline Case-1 isolation-rewrite design contract readiness
+    exists: design_present=true (harness-existence packaging); isolation_rewrite_shipped=false;
+    isolation_tests_rewritten_with_wire=false; isolation_rewrite_with_wire checklist **open**;
+    isolation_tests_must_be_rewritten_with_wire_not_deleted=true; isolation_rewrite_required
+    still in blockers; dual_linf_under_wire=unproven; online_linf_gate_under_tf_path=open;
+    gate_flip_allowed_today=false; criteria_met_today=false; dual_recovery_path=None;
+    wire_shipped=False; form remains classic_2block_excel_path; design ≠ rewrite shipped ≠
+    wire ≠ VERDICT ≠ dual L∞ under wire proof; rewrite-not-delete named; isolation suite
+    still classic gates; no_blender_offline_affine_kernel still true; UNITS FCC/COKER/CDU.
+    Does **not** load tf_linear_blocks or tensorflow; does **not** call
+    offline_case1_isolation_rewrite_design_contract_report.
+    """
+    open_ids = ",".join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)
+    one_liner = (
+        "Offline Case-1 isolation-rewrite design contract readiness exists "
+        f"(static packaging of #44 harness): form_current={_CASE1_FORM_CURRENT}; "
+        f"form_planned={_CASE1_FORM_PLANNED} (registered only; not flip); "
+        "isolation_rewrite_design_present=true; isolation_rewrite_shipped=false; "
+        "isolation_tests_rewritten_with_wire=false; "
+        "isolation_tests_must_be_rewritten_with_wire_not_deleted=true; "
+        f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+        "isolation_rewrite_required_still_in_blockers=true; "
+        "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+        "criteria_met_today=false; design_is_not_isolation_rewrite_shipped=true; "
+        "design_is_not_wire=true; design_is_not_verdict_gate=true; "
+        "design_is_not_dual_linf_under_wire_proof=true; design_is_not_gate_flip=true; "
+        f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+        f"dual_recovery_path=None; wire_shipped=false; "
+        f"open checklist ({open_ids}); "
+        "no_blender_offline_affine_kernel_blocker_still_true=true; "
+        f"units_affine_unchanged={_OFFLINE_TF_UNITS} (no silent BLENDER); "
+        "does not clear wire_blockers; not form flip; not dual L∞ proven under wire; "
+        "not full plant mass balance; isolation suite still classic gates. Case 1 duals "
+        "remain PRIMARY free online λ / SECONDARY recovered blender; isolation design "
+        "packaging is not the Case 1 VERDICT dual gate and is not isolation rewrite shipped."
+    )
+    return {
+        "topic": "tf_offline_case1_isolation_rewrite_design_contract",
+        "units": "CDU+Blender",
+        "on_case1_solve": "false",
+        "not_case1_solve": "true",
+        "form_current": _CASE1_FORM_CURRENT,
+        "form_planned": _CASE1_FORM_PLANNED,
+        "form": _CASE1_FORM_CURRENT,
+        "case1_form_unchanged": "true",
+        "form_unchanged": "true",
+        "form_label_change_required_still_true": "true",
+        "planned_form_distinct": "true",
+        "solver": "false",
+        "dual_recovery_path": "None",
+        "on_excel_case1_path": "false",
+        "wire_shipped": "false",
+        "not_wire_shipped": "true",
+        "isolation_rewrite_design_present": "true",
+        "isolation_rewrite_shipped": "false",
+        "isolation_tests_rewritten_with_wire": "false",
+        "isolation_tests_must_be_rewritten_with_wire_not_deleted": "true",
+        "isolation_rewrite_with_wire": _CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS,
+        "isolation_rewrite_required_still_in_blockers": "true",
+        "online_linf_gate_under_tf_path": "open",
+        "gate_flip_allowed_today": "false",
+        "criteria_met_today": "false",
+        "design_is_not_isolation_rewrite_shipped": "true",
+        "design_is_not_wire": "true",
+        "design_is_not_verdict_gate": "true",
+        "design_is_not_dual_linf_under_wire_proof": "true",
+        "design_is_not_gate_flip": "true",
+        "no_blender_offline_affine_kernel_blocker_still_true": "true",
+        "units_affine_unchanged": _OFFLINE_TF_UNITS,
+        "dual_linf_under_wire_status": _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "does_not_clear_wire_blockers": "true",
+        "not_full_plant_mass_balance": "true",
+        "not_pure_admm_dual_recovery": "true",
+        "not_form_flip": "true",
+        "not_dual_linf_under_wire_proven": "true",
+        "planner_one_liner": one_liner,
+    }
+
+
 # Static offline TF unit list for Index / Summary / meta (isolation-safe; no TF import).
 _OFFLINE_TF_UNITS = "FCC,COKER,CDU"
 # Excel-local mirror of Case-1-shaped skeleton honesty (#30). Static strings only —
@@ -2264,6 +2347,16 @@ _CASE1_ONLINE_LINF_GATE_ANTI_CRITERIA = (
     "seed_identity_linf",
     "recovered_blender_linf",
 )
+# Excel-local mirrors of isolation-rewrite design contract (#44). Static only —
+# never import tf_linear_blocks. design_present = harness-existence packaging;
+# rewrite_shipped stays False; checklist isolation_rewrite_with_wire stays open;
+# rewrite-with-wire-not-delete is design-only (suite still classic gates).
+_CASE1_ISOLATION_REWRITE_DESIGN_PRESENT = True
+_CASE1_ISOLATION_REWRITE_SHIPPED = False
+_CASE1_ISOLATION_REWRITE_CHECKLIST_KEY = "isolation_rewrite_with_wire"
+_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS = "open"
+_CASE1_ISOLATION_REWRITE_BLOCKER_ID = "isolation_rewrite_required"
+_CASE1_ISOLATION_REWRITE_NOT_DELETE = True
 # Open dual-L∞-under-wire checklist ids remaining after #40 pooling formalization.
 # blender_affine_or_honest_pooling is NO LONGER open (TF status honest_pooling_path_present).
 # dual_linf_under_wire remains unproven; online_linf_gate_under_tf_path stays open
@@ -2285,15 +2378,17 @@ _OFFLINE_WIRE_BLOCKER_IDS = (
     "wire_not_shipped",
     "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp",
 )
-# Index OFFLINE_TF one-liner: offline ladder through gate-criteria contract readiness.
+# Index OFFLINE_TF one-liner: offline ladder through isolation-rewrite design readiness.
 # Prefer short Index clause — full honesty in How_to / Summary / meta.
 # Hard negatives: not Case 1; dual_recovery_path=None on TF surface; synthetic λ ≠ duals;
 # preflight ≠ wire; skeleton λ ≠ duals; contract ≠ form flip / ≠ dual L∞ proven;
-# probe/bridge/warm-start/pooling/criteria ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire;
-# pooling ≠ affine kernel; criteria ≠ gate flip; seed identity L∞ ≠ proof; source labeled.
+# probe/bridge/warm-start/pooling/criteria/isolation-design ≠ VERDICT / ≠ dual L∞ under
+# wire proof / ≠ wire; pooling ≠ affine kernel; criteria ≠ gate flip; design ≠ rewrite
+# shipped; seed identity L∞ ≠ proof; source labeled.
 # Static only — never call live residual / subproblem / coordination / plant-linking /
 # plant-named / wire-preflight / case1-shaped / form-contract / linf-probe / bridge /
-# warm-start / pooling-path / criteria-contract reports. Trim-first ≤1439 hard test.
+# warm-start / pooling-path / criteria-contract / isolation-design reports.
+# Trim-first ≤1439 hard test.
 _OFFLINE_TF_INDEX_WHAT = (
     "FCC+COKER+CDU offline kernels + priced residual readiness + timing readiness + "
     "ADMM residual readiness + block subproblem readiness (raw affine) + multi-round "
@@ -2302,21 +2397,21 @@ _OFFLINE_TF_INDEX_WHAT = (
     "(plant product streams; plant_named_offline_demo) + "
     "wire-preflight readiness (blockers; wire_shipped=False) + "
     "Case-1-shaped skeleton readiness "
-    "(linear_quality_pooling; naphtha/distillate/gasoil/residue; wire_shipped=False) + "
+    "(linear_quality_pooling; naphtha/residue; wire_shipped=False) + "
     "dual-space/form contract readiness "
-    "(planned≠classic; dual_linf_under_wire=unproven; wire_shipped=False) + "
+    "(planned≠classic; dual_linf=unproven; wire_shipped=False) + "
     "L∞ probe readiness + "
     "L∞ live-λ bridge readiness (source-labeled) + "
     "L∞ live-λ-seeded warm-start readiness (seed_policy; seed≠proof) + "
-    "honest blender pooling path readiness "
-    "(linear_quality_pooling; not affine) + "
-    "gate-criteria contract readiness (gate open; flip=false; dual-ban) — "
+    "honest blender pooling path readiness (not affine) + "
+    "gate-criteria contract readiness (gate open; flip=false; dual-ban) + "
+    "isolation-rewrite design readiness (design_present; rewrite=false; dual-ban) — "
     "NOT on classic Case 1 solve; dual_recovery_path=None on TF surface; "
     "synthetic residual/subproblem/coord/plant-linking/plant-named λ not duals; "
     "per-unit coordination ≠ plant linking; plant-named ≠ live cascade; "
     "preflight ≠ wire shipped; skeleton λ not duals / not wire; "
     "contract ≠ form flip / ≠ dual L∞ proven; "
-    "probe/bridge/warm-start/pooling/criteria ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
+    "probe/bridge/warm-start/pooling/criteria/isolation-design ≠ VERDICT / ≠ dual L∞ under wire proof / ≠ wire; "
     "live_lambda_source must be labeled"
 )
 _OFFLINE_TF_PRICED_NOTE = (
@@ -2441,6 +2536,20 @@ _OFFLINE_TF_CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_NOTE = (
     "wire_shipped=False; does not clear wire_blockers; not form flip; "
     "not dual L∞ proven under wire; packaging ≠ gate closed"
 )
+_OFFLINE_TF_CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_NOTE = (
+    "offline Case-1 isolation-rewrite design contract readiness — "
+    "design_present=true; rewrite_shipped=false; "
+    f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+    "rewrite-with-wire-not-delete; dual-ban; "
+    f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+    f"open_checklist={','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)}; "
+    f"blocker {_CASE1_ISOLATION_REWRITE_BLOCKER_ID} still true; "
+    "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+    "criteria_met_today=false; no_blender_offline_affine_kernel still true; "
+    f"UNITS={_OFFLINE_TF_UNITS} (no silent BLENDER); dual_recovery_path=None; "
+    "wire_shipped=False; does not clear wire_blockers; not form flip; "
+    "not dual L∞ proven under wire; packaging ≠ rewrite shipped ≠ wire ≠ VERDICT"
+)
 _OFFLINE_TF_READINESS_NOTE = (
     "offline TF readiness package: units + priced residual + block-solve timing + ADMM residual + "
     "ADMM block subproblem + multi-round ADMM coordination + multi-block plant-linking + "
@@ -2457,7 +2566,9 @@ _OFFLINE_TF_READINESS_NOTE = (
     "honest blender pooling path readiness "
     "(linear_quality_pooling; honest_pooling_path_present; not affine; dual-ban) + "
     "online_linf_gate flip-criteria contract readiness "
-    "(gate open; flip=false; met=false; dual-ban; not wire; not VERDICT) — "
+    "(gate open; flip=false; met=false; dual-ban; not wire; not VERDICT) + "
+    "isolation-rewrite design contract readiness "
+    "(design_present; rewrite_shipped=false; checklist open; dual-ban; not wire; not VERDICT) — "
     "not on classic Case 1; dual_recovery_path=None on TF surface; "
     "per-unit coordination ≠ plant linking; synthetic topology ≠ full plant MB; "
     "plant-named offline demo ≠ full plant MB / ≠ live cascade; skeleton ≠ wire; "
@@ -2467,6 +2578,7 @@ _OFFLINE_TF_READINESS_NOTE = (
     "warm-start ≠ VERDICT gate / ≠ dual L∞ under wire proof; seed identity ≠ proof; "
     "pooling ≠ affine kernel / ≠ VERDICT / ≠ dual L∞ under wire proof; "
     "criteria contract ≠ gate flip / ≠ VERDICT / ≠ dual L∞ under wire proof; "
+    "isolation design ≠ rewrite shipped / ≠ VERDICT / ≠ dual L∞ under wire proof; "
     "live_lambda_source must be labeled; "
     "not wire shipped; ready_for_wire_discussion structural only ≠ wire tomorrow"
 )
@@ -2487,7 +2599,8 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     offline_case1_dual_space_linf_live_lambda_bridge_report /
     offline_case1_dual_space_linf_live_lambda_seeded_warmstart_report /
     offline_case1_honest_blender_pooling_path_report /
-    offline_case1_online_linf_gate_criteria_contract_report.
+    offline_case1_online_linf_gate_criteria_contract_report /
+    offline_case1_isolation_rewrite_design_contract_report.
     Presentation packaging only; does not change VERDICT math. Dual PRIMARY
     online-λ / SECONDARY recovered packaging is read-only preserve (#12/#14);
     offline TF readiness glance covers units + priced + timing + ADMM residual +
@@ -2496,12 +2609,14 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     + Case-1-shaped CDU↔Blender skeleton + dual-space/form contract + dual-space
     L∞ probe + dual-space L∞ live-λ bridge + dual-space L∞ live-λ-seeded warm-start
     + honest blender pooling path + online_linf_gate flip-criteria contract
+    + isolation-rewrite design contract
     (static harness-existence flags only; wire_shipped=False; blockers honesty;
     blender linear_quality_pooling; checklist honest_pooling_path_present;
     gate stays open; gate_flip_allowed_today=false; criteria_met_today=false;
-    dual_linf_under_wire=unproven; probe/bridge/warm-start/pooling/criteria ≠
+    isolation_rewrite_shipped=false; isolation checklist open; dual_linf_under_wire=unproven;
+    probe/bridge/warm-start/pooling/criteria/isolation-design ≠
     VERDICT gate / ≠ dual L∞ under wire proof; pooling ≠ affine kernel;
-    criteria ≠ gate flip; seed identity ≠ proof; seed_policy/z0_policy
+    criteria ≠ gate flip; design ≠ rewrite shipped; seed identity ≠ proof; seed_policy/z0_policy
     documented; live_lambda_source must be labeled).
     """
     dual = format_dual_honesty_summary(report)
@@ -2521,6 +2636,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
     tf_warmstart = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
     tf_pooling = format_tf_offline_case1_honest_blender_pooling_path_howto()
     tf_criteria = format_tf_offline_case1_online_linf_gate_criteria_contract_howto()
+    tf_isolation = format_tf_offline_case1_isolation_rewrite_design_contract_howto()
     model = report.get("model") or {}
     cmp_ = report.get("comparison") or {}
     form = str(model.get("form") or tf_off["form"])
@@ -2563,6 +2679,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "offline_tf_case1_dual_space_linf_live_lambda_seeded_warmstart_ready": True,  # static; not live warm-start
         "offline_tf_case1_honest_blender_pooling_path_ready": True,  # static; not live pooling report
         "offline_tf_case1_online_linf_gate_criteria_contract_ready": True,  # static; not live criteria report
+        "offline_tf_case1_isolation_rewrite_design_contract_ready": True,  # static; not live design report
         "offline_tf_wire_shipped": False,  # hard lock — packaging never claims wire shipped
         "offline_tf_priced": _OFFLINE_TF_PRICED_NOTE,
         "offline_tf_timing": _OFFLINE_TF_TIMING_NOTE,
@@ -2590,6 +2707,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "offline_tf_case1_online_linf_gate_criteria_contract": (
             _OFFLINE_TF_CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_NOTE
+        ),
+        "offline_tf_case1_isolation_rewrite_design_contract": (
+            _OFFLINE_TF_CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_NOTE
         ),
         "offline_tf_wire_blockers": ",".join(_OFFLINE_WIRE_BLOCKER_IDS),
         "offline_tf_readiness_note": _OFFLINE_TF_READINESS_NOTE,
@@ -2624,7 +2744,9 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             f"honest blender pooling path readiness "
             f"(linear_quality_pooling; honest_pooling_path_present; not affine; dual-ban) + "
             f"online_linf_gate flip-criteria contract readiness "
-            f"(gate open; flip=false; met=false; dual-ban; not wire; not VERDICT) "
+            f"(gate open; flip=false; met=false; dual-ban; not wire; not VERDICT) + "
+            f"isolation-rewrite design contract readiness "
+            f"(design_present; rewrite_shipped=false; checklist open; dual-ban; not wire; not VERDICT) "
             f"not on Case 1; tf_on_excel_case1_path=False; path={path_}."
         ),
     }
@@ -2683,6 +2805,10 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
             "offline_tf_case1_online_linf_gate_criteria_contract",
             _OFFLINE_TF_CASE1_ONLINE_LINF_GATE_CRITERIA_CONTRACT_NOTE,
         ),
+        (
+            "offline_tf_case1_isolation_rewrite_design_contract",
+            _OFFLINE_TF_CASE1_ISOLATION_REWRITE_DESIGN_CONTRACT_NOTE,
+        ),
         ("offline_tf_wire_blockers", ",".join(_OFFLINE_WIRE_BLOCKER_IDS)),
         ("offline_tf_wire_shipped", False),
         ("offline_tf_readiness_note", _OFFLINE_TF_READINESS_NOTE),
@@ -2708,6 +2834,7 @@ def format_planner_honesty_package(report: Dict[str, Any]) -> Dict[str, Any]:
         "tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart": tf_warmstart,
         "tf_offline_case1_honest_blender_pooling_path": tf_pooling,
         "tf_offline_case1_online_linf_gate_criteria_contract": tf_criteria,
+        "tf_offline_case1_isolation_rewrite_design_contract": tf_isolation,
     }
 
 
@@ -3346,6 +3473,94 @@ def planner_honesty_check_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             "abs_err": 0.0,
             "ok": True,
         },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_design_contract_not_duals",
+            "predicted": (
+                "offline Case-1 isolation-rewrite design contract readiness packaging "
+                "exists (static); design_present=true; rewrite_shipped=false; "
+                f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "dual_recovery_path=None on design surface; package dual gate remains "
+                "online_lambda; isolation design packaging is not dual recovery"
+            ),
+            "actual": (
+                "static honesty — isolation design dual_recovery_path=None; "
+                "PRIMARY online_lambda still owns Case 1 dual gate; dual_linf under wire "
+                "unproven; not pure-ADMM dual recovery"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_design_contract_not_wire",
+            "predicted": (
+                "wire_shipped=False; form remains classic_2block_excel_path; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "does not clear wire_blockers "
+                f"({','.join(_OFFLINE_WIRE_BLOCKER_IDS)}); "
+                f"{_CASE1_ISOLATION_REWRITE_BLOCKER_ID} remains; "
+                "no_blender_offline_affine_kernel remains; dual_linf_under_wire_unproven + "
+                "wire_not_shipped remain"
+            ),
+            "actual": (
+                "static honesty — isolation design packaging only; "
+                "wire not shipped; blockers still true (incl. isolation_rewrite_required + "
+                "no_blender_offline_affine_kernel); form classic_2block_excel_path unchanged; "
+                "dual L∞ under wire not proven"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_design_contract_not_verdict_gate",
+            "predicted": (
+                "isolation design packaging ≠ Case 1 VERDICT dual gate; online L∞ ≤15 gate "
+                "unchanged; ready flag means harness-existence only (not rewrite shipped; "
+                "not L∞≤15 under wire); "
+                f"checklist open includes {_CASE1_ISOLATION_REWRITE_CHECKLIST_KEY}; "
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}"
+            ),
+            "actual": (
+                "static honesty — isolation design packaging is not VERDICT dual gate; "
+                "online_lambda remains PRIMARY gate; checklist isolation_rewrite_with_wire "
+                "open; isolation design packaging is not Case 1 dual PASS/FAIL"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_design_contract_rewrite_not_shipped_checklist_open",
+            "predicted": (
+                "isolation_rewrite_design_present=true; isolation_rewrite_shipped=false; "
+                "isolation_tests_rewritten_with_wire=false; "
+                "isolation_tests_must_be_rewritten_with_wire_not_deleted=true; "
+                f"isolation_rewrite_with_wire={_CASE1_ISOLATION_REWRITE_CHECKLIST_STATUS}; "
+                f"open_ids include isolation_rewrite_with_wire "
+                f"({','.join(_CASE1_DUAL_LINF_PROOF_CHECKLIST_OPEN_IDS)})"
+            ),
+            "actual": (
+                "static honesty — design present packaging only; rewrite not shipped; "
+                "isolation tests still classic gates; checklist stays open; packaging ≠ "
+                "rewrite shipped"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
+        {
+            "check": "offline_tf_case1_isolation_rewrite_design_contract_not_dual_linf_under_wire_proof",
+            "predicted": (
+                f"dual_linf_under_wire={_CASE1_DUAL_LINF_UNDER_WIRE_STATUS}; "
+                "design_is_not_dual_linf_under_wire_proof=true; "
+                "online_linf_gate_under_tf_path=open; gate_flip_allowed_today=false; "
+                "criteria_met_today=false"
+            ),
+            "actual": (
+                "static honesty — dual_linf stays unproven; isolation design packaging never "
+                "treats design presence as dual L∞ under wire proof or gate flip"
+            ),
+            "abs_err": 0.0,
+            "ok": True,
+        },
     ]
 
 
@@ -3376,6 +3591,7 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
     tf_warmstart = format_tf_offline_case1_dual_space_linf_live_lambda_seeded_warmstart_howto()
     tf_pooling = format_tf_offline_case1_honest_blender_pooling_path_howto()
     tf_criteria = format_tf_offline_case1_online_linf_gate_criteria_contract_howto()
+    tf_isolation = format_tf_offline_case1_isolation_rewrite_design_contract_howto()
     return [
         (
             "goal",
@@ -3478,6 +3694,10 @@ def _how_to_read_rows(report: Dict[str, Any]) -> list[tuple[str, str]]:
         (
             "tf_offline_case1_online_linf_gate_criteria_contract",
             tf_criteria["planner_one_liner"],
+        ),
+        (
+            "tf_offline_case1_isolation_rewrite_design_contract",
+            tf_isolation["planner_one_liner"],
         ),
         (
             "solve_boundary",

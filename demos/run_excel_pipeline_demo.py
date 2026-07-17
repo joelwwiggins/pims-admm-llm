@@ -90,8 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     # live residual, block subproblem, multi-round coordination, plant-linking,
     # plant-named, wire-preflight, Case-1-shaped skeleton, dual-space/form
     # contract, dual-space L∞ probe, dual-space L∞ live-λ bridge, dual-space
-    # L∞ live-λ-seeded warm-start, honest blender pooling path, or online_linf_gate
-    # flip-criteria contract reports.
+    # L∞ live-λ-seeded warm-start, honest blender pooling path, online_linf_gate
+    # flip-criteria contract, or isolation-rewrite design contract reports.
     readiness_bits = []
     if ph.get("offline_tf_priced_ready"):
         readiness_bits.append("priced")
@@ -123,6 +123,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_honest_blender_pooling_path")
     if ph.get("offline_tf_case1_online_linf_gate_criteria_contract_ready"):
         readiness_bits.append("case1_online_linf_gate_criteria_contract")
+    if ph.get("offline_tf_case1_isolation_rewrite_design_contract_ready"):
+        readiness_bits.append("case1_isolation_rewrite_design_contract")
     readiness_pkg = "+".join(readiness_bits) if readiness_bits else "units_only"
     wire_note = (
         "wire_shipped=False; blockers documented; structural ready ≠ wire tomorrow"
@@ -172,6 +174,12 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_online_linf_gate_criteria_contract_ready")
         else "no case1_online_linf_gate_criteria_contract packaging flag"
     )
+    isolation_design_note = (
+        "isolation-rewrite design packaged (design_present; rewrite=false; "
+        "checklist open; dual-ban; not VERDICT; not wire; wire_shipped=False)"
+        if ph.get("offline_tf_case1_isolation_rewrite_design_contract_ready")
+        else "no case1_isolation_rewrite_design_contract packaging flag"
+    )
     print(
         f"Offline TF: units={offline_units}  readiness={readiness_pkg}  "
         f"on_excel_case1_path={ph.get('on_excel_case1_path', False)}  "
@@ -181,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         f"plant-named offline demo ≠ full plant MB / ≠ live cascade; "
         f"preflight λ ≠ duals; {wire_note}; {case1_shaped_note}; {dual_space_note}; "
         f"{linf_probe_note}; {live_bridge_note}; {live_warmstart_note}; "
-        f"{pooling_path_note}; {criteria_contract_note})"
+        f"{pooling_path_note}; {criteria_contract_note}; {isolation_design_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
