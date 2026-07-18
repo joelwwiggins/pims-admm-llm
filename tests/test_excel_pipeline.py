@@ -3382,6 +3382,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d.get("includes_isolation_rewrite_first_blocker_execution_scaffold") == "true"
     assert d.get("includes_form_label_second_coreq_execution_scaffold") == "true"
     assert d.get("includes_dual_linf_fourth_coreq_execution_scaffold") == "true"
+    assert d.get("includes_wire_fifth_coreq_execution_scaffold") == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -6989,3 +6990,128 @@ def test_wire_fifth_coreq_prep_package_surfaces(tmp_path):
     assert checks["offline_tf_wire_fifth_coreq_prep_not_wire_shipped"]["ok"] is True
     # No Index growth for this residual
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
+
+def test_format_tf_offline_case1_wire_fifth_coreq_execution_scaffold_howto_pure():
+    """Static wire fifth-coreq execution scaffold How_to: scaffold≠wire; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_FIRST_BLOCKING_COREQ,
+        _CASE1_FORM_CURRENT,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        format_tf_offline_case1_wire_fifth_coreq_execution_scaffold_howto,
+        format_tf_offline_ladder_toc_howto,
+    )
+    import pims_admm_llm.models.excel_pipeline as ep
+    import inspect
+
+    d = format_tf_offline_case1_wire_fifth_coreq_execution_scaffold_howto()
+    assert d["topic"] == "tf_offline_case1_wire_fifth_coreq_execution_scaffold"
+    assert d["scaffold_present"] == "true"
+    assert d["execution_scaffold_present"] == "true"
+    assert d["wire_scaffold_present"] == "true"
+    assert d["first_blocking_coreq"] == _CASE1_FIRST_BLOCKING_COREQ
+    assert d["is_first_blocking_coreq"] == "false"
+    assert d["order_hint_index"] == "4"
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["dual_linf_proof_allowed_today"] == "false"
+    assert d["criteria_met_today"] == "false"
+    assert d["online_linf_gate_under_tf_path"] == "open"
+    assert d["gate_flip_allowed_today"] == "false"
+    assert d["wire_land_path_executed_today"] == "false"
+    assert d["dual_recovery_path"] == "None"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["scaffold_is_not_wire_shipped"] == "true"
+    assert d["scaffold_is_not_wire_allow"] == "true"
+    assert d["scaffold_is_not_gate_flip"] == "true"
+    assert d["scaffold_is_not_wire"] == "true"
+    assert d["scaffold_is_not_verdict_gate"] == "true"
+    assert d["this_scaffold_alone_is_not_wire_ship"] == "true"
+    assert d["packaging_alone_is_not_wire_shipped"] == "true"
+    assert d["distinct_from_wire_fifth_operational_prep"] == "true"
+    assert d["distinct_from_wire_ship_acceptance_design"] == "true"
+    assert d["distinct_from_offline_wire_preflight"] == "true"
+    assert d["distinct_from_dual_linf_fourth_coreq_execution_scaffold"] == "true"
+    assert d["distinct_from_form_label_execution_scaffold"] == "true"
+    assert d["distinct_from_isolation_execution_scaffold"] == "true"
+    assert d["distinct_from_path_execution_scaffold"] == "true"
+    assert d["order_hint_is_not_executor"] == "true"
+    assert d["feature_flag_enabled_today"] == "false"
+    assert d["wire_ship_allowed_today"] == "false"
+    assert "pure-admm" not in d["dual_recovery_path_planned_when_shipped"].lower()
+    assert d["dual_recovery_path_planned_when_shipped"] == _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED
+    one = d["planner_one_liner"].lower()
+    assert "scaffold_present" in one
+    assert "wire_shipped=false" in one
+    assert "dual_linf_under_wire=unproven" in one
+    assert "dual_linf_proof_allowed_today=false" in one
+    assert "gate_flip_allowed_today=false" in one
+    assert "wire_land_path_executed_today=false" in one
+    assert "dual_recovery_path=none" in one
+    src = inspect.getsource(
+        format_tf_offline_case1_wire_fifth_coreq_execution_scaffold_howto
+    )
+    assert "offline_case1_wire_fifth_coreq_execution_scaffold_report(" not in src
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    toc = format_tf_offline_ladder_toc_howto()
+    assert toc.get("includes_wire_fifth_coreq_execution_scaffold") == "true"
+    assert "wire_fifth_coreq_execution_scaffold" in toc["topic_ids"]
+    ep_src = open(ep.__file__, encoding="utf-8").read()
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in ep_src
+    assert "import tensorflow" not in ep_src
+    assert "import pulp" not in ep_src
+
+
+
+def test_wire_fifth_coreq_execution_scaffold_package_surfaces(tmp_path):
+    """E2/E1: wire fifth-coreq execution scaffold meta/How_to/Calc_Check dual-ban."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"][
+        "offline_tf_case1_wire_fifth_coreq_execution_scaffold_ready"
+    ] is True
+    assert pkg["meta"]["offline_tf_scaffold_present"] is True
+    note = str(
+        pkg["meta"].get(
+            "offline_tf_case1_wire_fifth_coreq_execution_scaffold", ""
+        )
+    ).lower()
+    assert "scaffold" in note
+    assert "wire" in note
+    sc = pkg.get("tf_offline_case1_wire_fifth_coreq_execution_scaffold")
+    assert sc is not None
+    assert sc["scaffold_present"] == "true"
+    assert sc["wire_scaffold_present"] == "true"
+    assert sc["wire_shipped"] == "false"
+    assert sc["wire_ship_allowed_today"] == "false"
+    assert sc["wire_land_path_executed_today"] == "false"
+    assert sc["dual_linf_under_wire_status"] == "unproven"
+    assert sc["dual_linf_proof_allowed_today"] == "false"
+    assert sc["gate_flip_allowed_today"] == "false"
+    assert sc["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert sc["is_first_blocking_coreq"] == "false"
+    assert sc["order_hint_index"] == "4"
+    assert sc["dual_recovery_path"] == "None"
+    rows = planner_honesty_check_rows(report)
+    checks = {r["check"]: r for r in rows}
+    assert "offline_tf_wire_execution_scaffold_not_wire_shipped" in checks
+    assert checks["offline_tf_wire_execution_scaffold_not_wire_shipped"]["ok"] is True
+    # Prefer no Index growth
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
+
