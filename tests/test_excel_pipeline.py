@@ -7115,3 +7115,85 @@ def test_wire_fifth_coreq_execution_scaffold_package_surfaces(tmp_path):
     # Prefer no Index growth
     assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
 
+
+
+def test_format_tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_howto_pure():
+    from pims_admm_llm.models.excel_pipeline import (
+        format_tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_howto,
+    )
+    import inspect
+
+    d = format_tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_howto()
+    assert d["topic"] == "tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep"
+    assert d["prep_present"] == "true"
+    assert d["bundle_prep_present"] == "true"
+    assert d["companion_bundle_prep_present"] == "true"
+    assert d["bundle_shipped"] == "false"
+    assert d["bundle_ship_allowed_today"] == "false"
+    assert d["bundle_land_path_executed_today"] == "false"
+    assert d["wire_shipped"] == "false"
+    assert d["wire_ship_allowed_today"] == "false"
+    assert d["dual_recovery_path"] == "None"
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert d["is_first_blocking_coreq"] == "false"
+    assert d["companion_not_order_hint_primary"] == "true"
+    assert d["prep_is_not_bundle_shipped"] == "true"
+    assert d["prep_is_not_bundle_ship_allow"] == "true"
+    assert d["distinct_from_bundle_design_contract"] == "true"
+    assert d["distinct_from_bundle_ship_met_criteria_contract"] == "true"
+    assert d["distinct_from_wire_fifth_coreq_operational_prep"] == "true"
+    assert d["distinct_from_wire_fifth_coreq_execution_scaffold"] == "true"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["form_current"] == "classic_2block_excel_path"
+    import pims_admm_llm.models.excel_pipeline as ep
+    src = inspect.getsource(
+        format_tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_howto
+    )
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    assert "offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(" not in src
+    assert "format_tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_howto" in open(
+        ep.__file__, encoding="utf-8"
+    ).read()
+    toc = ep.format_tf_offline_ladder_toc_howto()
+    assert toc.get("includes_bundle_companion_operational_prep") == "true"
+    assert "dual_honest_multi_blocker_wire_bundle_operational_prep" in toc["topic_ids"]
+
+
+def test_bundle_companion_operational_prep_package_surfaces(tmp_path):
+    """E2: bundle companion operational prep meta/How_to/Calc_Check dual-ban surfaces."""
+    from pims_admm_llm.models.excel_pipeline import (
+        format_planner_honesty_package,
+        planner_honesty_check_rows,
+        _OFFLINE_TF_INDEX_WHAT,
+    )
+
+    xlsx_in = tmp_path / "model.xlsx"
+    write_template_excel(xlsx_in)
+    report = run_excel_pipeline(xlsx_in)
+    pkg = format_planner_honesty_package(report)
+    assert pkg["meta"]["offline_tf_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_ready"] is True
+    assert pkg["meta"]["offline_tf_bundle_prep_present"] is True
+    assert pkg["meta"]["offline_tf_companion_bundle_prep_present"] is True
+    assert pkg["meta"]["offline_tf_bundle_shipped"] is False
+    assert pkg["meta"]["offline_tf_bundle_ship_allowed_today"] is False
+    note = str(pkg["meta"].get("offline_tf_case1_dual_honest_multi_blocker_wire_bundle_operational_prep", "")).lower()
+    assert "bundle" in note or "prep" in note
+    bundle_prep = pkg.get("tf_offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep")
+    assert bundle_prep is not None
+    assert bundle_prep["prep_present"] == "true"
+    assert bundle_prep["bundle_shipped"] == "false"
+    assert bundle_prep["bundle_ship_allowed_today"] == "false"
+    assert bundle_prep["bundle_land_path_executed_today"] == "false"
+    assert bundle_prep["wire_shipped"] == "false"
+    assert bundle_prep["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert bundle_prep["companion_not_order_hint_primary"] == "true"
+    assert bundle_prep["dual_recovery_path"] == "None"
+    rows = planner_honesty_check_rows(report)
+    checks = {r["check"]: r for r in rows}
+    assert "offline_tf_bundle_companion_prep_not_bundle_shipped" in checks
+    assert checks["offline_tf_bundle_companion_prep_not_bundle_shipped"]["ok"] is True
+    # No Index growth for this residual
+    assert len(_OFFLINE_TF_INDEX_WHAT) <= 1439
