@@ -169,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
         readiness_bits.append("case1_dual_linf_fourth_coreq_operational_prep")
     if ph.get("offline_tf_case1_wire_fifth_coreq_operational_prep_ready"):
         readiness_bits.append("case1_wire_fifth_coreq_operational_prep")
+    if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_ready"):
+        readiness_bits.append("case1_dual_honest_multi_blocker_wire_bundle_operational_prep")
     if ph.get("offline_tf_case1_isolation_rewrite_first_blocker_execution_scaffold_ready"):
         readiness_bits.append("case1_isolation_rewrite_first_blocker_execution_scaffold")
     if ph.get("offline_tf_case1_form_label_second_coreq_execution_scaffold_ready"):
@@ -355,6 +357,13 @@ def main(argv: list[str] | None = None) -> int:
         if ph.get("offline_tf_case1_wire_fifth_coreq_operational_prep_ready")
         else "no case1_wire_fifth_coreq_operational_prep packaging flag"
     )
+    bundle_companion_prep_note = (
+        "bundle companion operational prep packaged (prep_present; bundle_shipped=false; "
+        "bundle_ship_allowed=false; land not executed; companion not order_hint primary; "
+        "prep≠bundle; dual-ban; not VERDICT)"
+        if ph.get("offline_tf_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_ready")
+        else "no case1_dual_honest_multi_blocker_wire_bundle_operational_prep packaging flag"
+    )
     iso_rewrite_scaffold_note = (
         "isolation rewrite first-blocker execution scaffold packaged "
         "(scaffold_present; isolation_rewrite_shipped=false; "
@@ -404,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{wire_ship_design_note}; {path_design_note}; {path_present_criteria_note}; "
         f"{form_label_criteria_note}; {isolation_ship_criteria_note}; "
         f"{bundle_design_note}; {bundle_criteria_note}; {scaffold_note}; {rehearsal_note}; "
-        f"{blueprint_note}; {first_blocker_prep_note}; {form_label_second_coreq_prep_note}; {path_third_coreq_prep_note}; {dual_linf_fourth_coreq_prep_note}; {wire_fifth_coreq_prep_note}; {iso_rewrite_scaffold_note}; {form_label_scaffold_note}; {dual_linf_scaffold_note}; {wire_scaffold_note})"
+        f"{blueprint_note}; {first_blocker_prep_note}; {form_label_second_coreq_prep_note}; {path_third_coreq_prep_note}; {dual_linf_fourth_coreq_prep_note}; {wire_fifth_coreq_prep_note}; {bundle_companion_prep_note}; {iso_rewrite_scaffold_note}; {form_label_scaffold_note}; {dual_linf_scaffold_note}; {wire_scaffold_note})"
     )
     print(f"Mono crudes:   { {k: round(v, 3) for k, v in mono['crude_rates'].items() if v > 1e-6} }")
     print(f"Mono products: { {k: round(v, 3) for k, v in mono['product_rates'].items() if v > 1e-6} }")
