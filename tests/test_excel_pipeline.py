@@ -3379,6 +3379,7 @@ def test_format_tf_offline_ladder_toc_howto_pure():
     assert d.get("includes_path_third_coreq_operational_prep") == "true"
     assert d.get("includes_dual_linf_fourth_coreq_operational_prep") == "true"
     assert d.get("includes_wire_fifth_coreq_operational_prep") == "true"
+    assert d.get("includes_isolation_rewrite_first_blocker_execution_scaffold") == "true"
     assert d["ship_false_dual_ban"] == "true"
     assert d["wire_shipped"] == "false"
     assert d["path_shipped"] == "false"
@@ -6118,6 +6119,75 @@ def test_format_tf_offline_case1_isolation_rewrite_first_blocker_operational_pre
     assert "from pims_admm_llm.models.tf_linear_blocks" not in ep_src
     assert "import tensorflow" not in ep_src
     assert "import pulp" not in ep_src
+
+
+
+def test_format_tf_offline_case1_isolation_rewrite_first_blocker_execution_scaffold_howto_pure():
+    """Static isolation rewrite first-blocker execution scaffold How_to: scaffold≠ship; dual-ban; no TF."""
+    from pims_admm_llm.models.excel_pipeline import (
+        _CASE1_FIRST_BLOCKING_COREQ,
+        _CASE1_FORM_CURRENT,
+        _CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED,
+        format_tf_offline_case1_isolation_rewrite_first_blocker_execution_scaffold_howto,
+        format_tf_offline_ladder_toc_howto,
+    )
+    import pims_admm_llm.models.excel_pipeline as ep
+    import inspect
+
+    d = format_tf_offline_case1_isolation_rewrite_first_blocker_execution_scaffold_howto()
+    assert d["topic"] == "tf_offline_case1_isolation_rewrite_first_blocker_execution_scaffold"
+    assert d["scaffold_present"] == "true"
+    assert d["execution_scaffold_present"] == "true"
+    assert d["isolation_rewrite_scaffold_present"] == "true"
+    assert d["first_blocking_coreq"] == _CASE1_FIRST_BLOCKING_COREQ
+    assert d["is_first_blocking_coreq"] == "true"
+    assert d["order_hint_index"] == "0"
+    assert d["isolation_rewrite_shipped"] == "false"
+    assert d["isolation_ship_allowed_today"] == "false"
+    assert d["isolation_tests_rewritten_with_wire"] == "false"
+    assert d["rewrite_not_delete"] == "true"
+    assert d["suite_path"] == "tests/test_tf_import_isolation.py"
+    assert d["dual_recovery_path"] == "None"
+    assert d["dual_linf_under_wire_status"] == _CASE1_DUAL_LINF_UNDER_WIRE_STATUS
+    assert d["dual_linf_under_wire_status"] == "unproven"
+    assert d["wire_shipped"] == "false"
+    assert d["path_shipped"] == "false"
+    assert d["bundle_shipped"] == "false"
+    assert d["form_label_change_shipped"] == "false"
+    assert d["form_current"] == _CASE1_FORM_CURRENT
+    assert d["scaffold_is_not_isolation_rewrite_shipped"] == "true"
+    assert d["scaffold_is_not_isolation_ship_allow"] == "true"
+    assert d["scaffold_is_not_wire"] == "true"
+    assert d["scaffold_is_not_verdict_gate"] == "true"
+    assert d["this_scaffold_alone_is_not_ship_criterion"] == "true"
+    assert d["packaging_alone_is_not_isolation_rewrite_shipped"] == "true"
+    assert d["distinct_from_isolation_operational_prep"] == "true"
+    assert d["distinct_from_path_execution_scaffold"] == "true"
+    assert d["order_hint_is_not_executor"] == "true"
+    assert d["feature_flag_enabled_today"] == "false"
+    assert "pure-admm" not in d["dual_recovery_path_planned_when_shipped"].lower()
+    assert d["dual_recovery_path_planned_when_shipped"] == _CASE1_PATH_DESIGN_DUAL_RECOVERY_PLANNED
+    one = d["planner_one_liner"].lower()
+    assert "scaffold_present" in one
+    assert "isolation_rewrite_shipped=false" in one
+    assert "isolation_ship_allowed_today=false" in one
+    assert "dual_recovery_path=none" in one
+    src = inspect.getsource(
+        format_tf_offline_case1_isolation_rewrite_first_blocker_execution_scaffold_howto
+    )
+    assert "offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report(" not in src
+    assert "import tensorflow" not in src
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in src
+    assert "from pims_admm_llm.models.tf_linear_blocks" not in src
+    toc = format_tf_offline_ladder_toc_howto()
+    assert toc.get("includes_isolation_rewrite_first_blocker_execution_scaffold") == "true"
+    assert "isolation_rewrite_first_blocker_execution_scaffold" in toc["topic_ids"]
+    ep_src = open(ep.__file__, encoding="utf-8").read()
+    assert "from pims_admm_llm.models import tf_linear_blocks" not in ep_src
+    assert "import tensorflow" not in ep_src
+    assert "import pulp" not in ep_src
+
 
 
 def test_excel_first_blocker_operational_prep_packaging_surfaces(tmp_path):

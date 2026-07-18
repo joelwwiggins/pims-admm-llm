@@ -384,6 +384,7 @@ SECONDARY recovered. Existing `multi_unit_admm_coordination_report` remains a
 separate surface with `not_plant_linking_coordinator=True`. No absolute
 residual-must-converge hard-fail. Additive readiness flags:
 
+- [ ] `offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report` ok without TF; scaffold_present; isolation_rewrite_shipped=False; isolation_ship_allowed_today=False; isolation_tests_rewritten_with_wire=False; first_blocking still isolation_rewrite_with_wire; order_hint_index=0; dual_recovery_path=None; dual_linf unproven; feature flag false; UNITS FCC/COKER/CDU; mutation inventory of 8 isolation tests not applied; additive `admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok` does not redefine ready; scaffold ≠ isolation rewrite shipped ≠ isolation allow ≠ path scaffold ≠ operational prep ≠ wire ≠ VERDICT; Excel packaging twin present (How_to + meta/Calc_Check/demo; no Index growth); isolation suite unchanged; next residual remains multi-blocker full wire *execution* long-term
 - `admm_plant_linking_ok` — synthetic default mode
 - `admm_plant_named_linking_ok` — plant-named mode
 
