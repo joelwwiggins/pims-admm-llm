@@ -1639,6 +1639,7 @@ def offline_block_solve_readiness_report(
     include_admm_case1_dual_linf_fourth_coreq_operational_prep: bool = True,
     include_admm_case1_wire_fifth_coreq_operational_prep: bool = True,
     include_admm_case1_isolation_rewrite_first_blocker_execution_scaffold: bool = True,
+    include_admm_case1_form_label_second_coreq_execution_scaffold: bool = True,
 ) -> Dict[str, Any]:
     """Compose timing + parity_ok + priced_ok under dual-ban honesty locks.
 
@@ -2211,6 +2212,28 @@ def offline_block_solve_readiness_report(
     base["admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok"] = (
         admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok
     )
+
+    admm_case1_form_label_second_coreq_execution_scaffold_ok: Optional[bool] = None
+    if include_admm_case1_form_label_second_coreq_execution_scaffold:
+        try:
+            # Additive readiness: form_label second-coreq *execution scaffold*
+            # (scaffold_present; form_label_change_shipped hard False;
+            # form_label_ship_allowed False; form_mutation_path_executed False;
+            # dual_recovery_path=None; not VERDICT).
+            form_scaf_rep = (
+                offline_case1_form_label_second_coreq_execution_scaffold_report()
+            )
+            admm_case1_form_label_second_coreq_execution_scaffold_ok = bool(
+                form_scaf_rep.get(
+                    "scaffold_ok",
+                    form_scaf_rep.get("contract_ok", form_scaf_rep.get("ok")),
+                )
+            )
+        except Exception:  # pragma: no cover - defensive
+            admm_case1_form_label_second_coreq_execution_scaffold_ok = False
+    base["admm_case1_form_label_second_coreq_execution_scaffold_ok"] = (
+        admm_case1_form_label_second_coreq_execution_scaffold_ok
+    )
     base["note"] = (
         "Offline block-solve readiness report: cached multi-unit timing + "
         "parity_ok + priced_ok under dual-ban honesty. "
@@ -2321,7 +2344,7 @@ def offline_block_solve_readiness_report(
         "isolation rewrite shipped ≠ form ship ≠ VERDICT; order_hint is not an executor; "
         "blueprint_present is not wire_shipped) — and does not redefine "
         "ready_for_wire_discussion. "
-        "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok, admm_case1_isolation_rewrite_first_blocker_operational_prep_ok, admm_case1_dual_linf_under_wire_criteria_contract_ok and admm_case1_form_label_second_coreq_operational_prep_ok and admm_case1_path_third_coreq_operational_prep_ok and admm_case1_dual_linf_fourth_coreq_operational_prep_ok and admm_case1_wire_fifth_coreq_operational_prep_ok and admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok are additive only."
+        "admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok, admm_case1_isolation_rewrite_first_blocker_operational_prep_ok, admm_case1_dual_linf_under_wire_criteria_contract_ok and admm_case1_form_label_second_coreq_operational_prep_ok and admm_case1_path_third_coreq_operational_prep_ok and admm_case1_dual_linf_fourth_coreq_operational_prep_ok and admm_case1_wire_fifth_coreq_operational_prep_ok and admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok and admm_case1_form_label_second_coreq_execution_scaffold_ok are additive only."
     )
     return base
 
@@ -4571,6 +4594,7 @@ def offline_wire_preflight_report(
     include_admm_case1_dual_linf_fourth_coreq_operational_prep: bool = True,
     include_admm_case1_wire_fifth_coreq_operational_prep: bool = True,
     include_admm_case1_isolation_rewrite_first_blocker_execution_scaffold: bool = True,
+    include_admm_case1_form_label_second_coreq_execution_scaffold: bool = True,
 ) -> Dict[str, Any]:
     """Compose green offline gates + explicit machine-readable wire_blockers.
 
@@ -4675,6 +4699,9 @@ def offline_wire_preflight_report(
         include_admm_case1_isolation_rewrite_first_blocker_execution_scaffold=(
             include_admm_case1_isolation_rewrite_first_blocker_execution_scaffold
         ),
+        include_admm_case1_form_label_second_coreq_execution_scaffold=(
+            include_admm_case1_form_label_second_coreq_execution_scaffold
+        ),
     )
 
     # Structural ready meaning unchanged — mirror only, never AND blockers into ready.
@@ -4763,6 +4790,9 @@ def offline_wire_preflight_report(
     )
     admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok = readiness.get(
         "admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok"
+    )
+    admm_case1_form_label_second_coreq_execution_scaffold_ok = readiness.get(
+        "admm_case1_form_label_second_coreq_execution_scaffold_ok"
     )
 
     blockers_documented = (
@@ -4885,6 +4915,10 @@ def offline_wire_preflight_report(
         (
             admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok,
             include_admm_case1_isolation_rewrite_first_blocker_execution_scaffold,
+        ),
+        (
+            admm_case1_form_label_second_coreq_execution_scaffold_ok,
+            include_admm_case1_form_label_second_coreq_execution_scaffold,
         ),
     ):
         if included and flag is False:
@@ -5018,6 +5052,9 @@ def offline_wire_preflight_report(
         ),
         "admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok": (
             admm_case1_isolation_rewrite_first_blocker_execution_scaffold_ok
+        ),
+        "admm_case1_form_label_second_coreq_execution_scaffold_ok": (
+            admm_case1_form_label_second_coreq_execution_scaffold_ok
         ),
         # Blockers
         "wire_blockers": wire_blockers,
@@ -16053,13 +16090,16 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
                 "offline_case1_form_label_change_shipped_criteria_contract_report",
                 "case1_form_label_contract (form classic registration)",
                 "offline_case1_form_label_second_coreq_operational_prep_report (prep_present; form classic; form_label_change_shipped false; second coreq; not first_blocking)",
+                "offline_case1_form_label_second_coreq_execution_scaffold_report (scaffold_present; form_label_change_shipped false; form_label_ship_allowed false; form classic; mutation not executed; second coreq; not first_blocking)",
             ],
             "test_surface": (
-                "tests/test_tf_offline_case1_form_label_second_coreq_operational_prep.py"
+                "tests/test_tf_offline_case1_form_label_second_coreq_operational_prep.py; "
+                "tests/test_tf_offline_case1_form_label_second_coreq_execution_scaffold.py"
             ),
             "prep_note": (
                 "Form flip touch points registered; form remains classic_2block_excel_path; "
-                "form_label_change_shipped still False; operational prep present ≠ form ship."
+                "form_label_change_shipped still False; operational prep + execution scaffold "
+                "present ≠ form ship; scaffold_present ≠ form allow ≠ form flip."
             ),
         },
         {
@@ -21322,6 +21362,705 @@ def multi_unit_case1_isolation_rewrite_first_blocker_execution_scaffold_report()
 
 
 
+
+# ---------------------------------------------------------------------------
+# Offline Case-1 form_label second-coreq *execution scaffold* (scaffold without ship)
+# Distinct from form criteria (when) / form operational prep (how prep lands) /
+# isolation execution scaffold / path execution scaffold / wire fifth prep.
+# ---------------------------------------------------------------------------
+CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_KIND = (
+    "offline_case1_form_label_second_coreq_execution_scaffold"
+)
+CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANNOTATION = "present"
+CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX = 1
+CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_COREQ = (
+    "form_label_change_shipped"
+)
+
+CASE1_FORM_LABEL_EXECUTION_SCAFFOLD_MUTATION_SITES: tuple = (
+    "model_form_field",
+    "feature_flag_enable",
+    "checklist_form_label_change_shipped",
+    "howto_meta_labels",
+    "dual_recovery_path_tf_face",
+)
+
+CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANTI_CRITERIA_TODAY: tuple = (
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "residual_must_vanish",
+    "packaging_alone",
+    "design_contracts_alone",
+    "this_scaffold_alone",
+    "this_execution_scaffold_alone",
+    "design_alone",
+    "ship_met_criteria_alone",
+    "operational_prep_alone",
+    "form_label_criteria_alone",
+    "form_label_change_shipped_criteria_contract_alone",
+    "form_registration_alone",
+    "isolation_scaffold_alone",
+    "isolation_execution_scaffold_alone",
+    "path_execution_scaffold_alone",
+    "wire_fifth_prep_alone",
+    "dual_linf_prep_alone",
+    "isolation_design_alone",
+    "isolation_ship_criteria_alone",
+    "isolation_operational_prep_alone",
+    "go_board_alone",
+    "blueprint_alone",
+    "rehearsal_alone",
+    "gate_criteria_alone",
+    "diagnostic_linf_alone",
+    "this_scaffold_packaging_alone",
+)
+
+
+def case1_form_label_execution_scaffold_mutation_inventory() -> Dict[str, Any]:
+    """Named dry-run form-mutation inventory (inventory only — not form flip)."""
+    flag = CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME
+    mut = CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
+    sites: List[Dict[str, Any]] = [
+        {
+            "site_id": "model_form_field",
+            "surface": "tf_linear_blocks / path shape",
+            "field": "form string",
+            "would_change_under_ship": True,
+            "planned_post_ship_assertion": (
+                f"form == {CASE1_PLANNED_TF_AWARE_FORM}"
+            ),
+            "mutation_status_today": "not_applied",
+            "executes_form_flip": False,
+        },
+        {
+            "site_id": "feature_flag_enable",
+            "surface": "tf_linear_blocks",
+            "field": flag,
+            "would_change_under_ship": True,
+            "planned_post_ship_assertion": (
+                f"{flag} enabled only under explicit multi-blocker ship wave"
+            ),
+            "mutation_status_today": "not_applied",
+            "executes_form_flip": False,
+        },
+        {
+            "site_id": "checklist_form_label_change_shipped",
+            "surface": "dual_linf checklist",
+            "field": "form_label_change_shipped",
+            "would_change_under_ship": True,
+            "planned_post_ship_assertion": (
+                "checklist form_label_change_shipped may close only after multi-blocker"
+            ),
+            "mutation_status_today": "not_applied",
+            "executes_form_flip": False,
+        },
+        {
+            "site_id": "howto_meta_labels",
+            "surface": "excel_pipeline static",
+            "field": "How_to/meta form labels",
+            "would_change_under_ship": True,
+            "planned_post_ship_assertion": (
+                "labels track form after ship; today classic"
+            ),
+            "mutation_status_today": "not_applied",
+            "executes_form_flip": False,
+        },
+        {
+            "site_id": "dual_recovery_path_tf_face",
+            "surface": "tf surface",
+            "field": "dual_recovery_path",
+            "would_change_under_ship": False,
+            "planned_post_ship_assertion": (
+                "remains None until honest path under wire (not pure-ADMM)"
+            ),
+            "mutation_status_today": "not_applied",
+            "executes_form_flip": False,
+        },
+    ]
+    return {
+        "form_current": CASE1_FORM_CURRENT,
+        "form_planned": CASE1_PLANNED_TF_AWARE_FORM,
+        "form_mutation_path_name": mut,
+        "mutation_path_name": mut,
+        "form_mutation_path_executed_today": False,
+        "mutation_path_executed_today": False,
+        "feature_flag_name": flag,
+        "feature_flag_enabled_today": False,
+        "mutation_status_today": "not_applied",
+        "form_label_change_shipped": False,
+        "form_label_ship_allowed_today": False,
+        "inventory_is_not_form_ship": True,
+        "inventory_is_not_form_allow": True,
+        "inventory_is_not_form_flip": True,
+        "n_sites": len(sites),
+        "sites": sites,
+        "site_ids": [s["site_id"] for s in sites],
+        "first_blocking_coreq_unchanged": "isolation_rewrite_with_wire",
+        "order_hint_index": CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX,
+        "is_first_blocking_coreq": False,
+        "note": (
+            "Dry-run form-mutation inventory for classic → planned form land. "
+            "Not applied this cycle; form remains classic; mutation path named not executed."
+        ),
+    }
+
+
+def case1_form_label_second_coreq_scaffold_steps() -> List[Dict[str, Any]]:
+    """Machine-readable scaffold steps (each executes_form_flip=False)."""
+    dual_planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    flag = CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME
+    mut = CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
+    return [
+        {
+            "step_id": "form_current_documented",
+            "artifact": CASE1_FORM_CURRENT,
+            "status": "documented",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": f"Current form documented as {CASE1_FORM_CURRENT}.",
+        },
+        {
+            "step_id": "form_planned_documented",
+            "artifact": CASE1_PLANNED_TF_AWARE_FORM,
+            "status": "documented",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": f"Planned form registered only as {CASE1_PLANNED_TF_AWARE_FORM}.",
+        },
+        {
+            "step_id": "mutation_path_named_not_executed",
+            "artifact": mut,
+            "status": "named_not_executed",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": f"Mutation path {mut} named; executed=False today.",
+        },
+        {
+            "step_id": "feature_flag_reserved_named",
+            "artifact": flag,
+            "status": "reserved_false",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": f"Feature flag {flag} reserved False today.",
+        },
+        {
+            "step_id": "dual_ban_locks",
+            "artifact": "scaffold_dual_ban_tokens",
+            "status": "locked",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": (
+                "scaffold≠form ship; dual_linf unproven; dual_recovery_path=None today; "
+                f"planned under wire={dual_planned} (not pure-ADMM)."
+            ),
+        },
+        {
+            "step_id": "first_blocking_still_isolation",
+            "artifact": "isolation_rewrite_with_wire",
+            "status": "open",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": (
+                "first_blocking_coreq remains isolation_rewrite_with_wire; "
+                "form order_hint_index=1; is_first_blocking_coreq=False."
+            ),
+        },
+        {
+            "step_id": "order_hint_index_1",
+            "artifact": "form_label_change_shipped",
+            "status": "second_coreq",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": "order_hint_index=1; order_hint_coreq=form_label_change_shipped.",
+        },
+        {
+            "step_id": "scaffold_complete_is_not_form_label_shipped",
+            "artifact": "anti_criteria",
+            "status": "locked",
+            "executes_form_flip": False,
+            "mutation_path_executed": False,
+            "note": (
+                "Scaffold complete ≠ form_label_change_shipped ≠ form_label_ship_allowed "
+                "≠ form flip ≠ wire ≠ dual_linf proven ≠ gate flip ≠ VERDICT."
+            ),
+        },
+    ]
+
+
+def _case1_form_label_second_coreq_execution_scaffold_honesty_fields() -> Dict[str, Any]:
+    """Machine-readable dual-ban / scaffold-is-not-form-ship locks."""
+    return {
+        "kind": CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "case1_form_unchanged": True,
+        "scaffold_present": True,
+        "execution_scaffold_present": True,
+        "form_label_scaffold_present": True,
+        "path_shipped": False,
+        "dual_honest_tf_aware_path_present": False,
+        "wire_shipped": False,
+        "bundle_shipped": False,
+        "bundle_ship_allowed_today": False,
+        "criteria_met_today": False,
+        "not_wire_shipped": True,
+        "not_path_shipped": True,
+        "not_bundle_shipped": True,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_isolation_rewrite": True,
+        "not_full_tf_admm_wire": True,
+        "scaffold_is_not_form_label_change_shipped": True,
+        "scaffold_is_not_form_label_ship_allow": True,
+        "scaffold_is_not_form_flip": True,
+        "scaffold_is_not_form_mutation_executed": True,
+        "scaffold_is_not_isolation_rewrite_shipped": True,
+        "scaffold_is_not_isolation_ship_allow": True,
+        "scaffold_is_not_wire_shipped": True,
+        "scaffold_is_not_wire": True,
+        "scaffold_is_not_path_shipped": True,
+        "scaffold_is_not_path_present_for_ship": True,
+        "scaffold_is_not_bundle_shipped": True,
+        "scaffold_is_not_ship_allow": True,
+        "scaffold_is_not_ship_met": True,
+        "scaffold_is_not_gate_flip": True,
+        "scaffold_is_not_verdict_gate": True,
+        "scaffold_is_not_dual_linf_under_wire_proof": True,
+        "this_scaffold_alone_is_not_ship_criterion": True,
+        "this_scaffold_alone_is_not_multi_blocker_ship": True,
+        "this_execution_scaffold_alone_is_not_ship_criterion": True,
+        "operational_prep_alone_is_not_ship_criterion": True,
+        "design_alone_is_not_ship_criterion": True,
+        "ship_met_criteria_alone_is_not_ship_criterion": True,
+        "form_label_criteria_alone_is_not_ship_criterion": True,
+        "isolation_scaffold_alone_is_not_form_ship": True,
+        "path_execution_scaffold_alone_is_not_form_ship": True,
+        "wire_fifth_prep_alone_is_not_ship_criterion": True,
+        "packaging_alone_is_not_ship_criterion": True,
+        "order_hint_is_not_executor": True,
+        "no_auto_wire": True,
+        "does_not_rewrite_isolation_suite": True,
+        "suite_delete_forbidden": True,
+        "isolation_rewrite_shipped": False,
+        "isolation_tests_rewritten_with_wire": False,
+        "form_label_change_shipped": False,
+        "form_label_ship_allowed_today": False,
+        "form_mutation_path_executed_today": False,
+        "feature_flag_enabled_today": False,
+        "probe_linf_is_not_ship_criterion_today": True,
+        "bridge_linf_is_not_ship_criterion_today": True,
+        "warmstart_linf_is_not_ship_criterion_today": True,
+        "pooling_linf_is_not_ship_criterion_today": True,
+        "seed_identity_linf_is_not_ship_criterion": True,
+        "recovered_blender_linf_is_not_ship_criterion_today": True,
+        "residual_must_vanish_is_not_ship_criterion": True,
+        "diagnostic_linf_is_not_dual_linf_under_wire_proof": True,
+        "no_blender_offline_affine_kernel_blocker_still_true": True,
+        "case1_is_cdu_blender_package_admm_blocker_still_true": True,
+        "scope": "case1_form_label_second_coreq_execution_scaffold_offline",
+        "note": (
+            "Offline Case-1 form_label second-coreq *execution scaffold*: dry-run "
+            "form-mutation inventory / offline how-without-ship for order_hint[1] "
+            "classic → planned form. scaffold_present=True / execution_scaffold_present=True / "
+            "form_label_scaffold_present=True; form_label_change_shipped=False; "
+            "form_label_ship_allowed_today=False; form_mutation_path_executed_today=False; "
+            "form remains classic; first_blocking remains isolation_rewrite_with_wire "
+            "(is_first_blocking_coreq=False; order_hint_index=1); path/wire/bundle/isolation "
+            "ship flags hard false; dual_linf unproven; dual_recovery_path=None today; "
+            f"planned under wire={CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED} "
+            "(not pure-ADMM); mutation path named not executed. Scaffold alone / design alone / "
+            "ship-met alone / operational prep alone / form criteria alone / isolation scaffold "
+            "alone / path scaffold alone / wire fifth prep alone / packaging alone ≠ form_label "
+            "change shipped ≠ form allow ≠ form flip ≠ wire ≠ VERDICT ≠ dual L∞ under wire proof. "
+            "Distinct from form criteria / form operational prep / isolation execution scaffold / "
+            "path execution scaffold / wire fifth prep. Does not redefine ready_for_wire_discussion; "
+            "does not clear DEFAULT_WIRE_BLOCKERS; does not enable Case 1 TF feature flag; "
+            "isolation suite behavior unchanged this cycle. SUGGESTED_NEXT_WAVE still full "
+            "multi-blocker wire *execution* long-term."
+        ),
+    }
+
+
+def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[str, Any]:
+    """Always-on form_label second-coreq *execution scaffold* (scaffold without ship).
+
+    No TF, no PuLP, no excel_pipeline, no Case 1 solve routing. Aggregate
+    ``ok`` / ``contract_ok`` / ``scaffold_ok`` = scaffold formalized ∧ honesty locks ∧
+    scaffold_present ∧ form classic ∧ form_label_change_shipped hard false ∧
+    form_mutation_path_executed hard false ∧ first_blocking still isolation ∧
+    order_hint_index=1 ∧ is_first_blocking_coreq=False ∧ dual_linf unproven ∧
+    dual_recovery_path is None ∧ UNITS FCC/COKER/CDU. **Not** form_label_change_shipped.
+    **Not** form_label_ship_allowed. **Not** form flip. **Not** wire. **Not** VERDICT.
+    **Not** dual L∞ under wire proof.
+    """
+    honesty = _case1_form_label_second_coreq_execution_scaffold_honesty_fields()
+    dual_linf = case1_dual_linf_proof_checklist()
+    first_blocking = (
+        case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq(
+            dual_linf=dual_linf
+        )
+    )
+    go_board = case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
+        first_blocking=first_blocking, dual_linf=dual_linf
+    )
+    inventory = case1_form_label_execution_scaffold_mutation_inventory()
+    scaffold_steps = case1_form_label_second_coreq_scaffold_steps()
+    form = case1_form_label_contract()
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    checklist = dual_linf["dual_linf_proof_checklist"]
+    open_ids = dual_linf["dual_linf_proof_checklist_open_ids"]
+    isolation_status = checklist.get(CASE1_ISOLATION_REWRITE_CHECKLIST_KEY)
+    isolation_still_open = isolation_status == "open"
+    isolation_in_open = CASE1_ISOLATION_REWRITE_CHECKLIST_KEY in open_ids
+    gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY)
+    gate_still_open = gate_status == "open"
+
+    isolation_met_map = case1_isolation_rewrite_shipped_criteria_met_today_map()
+    isolation_ship_allowed_today = case1_isolation_ship_allowed_today(isolation_met_map)
+    wire_criteria_met_map = case1_wire_ship_acceptance_criteria_met_today_map()
+    wire_ship_allowed_today = case1_wire_ship_allowed_today(wire_criteria_met_map)
+    gate_met_map = case1_online_linf_gate_criteria_met_today_map()
+    gate_flip_allowed_today = case1_online_linf_gate_flip_allowed_today(gate_met_map)
+    form_label_met_map = case1_form_label_change_shipped_criteria_met_today_map()
+    form_label_ship_allowed_today = case1_form_label_ship_allowed_today(
+        form_label_met_map
+    )
+    path_present_met_map = case1_dual_honest_tf_aware_path_present_criteria_met_today_map()
+    ship_met_allowed_today = case1_dual_honest_tf_aware_path_present_ship_met_allowed_today(
+        path_present_met_map
+    )
+    bundle_met_map = (
+        case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_met_today_map()
+    )
+    bundle_ship_allowed_today = (
+        case1_dual_honest_multi_blocker_wire_bundle_ship_allowed_today(bundle_met_map)
+    )
+    criteria_met_today = (
+        case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_met_today_aggregate(
+            bundle_met_map
+        )
+    )
+
+    isolation_rewrite_shipped = False
+    isolation_tests_rewritten_with_wire = False
+    path_shipped = False
+    dual_honest_tf_aware_path_present = False
+    form_label_change_shipped = False
+    form_mutation_path_executed_today = False
+    wire_shipped = False
+    bundle_shipped = False
+    feature_flag_enabled_today = bool(
+        CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY
+    )
+    scaffold_present = True
+    execution_scaffold_present = True
+    form_label_scaffold_present = True
+
+    units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
+    critical_blockers_present = {
+        "isolation_rewrite_required",
+        "form_label_change_required",
+        "dual_linf_under_wire_unproven",
+        "case1_is_cdu_blender_package_admm",
+        "no_blender_offline_affine_kernel",
+        "wire_not_shipped",
+    }.issubset(set(blockers))
+    affine_blocker_present = (
+        "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp" in blockers
+    )
+    blocker_ok = critical_blockers_present and affine_blocker_present
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["bundle_shipped"] is False
+        and honesty["path_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["form_label_change_shipped"] is False
+        and honesty["form_mutation_path_executed_today"] is False
+        and honesty["feature_flag_enabled_today"] is False
+        and honesty["scaffold_is_not_form_label_change_shipped"] is True
+        and honesty["scaffold_is_not_form_label_ship_allow"] is True
+        and honesty["scaffold_is_not_form_flip"] is True
+        and honesty["scaffold_is_not_wire"] is True
+        and honesty["scaffold_is_not_verdict_gate"] is True
+        and honesty["scaffold_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["this_scaffold_alone_is_not_ship_criterion"] is True
+        and honesty["order_hint_is_not_executor"] is True
+        and honesty["no_auto_wire"] is True
+        and honesty["does_not_rewrite_isolation_suite"] is True
+    )
+    dual_linf_unproven_ok = bool(
+        dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and dual_linf["dual_linf_under_wire_unproven_still_true"] is True
+    )
+    form_ok = bool(
+        form["form_contract_ok"]
+        and form["form_current"] == CASE1_FORM_CURRENT
+        and form["form_unchanged"] is True
+        and honesty["case1_form_unchanged"] is True
+    )
+    ship_permission_ok = (
+        isolation_ship_allowed_today is False
+        and wire_ship_allowed_today is False
+        and form_label_ship_allowed_today is False
+        and ship_met_allowed_today is False
+        and bundle_ship_allowed_today is False
+        and criteria_met_today is False
+        and gate_flip_allowed_today is False
+    )
+    isolation_open_ok = (
+        isolation_still_open
+        and isolation_in_open
+        and isolation_status == "open"
+        and isolation_rewrite_shipped is False
+        and isolation_tests_rewritten_with_wire is False
+    )
+    first_blocking_ok = bool(
+        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        and first_blocking.get("matches_expected_today") is True
+    )
+    is_first_blocking_coreq = False
+    order_hint_index = CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX
+    inventory_ok = bool(
+        inventory["form_current"] == CASE1_FORM_CURRENT
+        and inventory["form_planned"] == CASE1_PLANNED_TF_AWARE_FORM
+        and inventory["form_mutation_path_name"]
+        == CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
+        and inventory["form_mutation_path_executed_today"] is False
+        and inventory["mutation_status_today"] == "not_applied"
+        and inventory["form_label_change_shipped"] is False
+        and inventory["form_label_ship_allowed_today"] is False
+        and inventory["feature_flag_enabled_today"] is False
+        and inventory["n_sites"] >= 5
+        and all(s.get("executes_form_flip") is False for s in inventory["sites"])
+        and all(
+            s.get("mutation_status_today") == "not_applied" for s in inventory["sites"]
+        )
+    )
+    scaffold_steps_ok = bool(
+        len(scaffold_steps) >= 8
+        and all(s.get("executes_form_flip") is False for s in scaffold_steps)
+        and scaffold_steps[0]["step_id"] == "form_current_documented"
+        and any(
+            s["step_id"] == "scaffold_complete_is_not_form_label_shipped"
+            for s in scaffold_steps
+        )
+    )
+    anti = CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANTI_CRITERIA_TODAY
+    anti_ok = (
+        "this_scaffold_alone" in anti
+        and "this_execution_scaffold_alone" in anti
+        and "operational_prep_alone" in anti
+        and "form_label_criteria_alone" in anti
+        and "isolation_scaffold_alone" in anti
+        and "path_execution_scaffold_alone" in anti
+        and "design_alone" in anti
+        and "ship_met_criteria_alone" in anti
+        and "wire_fifth_prep_alone" in anti
+        and "packaging_alone" in anti
+    )
+    distinctness_ok = True
+    scaffold_formalized = bool(
+        scaffold_present
+        and execution_scaffold_present
+        and form_label_scaffold_present
+        and first_blocking_ok
+        and inventory_ok
+        and scaffold_steps_ok
+        and anti_ok
+        and CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANNOTATION == "present"
+        and is_first_blocking_coreq is False
+        and order_hint_index == 1
+    )
+    honesty_ok = bool(
+        dual_ban_ok
+        and units_ok
+        and blocker_ok
+        and dual_linf_unproven_ok
+        and form_ok
+        and ship_permission_ok
+        and isolation_open_ok
+        and gate_still_open
+        and scaffold_formalized
+        and blockers_still_documented
+        and distinctness_ok
+        and form_mutation_path_executed_today is False
+    )
+    scaffold_ok = honesty_ok
+    contract_ok = scaffold_ok
+    ok = (
+        scaffold_ok
+        and scaffold_present is True
+        and form_label_change_shipped is False
+        and form_label_ship_allowed_today is False
+        and form_mutation_path_executed_today is False
+        and isolation_rewrite_shipped is False
+        and wire_shipped is False
+        and path_shipped is False
+        and honesty["dual_recovery_path"] is None
+    )
+    ok_criteria = (
+        "scaffold formalized ∧ honesty locks ∧ scaffold_present=True ∧ "
+        "execution_scaffold_present=True ∧ form_label_scaffold_present=True ∧ "
+        "first_blocking_coreq=isolation_rewrite_with_wire ∧ order_hint_index=1 ∧ "
+        "is_first_blocking_coreq=False ∧ form_label_change_shipped=False ∧ "
+        "form_label_ship_allowed_today=False ∧ form_mutation_path_executed_today=False ∧ "
+        "form classic ∧ path/wire/bundle/isolation ship flags false ∧ dual_linf unproven ∧ "
+        "dual_recovery_path=None ∧ blockers non-empty ∧ UNITS FCC/COKER/CDU — "
+        "NOT form_label_change_shipped; NOT form allow; NOT form flip; NOT wire; "
+        "NOT VERDICT; NOT dual L∞ under wire proof"
+    )
+    dual_recovery_planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    go_board_arts = (go_board.get("file_level_prep_map") or {}).get(
+        "form_label_change_shipped", []
+    )
+    return {
+        **honesty,
+        "ok": ok,
+        "scaffold_ok": scaffold_ok,
+        "contract_ok": contract_ok,
+        "design_contract_ok": scaffold_ok,
+        "honesty_ok": honesty_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "units_ok": units_ok,
+        "blocker_ok": blocker_ok,
+        "form_ok": form_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "ship_permission_ok": ship_permission_ok,
+        "isolation_open_ok": isolation_open_ok,
+        "first_blocking_ok": first_blocking_ok,
+        "inventory_ok": inventory_ok,
+        "scaffold_steps_ok": scaffold_steps_ok,
+        "scaffold_formalized": scaffold_formalized,
+        "ok_criteria": ok_criteria,
+        "scaffold_present": scaffold_present,
+        "execution_scaffold_present": execution_scaffold_present,
+        "form_label_scaffold_present": form_label_scaffold_present,
+        "scaffold_annotation": (
+            CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANNOTATION
+        ),
+        "first_blocking_coreq": first_blocking.get("first_blocking_coreq"),
+        "first_blocking_coreq_status": first_blocking.get("first_blocking_coreq_status"),
+        "is_first_blocking_coreq": is_first_blocking_coreq,
+        "order_hint_index": order_hint_index,
+        "order_hint_coreq": (
+            CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_COREQ
+        ),
+        "first_blocking": first_blocking,
+        "go_board_form_label_prep_artifacts": go_board_arts,
+        "mutation_inventory": inventory,
+        "scaffold_steps": scaffold_steps,
+        "n_scaffold_steps": len(scaffold_steps),
+        "anti_criteria_today": list(anti),
+        "form_mutation_path_name": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+        "form_mutation_path_executed_today": form_mutation_path_executed_today,
+        "mutation_path_name": CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME,
+        "mutation_path_executed_today": form_mutation_path_executed_today,
+        "form_label_criteria_present": True,
+        "form_label_operational_prep_present": True,
+        "isolation_rewrite_scaffold_present": True,
+        "path_execution_scaffold_present": True,
+        "distinct_from_form_label_change_shipped_criteria_contract": True,
+        "distinct_from_form_label_second_coreq_operational_prep": True,
+        "distinct_from_isolation_execution_scaffold": True,
+        "distinct_from_path_execution_scaffold": True,
+        "distinct_from_wire_fifth_prep": True,
+        "isolation_rewrite_shipped": isolation_rewrite_shipped,
+        "isolation_tests_rewritten_with_wire": isolation_tests_rewritten_with_wire,
+        "isolation_rewrite_with_wire": isolation_status,
+        "isolation_rewrite_still_open": isolation_still_open,
+        "isolation_rewrite_checklist_open": isolation_still_open,
+        "isolation_ship_allowed_today": isolation_ship_allowed_today,
+        "isolation_criteria_met_today": isolation_ship_allowed_today,
+        "path_design_present": True,
+        "path_shipped": path_shipped,
+        "dual_honest_tf_aware_path_present": dual_honest_tf_aware_path_present,
+        "form_label_change_shipped": form_label_change_shipped,
+        "form_label_ship_allowed_today": form_label_ship_allowed_today,
+        "bundle_shipped": bundle_shipped,
+        "bundle_ship_allowed_today": bundle_ship_allowed_today,
+        "criteria_met_today": criteria_met_today,
+        "wire_ship_allowed_today": wire_ship_allowed_today,
+        "wire_shipped": wire_shipped,
+        "ship_met_allowed_today": ship_met_allowed_today,
+        "online_linf_gate_under_tf_path": gate_status,
+        "online_linf_gate_still_open": gate_still_open,
+        "gate_flip_allowed_today": gate_flip_allowed_today,
+        "dual_linf_proof_allowed_today": False,
+        "form_current": form["form_current"],
+        "form_planned": form["form_planned"],
+        "planned_form_distinct": form["planned_form_distinct"],
+        "form_unchanged": form["form_unchanged"],
+        "dual_recovery_path_today_on_tf_surface": None,
+        "dual_recovery_path_planned_when_shipped": dual_recovery_planned,
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": feature_flag_enabled_today,
+        "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
+        "dual_linf_under_wire": dual_linf["dual_linf_under_wire"],
+        "dual_linf_under_wire_unproven_still_true": dual_linf[
+            "dual_linf_under_wire_unproven_still_true"
+        ],
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "units_affine_unchanged": list(UNITS),
+        "wire_blockers": blockers,
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "form_label_change_required_in_default_wire_blockers": (
+            "form_label_change_required" in blockers
+        ),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "ready_for_wire_discussion_semantics": (
+            "unchanged_parity_priced_timings_honesty_only"
+        ),
+        "suggested_next_wave_after_preflight": SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT,
+        "suggested_next_wave_still_full_wire": (
+            SUGGESTED_NEXT_WAVE_AFTER_PREFLIGHT
+            == "dual_honest_tf_case1_wire_with_isolation_rewrite_and_form_label_change"
+        ),
+        "tf_available": tf_available(),
+        "form_label_second_coreq_execution_scaffold_available": True,
+        "excel_packaging_twin_present": True,
+        "excel_packaging_twin_deferred": False,
+        "any_ship_allowed_today": False,
+        "all_ship_flags_false": True,
+    }
+
+
+def offline_case1_form_label_execution_scaffold_report() -> Dict[str, Any]:
+    """Sticky short alias for form_label second-coreq execution scaffold."""
+    return offline_case1_form_label_second_coreq_execution_scaffold_report()
+
+
+def case1_form_label_second_coreq_execution_scaffold_report() -> Dict[str, Any]:
+    """Alias for ``offline_case1_form_label_second_coreq_execution_scaffold_report``."""
+    return offline_case1_form_label_second_coreq_execution_scaffold_report()
+
+
+def multi_unit_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[str, Any]:
+    """Alias for multi-unit registry symmetry."""
+    return offline_case1_form_label_second_coreq_execution_scaffold_report()
+
+
+
 __all__ = [
     "MODULE_KIND",
     "SOURCE",
@@ -21665,6 +22404,18 @@ __all__ = [
     "offline_case1_isolation_rewrite_execution_scaffold_report",
     "case1_isolation_rewrite_first_blocker_execution_scaffold_report",
     "multi_unit_case1_isolation_rewrite_first_blocker_execution_scaffold_report",
+    "CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_KIND",
+    "CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANNOTATION",
+    "CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX",
+    "CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_COREQ",
+    "CASE1_FORM_LABEL_EXECUTION_SCAFFOLD_MUTATION_SITES",
+    "CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANTI_CRITERIA_TODAY",
+    "case1_form_label_execution_scaffold_mutation_inventory",
+    "case1_form_label_second_coreq_scaffold_steps",
+    "offline_case1_form_label_second_coreq_execution_scaffold_report",
+    "offline_case1_form_label_execution_scaffold_report",
+    "case1_form_label_second_coreq_execution_scaffold_report",
+    "multi_unit_case1_form_label_second_coreq_execution_scaffold_report",
     "excel_fcc_matrix_matches_affine",
     "excel_coker_matrix_matches_affine",
 ]
