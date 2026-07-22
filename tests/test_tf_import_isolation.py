@@ -279,6 +279,15 @@ def test_isolation_suite_flag_true_gated_does_not_pollute_excel_or_claim_wire(
 
     # Flag True must not claim wire/path/form shipped.
     assert tlb.case1_wire_ship_allowed_today() is False
+    assert tlb.case1_wire_shipped_today() is False
+    # Dual-recovery path policy: flag alone never activates planned label.
+    assert tlb.case1_tf_surface_dual_recovery_path() is None
+    assert (
+        tlb.case1_tf_surface_dual_recovery_path(
+            wire_shipped=False, flag_enabled=True
+        )
+        is None
+    )
     pre = tlb.offline_wire_preflight_report()
     assert pre.get("wire_shipped") is False
     assert pre.get("dual_recovery_path") is None
