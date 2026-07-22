@@ -169,7 +169,7 @@ def test_wire_land_composition_inventory_pieces_not_executed():
     assert inv["n_pieces"] >= 8
     assert inv["is_first_blocking_coreq"] is False
     assert inv["order_hint_index"] == 4
-    assert inv["first_blocking_coreq_unchanged"] == "isolation_rewrite_with_wire"
+    assert inv["first_blocking_coreq_unchanged"] == "form_label_change_shipped"
     for p in inv["pieces"]:
         assert p["executes_wire_land"] is False
         assert p["ships_wire"] is False

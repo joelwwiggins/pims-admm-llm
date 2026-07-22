@@ -45,7 +45,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -79,7 +78,7 @@ def test_report_always_on_honesty_locks():
     assert report["path_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["form_label_change_shipped"] is False
-    assert report["isolation_rewrite_shipped"] is False
+    assert report["isolation_rewrite_shipped"] is True
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
     assert report["not_case1_solve"] is True
@@ -122,7 +121,7 @@ def test_report_always_on_honesty_locks():
     assert "BLENDER" not in tlb.UNITS
     assert list(tlb.UNITS) == ["FCC", "COKER", "CDU"]
     assert report["units_affine_unchanged"] == ["FCC", "COKER", "CDU"]
-    assert report["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert report["first_blocking_coreq"] == "form_label_change_shipped"
     assert report["first_blocking_ok"] is True
     assert report["feature_flag_enabled_today"] is False
     assert report["suggested_next_wave_still_full_wire"] is True
@@ -165,7 +164,7 @@ def test_proof_permission_hard_false():
     assert tlb.case1_dual_linf_proof_allowed_today() is False
     assert tlb.case1_dual_linf_under_wire_criteria_met_today_aggregate() is False
     met = tlb.case1_dual_linf_under_wire_criteria_met_today_map()
-    assert met["isolation_rewrite_with_wire"] is False
+    assert met["isolation_rewrite_with_wire"] is True
     assert met["wire_shipped"] is False
     assert met["form_label_change_shipped"] is False
     assert met["dual_honest_tf_aware_path_under_wire"] is False
@@ -364,7 +363,7 @@ def test_go_board_prep_artifacts_include_dual_linf_criteria():
     assert bp["ok"] is True
     arts = (bp.get("file_level_prep_map") or {}).get("dual_linf_under_wire_proven", [])
     assert any("dual_linf_under_wire_criteria_contract" in str(a) for a in arts)
-    assert bp["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
     # status remains unproven
     go = tlb.case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board()
     rows = go.get("order_hint_rows") or go.get("rows") or []
@@ -387,8 +386,6 @@ def test_go_board_prep_artifacts_include_dual_linf_criteria():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_dual_linf_under_wire_criteria_contract_report()
     for k in (
-        "isolation_rewrite_shipped",
-        "isolation_tests_rewritten_with_wire",
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
@@ -412,8 +409,8 @@ def test_online_linf_gate_and_ladder_non_regression():
     assert online["gate_flip_allowed_today"] is False
     prep = tlb.offline_case1_isolation_rewrite_first_blocker_operational_prep_report()
     assert prep["ok"] is True
-    assert prep["first_blocking_coreq"] == "isolation_rewrite_with_wire"
-    assert prep["isolation_rewrite_shipped"] is False
+    assert prep["first_blocking_coreq"] == "form_label_change_shipped"
+    assert prep["isolation_rewrite_shipped"] is True
     assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
     cl = tlb.case1_dual_linf_proof_checklist()
     assert cl["dual_linf_under_wire_status"] == "unproven"

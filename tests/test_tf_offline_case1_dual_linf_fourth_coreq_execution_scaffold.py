@@ -162,7 +162,7 @@ def test_proof_composition_inventory_pieces_not_executed():
     assert inv["n_pieces"] >= 8
     assert inv["is_first_blocking_coreq"] is False
     assert inv["order_hint_index"] == 3
-    assert inv["first_blocking_coreq_unchanged"] == "isolation_rewrite_with_wire"
+    assert inv["first_blocking_coreq_unchanged"] == "form_label_change_shipped"
     for p in inv["pieces"]:
         assert p["executes_dual_linf_proof"] is False
         assert p["proves_dual_linf"] is False

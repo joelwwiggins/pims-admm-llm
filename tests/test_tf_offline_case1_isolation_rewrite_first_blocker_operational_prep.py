@@ -3,8 +3,8 @@
 Always-on sections run without TensorFlow and without PuLP / excel_pipeline on
 the prep hot path. Locks:
 - prep_present / first_blocker_prep_present True
-- first_blocking_coreq = isolation_rewrite_with_wire
-- isolation_rewrite_shipped False; isolation_tests_rewritten_with_wire False
+- first_blocking_coreq = form_label_change_shipped
+- isolation_rewrite_shipped True; isolation_tests_rewritten_with_wire False
 - rewrite-not-delete companion matrix inventory only
 - dual_recovery_path is None; dual_linf_under_wire unproven
 - path/wire/bundle/form ship flags hard false
@@ -32,7 +32,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -52,9 +51,9 @@ def test_report_always_on_honesty_locks():
     assert report["dual_recovery_path"] is None
     assert report["prep_present"] is True
     assert report["first_blocker_prep_present"] is True
-    assert report["first_blocking_coreq"] == "isolation_rewrite_with_wire"
-    assert report["isolation_rewrite_shipped"] is False
-    assert report["isolation_tests_rewritten_with_wire"] is False
+    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["isolation_rewrite_shipped"] is True
+    assert report["isolation_tests_rewritten_with_wire"] is True
     assert report["path_shipped"] is False
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
@@ -62,12 +61,12 @@ def test_report_always_on_honesty_locks():
     assert report["on_excel_case1_path"] is False
     assert report["case1_form_unchanged"] is True
     assert report["form_current"] == "classic_2block_excel_path"
-    assert report["isolation_ship_allowed_today"] is False
+    assert report["isolation_ship_allowed_today"] is True
     assert report["wire_ship_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
     assert report["criteria_met_today"] is False
-    assert report["isolation_rewrite_with_wire"] == "open"
-    assert report["isolation_rewrite_still_open"] is True
+    assert report["isolation_rewrite_with_wire"] == "shipped"
+    assert report["isolation_rewrite_still_open"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["dual_linf_under_wire_status"] == "unproven"
     assert report["feature_flag_enabled_today"] is False
@@ -120,7 +119,7 @@ def test_companion_matrix_inventory_only():
     assert m["companion_matrix_is_inventory_only"] is True
     assert m["suite_path"] == "tests/test_tf_import_isolation.py"
     assert m["suite_delete_forbidden"] is True
-    assert m["isolation_tests_rewritten_with_wire"] is False
+    assert m["isolation_tests_rewritten_with_wire"] is True
     assert m["behavior_must_remain_until_rewrite_with_wire"] is True
     themes = m["themes"]
     assert themes["no_excel_pipeline_on_tf_hot_path"] is True
@@ -156,7 +155,7 @@ def test_aliases_and_kind():
     c = tlb.multi_unit_case1_isolation_rewrite_first_blocker_operational_prep_report()
     assert a["kind"] == b["kind"] == c["kind"]
     assert a["prep_present"] is True
-    assert a["isolation_rewrite_shipped"] is False
+    assert a["isolation_rewrite_shipped"] is True
 
 
 def test_readiness_additive_flag_does_not_redefine_ready():
@@ -226,7 +225,7 @@ def test_isolation_suite_file_still_exists_and_unchanged_path():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
     arts = (bp.get("file_level_prep_map") or {}).get("isolation_rewrite_with_wire", [])
     assert any("operational_prep" in str(a) for a in arts)
 
@@ -234,15 +233,12 @@ def test_blueprint_non_regression_still_green():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_isolation_rewrite_first_blocker_operational_prep_report()
     for k in (
-        "isolation_rewrite_shipped",
-        "isolation_tests_rewritten_with_wire",
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "form_label_change_shipped",
         "feature_flag_enabled_today",
         "criteria_met_today",
-        "isolation_ship_allowed_today",
         "wire_ship_allowed_today",
         "gate_flip_allowed_today",
     ):

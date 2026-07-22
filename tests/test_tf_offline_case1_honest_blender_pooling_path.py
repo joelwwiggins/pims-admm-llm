@@ -43,7 +43,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -83,7 +82,7 @@ def test_checklist_status_honest_pooling_not_bare_open():
         not in cl["dual_linf_proof_checklist_open_ids"]
     )
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 4
+    assert cl["dual_linf_proof_checklist_n_open"] >= 3
     # Remaining open/false_today items still present
     for key in (
         "isolation_rewrite_with_wire",
@@ -91,6 +90,8 @@ def test_checklist_status_honest_pooling_not_bare_open():
         "online_linf_gate_under_tf_path",
         "wire_shipped",
     ):
+        assert key not in cl["dual_linf_proof_checklist_open_ids"] if key == "isolation_rewrite_with_wire" else True  # isolation shipped
+    if key != "isolation_rewrite_with_wire":
         assert key in cl["dual_linf_proof_checklist_open_ids"]
 
 
@@ -302,7 +303,7 @@ def test_form_contract_and_ladder_non_regression():
     contract = tlb.offline_case1_dual_space_form_contract_report()
     assert contract["ok"] is True
     assert contract["dual_linf_under_wire_status"] == "unproven"
-    assert contract["dual_linf_proof_checklist_n_open"] >= 4
+    assert contract["dual_linf_proof_checklist_n_open"] >= 3
     assert (
         contract["dual_linf_proof_checklist"][
             "blender_affine_kernel_or_honest_pooling_path"

@@ -39,7 +39,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -85,7 +84,7 @@ def test_dual_linf_proof_checklist_unproven():
     assert cl["dual_linf_under_wire"] == "unproven"
     assert cl["dual_linf_under_wire_unproven_still_true"] is True
     assert cl["dual_linf_status_unproven_ok"] is True
-    assert cl["dual_linf_proof_checklist_n_open"] >= 4
+    assert cl["dual_linf_proof_checklist_n_open"] >= 3
     checklist = cl["dual_linf_proof_checklist"]
     for key in (
         "isolation_rewrite_with_wire",

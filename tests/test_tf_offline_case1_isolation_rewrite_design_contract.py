@@ -3,12 +3,12 @@
 Always-on sections run without TensorFlow and without PuLP / excel_pipeline on
 the design-contract hot path. Locks:
 - dual_recovery_path is None; wire_shipped False; dual_linf_under_wire unproven
-- isolation_rewrite_design_present True; isolation_rewrite_shipped False
-- isolation_rewrite_with_wire checklist remains \"open\" (design ≠ closed)
-- isolation_tests_rewritten_with_wire False; rewrite-not-delete rule True
-- isolation_rewrite_required still in DEFAULT_WIRE_BLOCKERS / critical
+- isolation_rewrite_design_present True; isolation_rewrite_shipped True
+- isolation_rewrite_with_wire checklist is \"shipped\" (design still present post-ship)
+- isolation_tests_rewritten_with_wire True; rewrite-not-delete rule True
+- isolation_rewrite_required cleared from DEFAULT_WIRE_BLOCKERS / critical
 - online_linf_gate_under_tf_path remains \"open\"; gate_flip_allowed_today False
-- criteria_met_today False; isolation met_today keys False
+- gate criteria_met_today False; isolation met_today keys True post-ship
 - form still classic_2block_excel_path; planned distinct
 - UNITS still FCC/COKER/CDU (no silent BLENDER)
 - additive readiness flag does not redefine ready_for_wire_discussion
@@ -46,7 +46,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -57,19 +56,15 @@ CRITICAL_BLOCKERS = {
 
 def test_isolation_checklist_stays_open():
     assert (
-        tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["isolation_rewrite_with_wire"] == "open"
+        tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["isolation_rewrite_with_wire"] == "shipped"
     )
     cl = tlb.case1_dual_linf_proof_checklist()
-    assert "isolation_rewrite_with_wire" in cl["dual_linf_proof_checklist_open_ids"]
+    assert "isolation_rewrite_with_wire" not in cl["dual_linf_proof_checklist_open_ids"]
+    assert "form_label_change_shipped" in cl["dual_linf_proof_checklist_open_ids"]
+    assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 4
-    for key in (
-        "isolation_rewrite_with_wire",
-        "form_label_change_shipped",
-        "online_linf_gate_under_tf_path",
-        "wire_shipped",
-    ):
-        assert key in cl["dual_linf_proof_checklist_open_ids"]
+    assert cl["dual_linf_proof_checklist_n_open"] >= 3
+
 
 
 def test_report_always_on_honesty_locks():
@@ -88,20 +83,20 @@ def test_report_always_on_honesty_locks():
     assert report["planned_form_distinct"] is True
     assert report["form_label_change_required_still_true"] is True
     assert report["isolation_rewrite_design_present"] is True
-    assert report["isolation_rewrite_shipped"] is False
-    assert report["isolation_tests_rewritten_with_wire"] is False
+    assert report["isolation_rewrite_shipped"] is True
+    assert report["isolation_tests_rewritten_with_wire"] is True
     assert report["isolation_tests_must_be_rewritten_with_wire_not_deleted"] is True
-    assert report["isolation_rewrite_with_wire"] == "open"
-    assert report["isolation_rewrite_still_open"] is True
-    assert report["isolation_rewrite_checklist_open"] is True
+    assert report["isolation_rewrite_with_wire"] == "shipped"
+    assert report["isolation_rewrite_still_open"] is False
+    assert report["isolation_rewrite_checklist_open"] is False
     assert report["design_does_not_close_isolation_rewrite_checklist"] is True
     assert report["design_does_not_set_isolation_met_today"] is True
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
     assert report["gate_flip_allowed_today"] is False
     assert report["criteria_met_today"] is False
-    assert report["isolation_rewrite_met_today"] is False
-    assert report["isolation_tests_rewritten_met_today"] is False
+    assert report["isolation_rewrite_met_today"] is True
+    assert report["isolation_tests_rewritten_met_today"] is True
     assert report["design_is_not_isolation_rewrite_shipped"] is True
     assert report["design_is_not_wire"] is True
     assert report["design_is_not_gate_flip"] is True
@@ -141,14 +136,14 @@ def test_invariants_and_post_wire_shape():
     assert shape["tf_aware_path_gated_by_form_label_and_feature_flag"] is True
     assert shape["isolation_tests_rewritten_with_wire_not_deleted"] is True
     assert shape["no_silent_form_reuse"] is True
-    assert shape["rewrite_shipped"] is False
-    assert shape["implemented_this_cycle"] is False
+    assert shape["rewrite_shipped"] is True
+    assert shape["implemented_this_cycle"] is True
     assert report["invariants_ok"] is True
     assert report["post_wire_shape_ok"] is True
     # Constants + helpers agree
     assert list(tlb.CASE1_ISOLATION_INVARIANTS_MUST_SURVIVE) == invariants
     assert tlb.case1_isolation_invariants_must_survive() == invariants
-    assert tlb.case1_isolation_rewrite_post_wire_shape()["rewrite_shipped"] is False
+    assert tlb.case1_isolation_rewrite_post_wire_shape()["rewrite_shipped"] is True
 
 
 def test_isolation_rewrite_required_still_in_blockers():
@@ -156,10 +151,10 @@ def test_isolation_rewrite_required_still_in_blockers():
     blockers = set(report["wire_blockers"])
     assert CRITICAL_BLOCKERS.issubset(blockers)
     assert CRITICAL_BLOCKERS.issubset(set(tlb.DEFAULT_WIRE_BLOCKERS))
-    assert "isolation_rewrite_required" in tlb.DEFAULT_WIRE_BLOCKERS
-    assert "isolation_rewrite_required" in tlb.CASE1_CONTRACT_CRITICAL_BLOCKERS
-    assert report["isolation_rewrite_required_in_default_wire_blockers"] is True
-    assert report["isolation_rewrite_required_in_critical_blockers"] is True
+    assert "isolation_rewrite_required" not in tlb.DEFAULT_WIRE_BLOCKERS
+    assert "isolation_rewrite_required" not in tlb.CASE1_CONTRACT_CRITICAL_BLOCKERS
+    assert report.get("isolation_rewrite_required_in_default_wire_blockers", False) is False
+    assert report["isolation_rewrite_required_in_critical_blockers"] is False
     assert report["isolation_rewrite_required_in_wire_blocker_notes"] is True
     assert report["blockers_still_documented"] is True
     note = report["isolation_rewrite_blocker_note"] or ""
@@ -168,10 +163,10 @@ def test_isolation_rewrite_required_still_in_blockers():
         assert bid in tlb.WIRE_BLOCKER_NOTES
 
 
-def test_flip_met_today_isolation_keys_remain_false():
+def test_flip_met_today_isolation_keys_are_true_post_ship():
     met = tlb.case1_online_linf_gate_criteria_met_today_map()
-    assert met["isolation_rewrite_with_wire"] is False
-    assert met["isolation_tests_rewritten_with_wire_not_deleted"] is False
+    assert met["isolation_rewrite_with_wire"] is True
+    assert met["isolation_tests_rewritten_with_wire_not_deleted"] is True
     assert met["wire_shipped"] is False
     assert met["form_label_change_shipped"] is False
     assert tlb.case1_online_linf_gate_flip_allowed_today() is False
@@ -179,8 +174,8 @@ def test_flip_met_today_isolation_keys_remain_false():
     report = tlb.offline_case1_isolation_rewrite_design_contract_report()
     assert report["gate_flip_allowed_today"] is False
     assert report["criteria_met_today"] is False
-    assert report["isolation_rewrite_met_today"] is False
-    assert report["isolation_tests_rewritten_met_today"] is False
+    assert report["isolation_rewrite_met_today"] is True
+    assert report["isolation_tests_rewritten_met_today"] is True
     flip_keys = report["flip_criteria_isolation_keys"]
     assert flip_keys["isolation_rewrite_with_wire"] == tlb.FLIP_CRITERION_REQUIRED
     assert (
@@ -331,7 +326,7 @@ def test_preflight_surfaces_design_contract_flag_and_blockers():
     assert pf["wire_shipped"] is False
     assert pf["dual_recovery_path"] is None
     assert CRITICAL_BLOCKERS.issubset(set(pf["wire_blockers"]))
-    assert "isolation_rewrite_required" in pf["wire_blockers"]
+    assert "isolation_rewrite_required" not in pf["wire_blockers"]
     assert pf.get("admm_case1_isolation_rewrite_design_contract_ok") is True
     readiness = pf["readiness"]
     expected = bool(
@@ -357,9 +352,9 @@ def test_form_contract_and_ladder_non_regression():
     contract = tlb.offline_case1_dual_space_form_contract_report()
     assert contract["ok"] is True
     assert contract["dual_linf_under_wire_status"] == "unproven"
-    assert contract["dual_linf_proof_checklist_n_open"] >= 4
+    assert contract["dual_linf_proof_checklist_n_open"] >= 3
     assert (
-        contract["dual_linf_proof_checklist"]["isolation_rewrite_with_wire"] == "open"
+        contract["dual_linf_proof_checklist"]["isolation_rewrite_with_wire"] == "shipped"
     )
     pool = tlb.offline_case1_honest_blender_pooling_path_report()
     assert pool["ok"] is True
@@ -386,7 +381,7 @@ def test_form_contract_and_ladder_non_regression():
     assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
     # design contract does not flip isolation checklist or ship rewrite
     design = tlb.offline_case1_isolation_rewrite_design_contract_report()
-    assert design["isolation_rewrite_with_wire"] == "open"
-    assert design["isolation_rewrite_shipped"] is False
+    assert design["isolation_rewrite_with_wire"] == "shipped"
+    assert design["isolation_rewrite_shipped"] is True
     assert design["gate_flip_allowed_today"] is False
     assert design["criteria_met_today"] is False
