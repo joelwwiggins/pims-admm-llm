@@ -98,6 +98,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_online_linf_gate_criteria_contract_available": True,
         "admm_case1_dual_linf_under_wire_criteria_contract_available": True,
         "admm_case1_dual_linf_proof_substrate_available": True,
+        "admm_case1_dual_recovery_under_tf_aware_form_path_available": True,
         "admm_case1_isolation_rewrite_design_contract_available": True,
         "admm_case1_wire_ship_acceptance_design_contract_available": True,
         "admm_case1_dual_honest_tf_aware_path_design_contract_available": True,
@@ -9837,11 +9838,218 @@ def _is_tf_affine_case1_wire_enabled() -> bool:
     """Internal alias for case1_tf_affine_wire_flag_enabled."""
     return case1_tf_affine_wire_flag_enabled()
 
+
+# Wire ship registry (PR-B dual-recovery path policy prep; still False).
+# Atomic dual_linf+wire co-ship is PR-C — do not flip this alone.
+CASE1_WIRE_SHIPPED_TODAY = False
+
+
+def case1_wire_shipped_today() -> bool:
+    """Return whether dual-honest TF Case 1 wire is shipped (hard default False)."""
+    return bool(CASE1_WIRE_SHIPPED_TODAY)
+
+
 # Planned dual_recovery_path label under a *future* TF-aware form when shipped.
 # Today TF surface dual_recovery_path remains None. Never pure-ADMM.
 CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED = (
     "online_lambda_under_tf_aware_form_when_shipped"
 )
+# Explicit ban: dual recovery under TF-aware form must never be pure-admm.
+CASE1_DUAL_RECOVERY_UNDER_TF_AWARE_FORM_FORBIDDEN_LABELS: tuple = (
+    "pure-admm",
+    "pure_admm",
+    "mono-oracle",
+    "mono_oracle",
+)
+
+
+def case1_tf_surface_dual_recovery_path(
+    *,
+    wire_shipped: Optional[bool] = None,
+    flag_enabled: Optional[bool] = None,
+) -> Optional[str]:
+    """Resolve TF-surface ``dual_recovery_path`` under wire+flag policy.
+
+    Returns the planned ``online_lambda_under_tf_aware_form_when_shipped`` label
+    only when **both** wire is shipped and the feature flag is enabled.
+    HEAD defaults: both False → ``None``.
+
+    Does **not** mutate module-level ``DUAL_RECOVERY_PATH`` (stays None for
+    honesty_metadata dual-ban). Never returns pure-admm / mono-oracle labels.
+    Does not import tensorflow. Does not run Case 1 solve.
+    """
+    shipped = (
+        bool(wire_shipped)
+        if wire_shipped is not None
+        else case1_wire_shipped_today()
+    )
+    enabled = (
+        bool(flag_enabled)
+        if flag_enabled is not None
+        else case1_tf_affine_wire_flag_enabled()
+    )
+    if not (shipped and enabled):
+        return None
+    label = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    if label in CASE1_DUAL_RECOVERY_UNDER_TF_AWARE_FORM_FORBIDDEN_LABELS:
+        return None  # pragma: no cover - planned label is never forbidden
+    if "pure" in label.lower() and "admm" in label.lower():
+        return None  # pragma: no cover
+    return label
+
+
+def case1_dual_recovery_under_tf_aware_form_path_spec() -> Dict[str, Any]:
+    """Machine-readable dual-recovery path policy under TF-aware form (not ship).
+
+    Documents how dual recovery **would** label when wire ships + flag on.
+    Today path is not active; module DUAL_RECOVERY_PATH remains None.
+    """
+    planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+    today = case1_tf_surface_dual_recovery_path()
+    return {
+        "kind": "case1_dual_recovery_under_tf_aware_form_path_spec",
+        "path_spec_present": True,
+        "path_active_today": False,
+        "dual_recovery_path_today": today,
+        "dual_recovery_path_module_constant": DUAL_RECOVERY_PATH,
+        "dual_recovery_path_planned_when_shipped": planned,
+        "activation_policy": "wire_shipped_and_flag_enabled",
+        "wire_shipped_today": case1_wire_shipped_today(),
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": case1_tf_affine_wire_flag_enabled(),
+        "forbidden_labels": list(
+            CASE1_DUAL_RECOVERY_UNDER_TF_AWARE_FORM_FORBIDDEN_LABELS
+        ),
+        "not_pure_admm": True,
+        "not_mono_oracle_injection_into_pure_admm": True,
+        "primary_online_lambda_owns_verdict": True,  # policy intent under wire
+        "package_dual_gate": "online_lambda",
+        "package_dual_secondary": "recovered_blender",
+        "form_planned": CASE1_PLANNED_TF_AWARE_FORM,
+        "form_current": CASE1_FORM_CURRENT,
+        "path_shipped": CASE1_PATH_SHIPPED_TODAY,
+        "dual_linf_under_wire_status": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "note": (
+            "Dual recovery under TF-aware form path policy: when wire_shipped and "
+            f"enable_tf_affine_case1_wire, dual_recovery_path becomes {planned} "
+            "(PRIMARY online λ owns VERDICT; never pure-admm; never mono dual "
+            "injection into pure-admm plant path). Today both gates False → "
+            "dual_recovery_path None; module DUAL_RECOVERY_PATH remains None."
+        ),
+    }
+
+
+def offline_case1_dual_recovery_under_tf_aware_form_path_report() -> Dict[str, Any]:
+    """Always-on dual-recovery path policy report (no ship / no flag enable).
+
+    Formalizes *how dual recovery labels under wire* without enabling flag or
+    shipping wire. ``path_spec_present=True``; ``path_active_today=False``;
+    dual_recovery_path today None; dual_linf unproven; wire_shipped False.
+    """
+    spec = case1_dual_recovery_under_tf_aware_form_path_spec()
+    # Policy probes (explicit kwargs) — do not mutate registry.
+    label_both = case1_tf_surface_dual_recovery_path(
+        wire_shipped=True, flag_enabled=True
+    )
+    label_flag_only = case1_tf_surface_dual_recovery_path(
+        wire_shipped=False, flag_enabled=True
+    )
+    label_wire_only = case1_tf_surface_dual_recovery_path(
+        wire_shipped=True, flag_enabled=False
+    )
+    label_neither = case1_tf_surface_dual_recovery_path(
+        wire_shipped=False, flag_enabled=False
+    )
+    planned = CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+
+    policy_ok = bool(
+        label_both == planned
+        and label_flag_only is None
+        and label_wire_only is None
+        and label_neither is None
+        and case1_tf_surface_dual_recovery_path() is None
+        and DUAL_RECOVERY_PATH is None
+        and planned not in CASE1_DUAL_RECOVERY_UNDER_TF_AWARE_FORM_FORBIDDEN_LABELS
+        and "pure" not in planned.lower()
+        and planned != "mono-oracle"
+    )
+    honesty_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and CASE1_WIRE_SHIPPED_TODAY is False
+        and CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY is False
+        and CASE1_DUAL_LINF_UNDER_WIRE_STATUS == "unproven"
+        and CASE1_PATH_SHIPPED_TODAY is True
+        and CASE1_FORM_LABEL_CHANGE_SHIPPED_TODAY is True
+    )
+    ok = policy_ok and honesty_ok and spec["path_spec_present"] is True
+
+    return {
+        "kind": "offline_case1_dual_recovery_under_tf_aware_form_path",
+        "path_spec_present": True,
+        "path_active_today": False,
+        "ok": ok,
+        "contract_ok": ok,
+        "policy_ok": policy_ok,
+        "honesty_ok": honesty_ok,
+        "solver": False,
+        "dual_recovery_path": None,
+        "dual_recovery_path_today": None,
+        "dual_recovery_path_module_constant": DUAL_RECOVERY_PATH,
+        "dual_recovery_path_planned_when_shipped": planned,
+        "dual_recovery_path_when_wire_and_flag": label_both,
+        "dual_recovery_path_when_flag_only": label_flag_only,
+        "dual_recovery_path_when_wire_only": label_wire_only,
+        "dual_recovery_path_when_neither": label_neither,
+        "activation_policy": "wire_shipped_and_flag_enabled",
+        "wire_shipped": False,
+        "wire_shipped_today": False,
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": False,
+        "not_pure_admm": True,
+        "not_mono_oracle_injection_into_pure_admm": True,
+        "forbidden_labels": list(
+            CASE1_DUAL_RECOVERY_UNDER_TF_AWARE_FORM_FORBIDDEN_LABELS
+        ),
+        "path_shipped": CASE1_PATH_SHIPPED_TODAY,
+        "dual_honest_tf_aware_path_present": (
+            CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIPPED_TODAY
+        ),
+        "form_label_change_shipped": CASE1_FORM_LABEL_CHANGE_SHIPPED_TODAY,
+        "form_current": CASE1_FORM_CURRENT,
+        "form_planned": CASE1_PLANNED_TF_AWARE_FORM,
+        "dual_linf_under_wire_status": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_allowed_today": False,
+        "bundle_shipped": False,
+        "on_excel_case1_path": False,
+        "path_is_not_wire_ship": True,
+        "path_is_not_dual_linf_proof": True,
+        "path_is_not_flag_enable": True,
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "spec": spec,
+        "note": (
+            "Offline Case-1 dual recovery under TF-aware form path policy: "
+            f"planned label {planned} activates only under wire_shipped∧flag. "
+            "Today path inactive; dual_recovery_path=None; flag False; "
+            "wire_shipped False; dual_linf unproven. Policy path ≠ wire ship ≠ "
+            "dual_linf proof ≠ flag enable ≠ VERDICT. Never pure-admm; never mono "
+            "dual injection into pure-admm. Module DUAL_RECOVERY_PATH remains None."
+        ),
+        "tf_available": tf_available(),
+        "dual_recovery_under_tf_aware_form_path_available": True,
+    }
+
+
+def case1_dual_recovery_under_tf_aware_form_path_report() -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_recovery_under_tf_aware_form_path_report``."""
+    return offline_case1_dual_recovery_under_tf_aware_form_path_report()
+
+
+def multi_unit_case1_dual_recovery_under_tf_aware_form_path_report() -> Dict[str, Any]:
+    """Alias for multi-unit registry symmetry."""
+    return offline_case1_dual_recovery_under_tf_aware_form_path_report()
 
 # Machine-readable path shape (pure metadata; does not execute maximizers).
 CASE1_DUAL_HONEST_TF_AWARE_PATH_SHAPE: Dict[str, Any] = {
@@ -26964,7 +27172,16 @@ __all__ = [
     "CASE1_DUAL_HONEST_TF_AWARE_PATH_DESIGN_CONTRACT_ANNOTATION",
     "CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME",
     "CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY",
+    "CASE1_WIRE_SHIPPED_TODAY",
+    "case1_wire_shipped_today",
+    "case1_tf_affine_wire_flag_enabled",
     "CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED",
+    "CASE1_DUAL_RECOVERY_UNDER_TF_AWARE_FORM_FORBIDDEN_LABELS",
+    "case1_tf_surface_dual_recovery_path",
+    "case1_dual_recovery_under_tf_aware_form_path_spec",
+    "offline_case1_dual_recovery_under_tf_aware_form_path_report",
+    "case1_dual_recovery_under_tf_aware_form_path_report",
+    "multi_unit_case1_dual_recovery_under_tf_aware_form_path_report",
     "CASE1_DUAL_HONEST_TF_AWARE_PATH_SHAPE",
     "CASE1_DUAL_HONEST_TF_AWARE_PATH_ANTI_CRITERIA_TODAY",
     "case1_dual_honest_tf_aware_path_shape",
