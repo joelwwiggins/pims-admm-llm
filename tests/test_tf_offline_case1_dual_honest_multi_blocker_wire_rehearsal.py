@@ -60,7 +60,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -103,7 +102,7 @@ def test_checklist_stays_open_and_dual_linf_unproven():
     assert "isolation_rewrite_with_wire" not in cl["dual_linf_proof_checklist_open_ids"]
     assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 3
+    assert cl["dual_linf_proof_checklist_n_open"] >= 2
 
 
 def test_report_always_on_honesty_locks():
@@ -127,18 +126,18 @@ def test_report_always_on_honesty_locks():
     assert report["bundle_ship_allowed_today"] is False
     assert report["criteria_met_today"] is False
     assert report["isolation_rewrite_shipped"] is True
-    assert report["form_label_change_shipped"] is False
+    assert report["form_label_change_shipped"] is True
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
     assert report["not_case1_solve"] is True
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
     assert report["wire_ship_allowed_today"] is False
     assert report["ship_met_allowed_today"] is False
     assert report["isolation_ship_allowed_today"] is True
-    assert report["form_label_ship_allowed_today"] is False
+    assert report["form_label_ship_allowed_today"] is True
     assert report["isolation_rewrite_with_wire"] == "shipped"
     assert report["isolation_rewrite_still_open"] is False
     assert report["isolation_rewrite_checklist_open"] is False
@@ -224,8 +223,8 @@ def test_coreq_status_matrix_keys_and_statuses():
     assert MATRIX_REQUIRED_KEYS.issubset(set(matrix.keys()))
     assert matrix["isolation_rewrite_with_wire"]["status"] == "shipped"
     assert matrix["isolation_rewrite_shipped"]["value"] is True
-    assert matrix["form_label_change_shipped"]["value"] is False
-    assert matrix["form_current"]["value"] == "classic_2block_excel_path"
+    assert matrix["form_label_change_shipped"]["value"] is True
+    assert matrix["form_current"]["value"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert matrix["online_linf_gate_under_tf_path"]["status"] == "open"
     assert matrix["dual_linf_under_wire"]["status"] == "unproven"
     assert matrix["dual_honest_tf_aware_path_present"]["value"] is False
@@ -270,7 +269,7 @@ def test_multi_blocker_coreq_visibility_without_flip():
     coreqs = report["multi_blocker_coreqs"]
     assert coreqs["isolation_rewrite_with_wire"] == "shipped"
     assert coreqs["isolation_rewrite_shipped"] is True
-    assert coreqs["form_label_change_shipped"] is False
+    assert coreqs["form_label_change_shipped"] is True
     assert coreqs["dual_honest_tf_aware_path_present"] is False
     assert coreqs["dual_linf_under_wire"] == "unproven"
     assert coreqs["online_linf_gate_under_tf_path"] == "open"
@@ -529,7 +528,7 @@ def test_form_contract_and_ladder_non_regression():
     design = tlb.offline_case1_isolation_rewrite_design_contract_report()
     assert design["isolation_rewrite_with_wire"] == "shipped"
     assert design["isolation_rewrite_shipped"] is True
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
     ws = tlb.offline_case1_wire_ship_acceptance_design_contract_report()
     assert ws["wire_ship_allowed_today"] is False
     assert ws["wire_shipped"] is False
@@ -551,7 +550,7 @@ def test_form_contract_and_ladder_non_regression():
     assert scaffold["wire_shipped"] is False
     assert scaffold["bundle_shipped"] is False
     assert scaffold["isolation_rewrite_shipped"] is True
-    assert scaffold["form_label_change_shipped"] is False
+    assert scaffold["form_label_change_shipped"] is True
     assert scaffold["dual_linf_under_wire_status"] == "unproven"
     rehearsal = tlb.offline_case1_dual_honest_multi_blocker_wire_rehearsal_report()
     assert rehearsal["rehearsal_present"] is True
@@ -559,5 +558,5 @@ def test_form_contract_and_ladder_non_regression():
     assert rehearsal["wire_shipped"] is False
     assert rehearsal["bundle_shipped"] is False
     assert rehearsal["isolation_rewrite_shipped"] is True
-    assert rehearsal["form_label_change_shipped"] is False
+    assert rehearsal["form_label_change_shipped"] is True
     assert rehearsal["dual_linf_under_wire_status"] == "unproven"

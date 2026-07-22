@@ -45,7 +45,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -77,16 +76,16 @@ def test_report_always_on_honesty_locks():
     assert report["wire_shipped"] is False
     assert report["path_shipped"] is False
     assert report["bundle_shipped"] is False
-    assert report["form_label_change_shipped"] is False
+    assert report["form_label_change_shipped"] is True
     assert report["isolation_rewrite_shipped"] is True
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
     assert report["not_case1_solve"] is True
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
-    assert report["form_label_change_required_still_true"] is True
+    assert report["form_label_change_required_still_true"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
     assert report["dual_linf_proof_allowed_today"] is False
@@ -121,7 +120,7 @@ def test_report_always_on_honesty_locks():
     assert "BLENDER" not in tlb.UNITS
     assert list(tlb.UNITS) == ["FCC", "COKER", "CDU"]
     assert report["units_affine_unchanged"] == ["FCC", "COKER", "CDU"]
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert report["first_blocking_ok"] is True
     assert report["feature_flag_enabled_today"] is False
     assert report["suggested_next_wave_still_full_wire"] is True
@@ -166,7 +165,7 @@ def test_proof_permission_hard_false():
     met = tlb.case1_dual_linf_under_wire_criteria_met_today_map()
     assert met["isolation_rewrite_with_wire"] is True
     assert met["wire_shipped"] is False
-    assert met["form_label_change_shipped"] is False
+    assert met["form_label_change_shipped"] is True
     assert met["dual_honest_tf_aware_path_under_wire"] is False
     # Some structural labels may be True; aggregate still False
     assert met["dual_recovery_path_labeled_honestly_under_wire"] is True
@@ -363,7 +362,7 @@ def test_go_board_prep_artifacts_include_dual_linf_criteria():
     assert bp["ok"] is True
     arts = (bp.get("file_level_prep_map") or {}).get("dual_linf_under_wire_proven", [])
     assert any("dual_linf_under_wire_criteria_contract" in str(a) for a in arts)
-    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
+    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     # status remains unproven
     go = tlb.case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board()
     rows = go.get("order_hint_rows") or go.get("rows") or []
@@ -389,7 +388,6 @@ def test_negative_ship_flags_never_true():
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
-        "form_label_change_shipped",
         "feature_flag_enabled_today",
         "criteria_met_today",
         "dual_linf_proof_allowed_today",
@@ -409,9 +407,9 @@ def test_online_linf_gate_and_ladder_non_regression():
     assert online["gate_flip_allowed_today"] is False
     prep = tlb.offline_case1_isolation_rewrite_first_blocker_operational_prep_report()
     assert prep["ok"] is True
-    assert prep["first_blocking_coreq"] == "form_label_change_shipped"
+    assert prep["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert prep["isolation_rewrite_shipped"] is True
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
     cl = tlb.case1_dual_linf_proof_checklist()
     assert cl["dual_linf_under_wire_status"] == "unproven"
     assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]

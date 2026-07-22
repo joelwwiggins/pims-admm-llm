@@ -239,9 +239,10 @@ def test_isolation_suite_dual_path_flag_false_keeps_classic_isolation():
     assert met["isolation_rewrite_shipped"] is True
     assert met["isolation_rewrite_with_wire"] is True
     assert met["wire_shipped"] is False
-    assert met["form_label_change_shipped"] is False
+    assert met.get("form_label_change_shipped") is True  # form may ship after isolation
+    assert met["wire_shipped"] is False
     assert tlb.case1_isolation_ship_allowed_today() is True
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
 
 
 def test_isolation_suite_flag_true_gated_does_not_pollute_excel_or_claim_wire(
@@ -327,14 +328,14 @@ def test_isolation_rewrite_shipped_honesty_and_first_blocking_advanced():
     assert fb["first_blocking_coreq"] != "isolation_rewrite_with_wire" or fb[
         "first_blocking_coreq_status"
     ] == "shipped"
-    assert fb["first_blocking_coreq"] == "form_label_change_shipped"
+    assert fb["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert fb["first_blocking_coreq_status"] == "false_today"
     assert fb.get("wire_shipped", fb["status_snapshot"].get("wire_shipped")) is False or (
         fb["status_snapshot"]["wire_shipped"] is False
     )
     assert fb["status_snapshot"]["wire_shipped"] is False
     assert fb["status_snapshot"]["isolation_rewrite_shipped"] is True
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
     cl = tlb.case1_dual_linf_proof_checklist()
     assert cl["dual_linf_proof_checklist"]["isolation_rewrite_with_wire"] == "shipped"
     assert "isolation_rewrite_with_wire" not in cl["dual_linf_proof_checklist_open_ids"]

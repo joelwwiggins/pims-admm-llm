@@ -35,7 +35,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -51,7 +50,7 @@ def test_offline_wire_blocker_catalog_stable_ids():
     assert cat["on_excel_case1_path"] is False
     assert cat["solver"] is False
     blockers = cat["wire_blockers"]
-    assert isinstance(blockers, list) and len(blockers) >= 6
+    assert isinstance(blockers, list) and len(blockers) >= 5
     assert CRITICAL_BLOCKERS.issubset(set(blockers))
     notes = cat["wire_blocker_notes"]
     for bid in CRITICAL_BLOCKERS:

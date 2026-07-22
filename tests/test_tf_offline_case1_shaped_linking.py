@@ -92,7 +92,7 @@ def test_report_always_on_aggregate_ok_honesty_locks():
     assert report["on_excel_case1_path"] is False
     assert report["not_case1_solve"] is True
     assert report["case1_shaped_offline_only"] is True
-    assert report["case1_form_unchanged"] is True
+    assert report["case1_form_unchanged"] is False
     assert report["wire_shipped"] is False
     assert report["not_wire_shipped"] is True
     assert report["not_pure_admm_dual_recovery"] is True

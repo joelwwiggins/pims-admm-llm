@@ -60,7 +60,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -96,7 +95,7 @@ def test_checklist_stays_open_and_dual_linf_unproven():
         tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["isolation_rewrite_with_wire"] == "shipped"
     )
     assert (
-        tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["form_label_change_shipped"] == "open"
+        tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["form_label_change_shipped"] == "shipped"
     )
     assert (
         tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["online_linf_gate_under_tf_path"]
@@ -104,10 +103,10 @@ def test_checklist_stays_open_and_dual_linf_unproven():
     )
     cl = tlb.case1_dual_linf_proof_checklist()
     assert "isolation_rewrite_with_wire" not in cl["dual_linf_proof_checklist_open_ids"]
-    assert "form_label_change_shipped" in cl["dual_linf_proof_checklist_open_ids"]
+    assert "form_label_change_shipped" not in cl["dual_linf_proof_checklist_open_ids"]
     assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 3
+    assert cl["dual_linf_proof_checklist_n_open"] >= 2
 
 
 def test_flip_criteria_map_keys_and_classes():
@@ -192,8 +191,8 @@ def test_report_always_on_honesty_locks():
     assert report["path_shipped"] is False
     assert report["dual_honest_tf_aware_path_present"] is False
     assert report["ship_met_allowed_today"] is False
-    assert report["form_label_change_shipped"] is False
-    assert report["form_label_ship_allowed_today"] is False
+    assert report["form_label_change_shipped"] is True
+    assert report["form_label_ship_allowed_today"] is True
     assert report["isolation_rewrite_shipped"] is True
     assert report["isolation_ship_allowed_today"] is True
     assert report["wire_shipped"] is False
@@ -201,8 +200,8 @@ def test_report_always_on_honesty_locks():
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
     assert report["not_case1_solve"] is True
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
     assert report["isolation_rewrite_with_wire"] == "shipped"
@@ -257,8 +256,8 @@ def test_report_always_on_honesty_locks():
     assert report["suggested_next_wave_still_full_wire"] is True
     assert report["cdu_surface"] == "offline_affine_base_delta"
     assert report["blender_surface"] == "linear_quality_pooling"
-    assert report["form_label_change_still_open"] is True
-    assert report["form_label_change_shipped_checklist"] == "open"
+    assert report["form_label_change_still_open"] is False
+    assert report["form_label_change_shipped_checklist"] == "shipped"
 
 
 def test_permission_architecture_hard_false_with_structural_trues():
@@ -280,7 +279,7 @@ def test_permission_architecture_hard_false_with_structural_trues():
     assert met["isolation_rewrite_with_wire"] is True
     assert met["isolation_rewrite_shipped"] is True
     assert met["isolation_tests_rewritten_with_wire_not_deleted"] is True
-    assert met["form_label_change_shipped"] is False
+    assert met["form_label_change_shipped"] is True
     assert met["dual_honest_tf_aware_path_present"] is False
     assert met["dual_linf_under_wire_proven"] is False
     assert met["online_linf_gate_under_tf_path"] is False
@@ -329,7 +328,7 @@ def test_critical_blockers_still_present():
     assert CRITICAL_BLOCKERS.issubset(set(tlb.DEFAULT_WIRE_BLOCKERS))
     assert "no_blender_offline_affine_kernel" in tlb.DEFAULT_WIRE_BLOCKERS
     assert "isolation_rewrite_required" not in tlb.DEFAULT_WIRE_BLOCKERS
-    assert "form_label_change_required" in tlb.DEFAULT_WIRE_BLOCKERS
+    assert "form_label_change_required" not in tlb.DEFAULT_WIRE_BLOCKERS
     assert "wire_not_shipped" in tlb.DEFAULT_WIRE_BLOCKERS
     assert (
         "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp"
@@ -337,7 +336,7 @@ def test_critical_blockers_still_present():
     )
     assert report["blockers_still_documented"] is True
     assert report.get("isolation_rewrite_required_in_default_wire_blockers", False) is False
-    assert report["form_label_change_required_in_default_wire_blockers"] is True
+    assert report["form_label_change_required_in_default_wire_blockers"] is False
     assert report["no_blender_offline_affine_kernel_in_default_wire_blockers"] is True
     assert report["wire_not_shipped_blocker_still_true"] is True
     assert report["dual_linf_under_wire_unproven_blocker_still_true"] is True
@@ -549,7 +548,7 @@ def test_preflight_surfaces_bundle_ship_criteria_contract_flag_and_blockers():
     assert pf["wire_shipped"] is False
     assert pf["dual_recovery_path"] is None
     assert CRITICAL_BLOCKERS.issubset(set(pf["wire_blockers"]))
-    assert "form_label_change_required" in pf["wire_blockers"]
+    assert "form_label_change_required" not in pf["wire_blockers"]
     assert "isolation_rewrite_required" not in pf["wire_blockers"]
     assert (
         pf.get(
@@ -601,7 +600,7 @@ def test_form_contract_and_ladder_non_regression():
     contract = tlb.offline_case1_dual_space_form_contract_report()
     assert contract["ok"] is True
     assert contract["dual_linf_under_wire_status"] == "unproven"
-    assert contract["dual_linf_proof_checklist_n_open"] >= 3
+    assert contract["dual_linf_proof_checklist_n_open"] >= 2
     pool = tlb.offline_case1_honest_blender_pooling_path_report()
     assert pool["ok"] is True
     assert pool["dual_linf_under_wire_status"] == "unproven"
@@ -628,7 +627,7 @@ def test_form_contract_and_ladder_non_regression():
     assert design["isolation_rewrite_shipped"] is True
     assert design["gate_flip_allowed_today"] is False
     assert design["criteria_met_today"] is False
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
     ws = tlb.offline_case1_wire_ship_acceptance_design_contract_report()
     assert ws["wire_ship_allowed_today"] is False
     assert ws["wire_shipped"] is False
@@ -647,9 +646,9 @@ def test_form_contract_and_ladder_non_regression():
     assert ship_met["wire_shipped"] is False
     assert ship_met["criteria_met_today_map"]["isolation_rewrite_with_wire"] is True
     form_label = tlb.offline_case1_form_label_change_shipped_criteria_contract_report()
-    assert form_label["form_label_change_shipped"] is False
-    assert form_label["form_label_ship_allowed_today"] is False
-    assert form_label["form_current"] == "classic_2block_excel_path"
+    assert form_label["form_label_change_shipped"] is True
+    assert form_label["form_label_ship_allowed_today"] is True
+    assert form_label["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert form_label["criteria_present"] is True
     isolation_ship = (
         tlb.offline_case1_isolation_rewrite_shipped_criteria_contract_report()

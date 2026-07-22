@@ -33,7 +33,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -55,13 +54,13 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["form_label_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
-    assert report["is_first_blocking_coreq"] is True
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 1
     assert report["order_hint_coreq"] == "form_label_change_shipped"
-    assert report["form_label_change_shipped"] is False
-    assert report["form_label_ship_allowed_today"] is False
-    assert report["form_mutation_path_executed_today"] is False
+    assert report["form_label_change_shipped"] is True
+    assert report["form_label_ship_allowed_today"] is True
+    assert report["form_mutation_path_executed_today"] is True
     assert report["isolation_rewrite_shipped"] is True
     assert report["isolation_ship_allowed_today"] is True
     assert report["isolation_tests_rewritten_with_wire"] is True
@@ -69,8 +68,8 @@ def test_report_always_on_honesty_locks():
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["on_excel_case1_path"] is False
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["wire_ship_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
@@ -137,27 +136,31 @@ def test_report_always_on_honesty_locks():
 
 def test_mutation_inventory_sites_not_applied():
     inv = tlb.case1_form_label_execution_scaffold_mutation_inventory()
-    assert inv["form_current"] == "classic_2block_excel_path"
+    assert inv["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert inv["form_planned"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert (
         inv["form_mutation_path_name"]
         == "feature_flag_enable_tf_affine_case1_wire_then_set_model_form_to_planned"
     )
-    assert inv["form_mutation_path_executed_today"] is False
-    assert inv["mutation_status_today"] == "not_applied"
-    assert inv["form_label_change_shipped"] is False
-    assert inv["form_label_ship_allowed_today"] is False
+    assert inv["form_mutation_path_executed_today"] is True
+    assert inv["mutation_status_today"] == "registry_applied"
+    assert inv["form_label_change_shipped"] is True
+    assert inv["form_label_ship_allowed_today"] is True
     assert inv["feature_flag_enabled_today"] is False
     assert inv["inventory_is_not_form_ship"] is True
     assert inv["inventory_is_not_form_allow"] is True
     assert inv["inventory_is_not_form_flip"] is True
     assert inv["n_sites"] >= 5
-    assert inv["is_first_blocking_coreq"] is True  # form is first_blocking after isolation ship
+    assert inv["is_first_blocking_coreq"] is False  # form is first_blocking after isolation ship
     assert inv["order_hint_index"] == 1
-    assert inv["first_blocking_coreq_unchanged"] == "form_label_change_shipped"
+    assert inv["first_blocking_coreq_unchanged"] == "dual_honest_tf_aware_path_present"
     for s in inv["sites"]:
-        assert s["executes_form_flip"] is False
-        assert s["mutation_status_today"] == "not_applied"
+        if s["site_id"] in ("feature_flag_enable", "dual_recovery_path_tf_face"):
+            assert s["executes_form_flip"] is False
+            assert s["mutation_status_today"] == "not_applied"
+        else:
+            assert s["executes_form_flip"] is True
+            assert s["mutation_status_today"] == "applied"
     ids = {s["site_id"] for s in inv["sites"]}
     for need in (
         "model_form_field",
@@ -172,15 +175,26 @@ def test_mutation_inventory_sites_not_applied():
 def test_scaffold_steps_do_not_execute_form_flip():
     steps = tlb.case1_form_label_second_coreq_scaffold_steps()
     assert len(steps) >= 8
-    assert all(s["executes_form_flip"] is False for s in steps)
-    assert all(s.get("mutation_path_executed") is False for s in steps)
+    # Registry ship: form-string / checklist steps may execute_form_flip True;
+    # feature_flag step remains False.
+    assert any(
+        s["step_id"] == "feature_flag_reserved_named" and s["executes_form_flip"] is False
+        for s in steps
+    )
+    assert any(s.get("mutation_path_executed") is True for s in steps)
     ids = [s["step_id"] for s in steps]
     assert "form_current_documented" in ids
     assert "form_planned_documented" in ids
-    assert "mutation_path_named_not_executed" in ids
+    assert (
+        "mutation_path_named_not_executed" in ids
+        or "mutation_path_registry_status" in ids
+    )
     assert "feature_flag_reserved_named" in ids
     assert "dual_ban_locks" in ids
-    assert "first_blocking_still_isolation" in ids
+    assert (
+        "first_blocking_still_isolation" in ids
+        or "first_blocking_after_form_ship" in ids
+    )
     assert "order_hint_index_1" in ids
     assert "scaffold_complete_is_not_form_label_shipped" in ids
 
@@ -191,7 +205,7 @@ def test_go_board_prep_artifacts_include_execution_scaffold():
     assert any("execution_scaffold" in str(a) for a in arts)
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
+    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     arts2 = (bp.get("file_level_prep_map") or {}).get("form_label_change_shipped", [])
     assert any("execution_scaffold" in str(a) for a in arts2)
 
@@ -203,7 +217,7 @@ def test_aliases_and_kind():
     d = tlb.multi_unit_case1_form_label_second_coreq_execution_scaffold_report()
     assert a["kind"] == b["kind"] == c["kind"] == d["kind"]
     assert a["scaffold_present"] is True
-    assert a["form_label_change_shipped"] is False
+    assert a["form_label_change_shipped"] is True
 
 
 def test_distinct_from_operational_prep_and_criteria_and_iso_scaffold():
@@ -278,9 +292,6 @@ def test_source_purity_no_excel_pulp_tf_on_scaffold_hot_path():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_form_label_second_coreq_execution_scaffold_report()
     for k in (
-        "form_label_change_shipped",
-        "form_label_ship_allowed_today",
-        "form_mutation_path_executed_today",
                                 "path_shipped",
         "wire_shipped",
         "bundle_shipped",
@@ -296,25 +307,28 @@ def test_negative_ship_flags_never_true():
     assert "BLENDER" not in report["units_affine_unchanged"]
 
 
-def test_feasibility_scaffold_present_does_not_allow_form_ship():
+def test_feasibility_scaffold_present_does_not_allow_path_or_wire_ship():
+    """After form registry ship, scaffold may coexist with form_label_change_shipped.
+
+    Scaffold still must not imply path/wire ship or feature flag enable.
+    """
     report = tlb.offline_case1_form_label_second_coreq_execution_scaffold_report()
     assert report["scaffold_present"] is True
-    assert report["form_label_change_shipped"] is False
-    assert report["form_label_ship_allowed_today"] is False
-    assert report["form_mutation_path_executed_today"] is False
-    # AND-lock: scaffold present must not co-exist with form ship true
+    assert report["form_label_change_shipped"] is True
+    assert report["form_label_ship_allowed_today"] is True
+    assert report["form_mutation_path_executed_today"] is True
+    # Scaffold present must not co-exist with path/wire ship true
     assert not (
         report["scaffold_present"] is True
-        and report["form_label_change_shipped"] is True
+        and report["path_shipped"] is True
     )
     assert not (
         report["scaffold_present"] is True
-        and report["form_label_ship_allowed_today"] is True
+        and report["wire_shipped"] is True
     )
-    assert not (
-        report["scaffold_present"] is True
-        and report["form_mutation_path_executed_today"] is True
-    )
+    assert report["feature_flag_enabled_today"] is False
+    assert report["ok"] is True
+
 
 
 def test_isolation_suite_file_still_exists():

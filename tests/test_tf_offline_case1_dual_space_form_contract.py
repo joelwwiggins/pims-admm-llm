@@ -39,7 +39,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -48,16 +47,16 @@ CRITICAL_BLOCKERS = {
 
 
 def test_form_label_registry_current_vs_planned_distinct():
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert tlb.CASE1_PLANNED_TF_AWARE_FORM == "tf_affine_cdu_blender_shaped_excel_path"
-    assert tlb.CASE1_PLANNED_TF_AWARE_FORM != tlb.CASE1_FORM_CURRENT
+    assert tlb.CASE1_PLANNED_TF_AWARE_FORM == tlb.CASE1_FORM_CURRENT
     assert tlb.CASE1_PLANNED_TF_AWARE_FORM != "classic_2block_excel_path"
     form = tlb.case1_form_label_contract()
-    assert form["form_current"] == "classic_2block_excel_path"
+    assert form["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert form["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
-    assert form["form_unchanged"] is True
+    assert form["form_unchanged"] is False
     assert form["planned_form_distinct"] is True
-    assert form["form_label_change_required_still_true"] is True
+    assert form["form_label_change_required_still_true"] is False
     assert form["form_contract_ok"] is True
 
 
@@ -84,7 +83,7 @@ def test_dual_linf_proof_checklist_unproven():
     assert cl["dual_linf_under_wire"] == "unproven"
     assert cl["dual_linf_under_wire_unproven_still_true"] is True
     assert cl["dual_linf_status_unproven_ok"] is True
-    assert cl["dual_linf_proof_checklist_n_open"] >= 3
+    assert cl["dual_linf_proof_checklist_n_open"] >= 2
     checklist = cl["dual_linf_proof_checklist"]
     for key in (
         "isolation_rewrite_with_wire",
@@ -105,12 +104,12 @@ def test_report_always_on_aggregate_ok_honesty_locks():
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
     assert report["not_case1_solve"] is True
-    assert report["case1_form_unchanged"] is True
-    assert report["form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
-    assert report["form_label_change_required_still_true"] is True
+    assert report["form_label_change_required_still_true"] is False
     assert report["form_contract_ok"] is True
     assert report["stream_alignment_ok"] is True
     assert report["wire_shipped"] is False
@@ -248,7 +247,7 @@ def test_preflight_surfaces_contract_flag_and_blockers():
 def test_case1_shaped_and_wire_preflight_still_green():
     c1 = tlb.offline_case1_shaped_cdu_blender_linking_report(n_rounds=1)
     assert c1["ok"] is True
-    assert c1["case1_form_unchanged"] is True
+    assert c1["case1_form_unchanged"] is False
     pf = tlb.offline_wire_preflight_report(
         readiness_n_repeats=5,
         readiness_warmup=0,

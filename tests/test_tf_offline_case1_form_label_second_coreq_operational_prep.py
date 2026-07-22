@@ -34,7 +34,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -54,14 +53,14 @@ def test_report_always_on_honesty_locks():
     assert report["prep_present"] is True
     assert report["form_label_second_coreq_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 1
     assert report["order_hint_coreq"] == "form_label_change_shipped"
-    assert report["form_label_change_shipped"] is False
-    assert report["form_label_ship_allowed_today"] is False
-    assert report["criteria_met_today"] is False
-    assert report["form_mutation_path_executed_today"] is False
+    assert report["form_label_change_shipped"] is True
+    assert report["form_label_ship_allowed_today"] is True
+    assert report["criteria_met_today"] is False  # prep criteria_met is not form ship aggregate
+    assert report["form_mutation_path_executed_today"] is True
     assert (
         report["form_mutation_path_name"]
         == tlb.CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
@@ -71,8 +70,8 @@ def test_report_always_on_honesty_locks():
     assert report["bundle_shipped"] is False
     assert report["isolation_rewrite_shipped"] is True
     assert report["on_excel_case1_path"] is False
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["isolation_ship_allowed_today"] is True
     assert report["wire_ship_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
@@ -130,7 +129,7 @@ def test_companion_inventory_only():
         m["form_mutation_path_name"]
         == tlb.CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
     )
-    assert m["form_mutation_path_executed_today"] is False
+    assert m["form_mutation_path_executed_today"] is True
     assert "CASE1_FORM_CURRENT" in m["form_registration_constants"]
     assert "form_label_change_shipped_criteria_contract" in m[
         "form_label_ship_criteria_report"
@@ -164,7 +163,7 @@ def test_aliases_and_kind():
     c = tlb.multi_unit_case1_form_label_second_coreq_operational_prep_report()
     assert a["kind"] == b["kind"] == c["kind"]
     assert a["prep_present"] is True
-    assert a["form_label_change_shipped"] is False
+    assert a["form_label_change_shipped"] is True
 
 
 def test_distinct_from_form_label_ship_criteria_contract():
@@ -173,8 +172,8 @@ def test_distinct_from_form_label_ship_criteria_contract():
     assert prep["kind"] != crit["kind"]
     assert prep["kind"] == "offline_case1_form_label_second_coreq_operational_prep"
     assert crit["kind"] == "offline_case1_form_label_change_shipped_criteria_contract"
-    assert prep["form_label_change_shipped"] is False
-    assert crit["form_label_change_shipped"] is False
+    assert prep["form_label_change_shipped"] is True
+    assert crit["form_label_change_shipped"] is True
     assert prep["distinct_from_form_label_change_shipped_criteria_contract"] is True
 
 
@@ -241,7 +240,7 @@ def test_isolation_suite_file_still_exists():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
+    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     arts = (bp.get("file_level_prep_map") or {}).get("form_label_change_shipped", [])
     assert any(
         "operational_prep" in str(a) or "form_label_second_coreq" in str(a)
@@ -252,9 +251,6 @@ def test_blueprint_non_regression_still_green():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_form_label_second_coreq_operational_prep_report()
     for k in (
-        "form_label_change_shipped",
-        "form_label_ship_allowed_today",
-        "form_mutation_path_executed_today",
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
