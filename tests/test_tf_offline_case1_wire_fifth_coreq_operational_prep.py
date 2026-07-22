@@ -35,7 +35,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -52,7 +51,7 @@ def test_report_always_on_honesty_locks():
     assert report["prep_present"] is True
     assert report["wire_fifth_coreq_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 4
     assert report["order_hint_coreq"] == "wire_shipped"
@@ -76,10 +75,10 @@ def test_report_always_on_honesty_locks():
     )
     assert report["bundle_shipped"] is False
     assert report["isolation_rewrite_shipped"] is True
-    assert report["form_label_change_shipped"] is False
+    assert report["form_label_change_shipped"] is True
     assert report["on_excel_case1_path"] is False
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["isolation_ship_allowed_today"] is True
     assert report["prep_is_not_wire_shipped"] is True
     assert report["prep_is_not_wire_ship_allow"] is True
@@ -262,7 +261,7 @@ def test_isolation_suite_file_still_exists():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
+    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     arts = (bp.get("file_level_prep_map") or {}).get("wire_shipped", [])
     assert any(
         "operational_prep" in str(a) or "wire_fifth_coreq" in str(a) for a in arts
@@ -276,8 +275,6 @@ def test_negative_ship_and_proof_flags_never_true():
         "dual_honest_tf_aware_path_present",
         "ship_met_allowed_today",
         "path_present_criteria_met_today",
-        "form_label_change_shipped",
-        "form_label_ship_allowed_today",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",
@@ -298,7 +295,7 @@ def test_ladder_non_regression_prior_preps():
     form = tlb.offline_case1_form_label_second_coreq_operational_prep_report()
     assert form["ok"] is True
     assert form["prep_present"] is True
-    assert form["form_label_change_shipped"] is False
+    assert form["form_label_change_shipped"] is True
     iso = tlb.offline_case1_isolation_rewrite_first_blocker_operational_prep_report()
     assert iso["ok"] is True
     assert iso["prep_present"] is True

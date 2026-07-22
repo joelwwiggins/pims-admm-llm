@@ -42,7 +42,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -139,9 +138,9 @@ def test_probe_report_honesty_locks_and_unproven():
     assert report["online_linf_gate_under_tf_path_open"] is True
     assert report["package_dual_gate"] == "online_lambda"
     assert report["package_dual_secondary"] == "recovered_blender"
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
-    assert report["case1_form_unchanged"] is True
+    assert report["case1_form_unchanged"] is False
     assert report["excel_cdu_matrix_matches_affine"] is None
     assert report["excel_blender_matrix_matches_affine"] is None
     assert report["does_not_clear_default_wire_blockers"] is True
@@ -234,7 +233,7 @@ def test_critical_blockers_still_present_after_probe_ok():
     assert CRITICAL_BLOCKERS.issubset(set(tlb.DEFAULT_WIRE_BLOCKERS))
     assert report["dual_linf_under_wire_unproven_blocker_still_true"] is True
     assert report["wire_not_shipped_blocker_still_true"] is True
-    assert "form_label_change_required" in blockers
+    assert "form_label_change_required" not in blockers
     assert "isolation_rewrite_required" not in blockers
 
 

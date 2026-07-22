@@ -45,7 +45,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -73,7 +72,7 @@ def test_checklist_gate_stays_open():
     cl = tlb.case1_dual_linf_proof_checklist()
     assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 3
+    assert cl["dual_linf_proof_checklist_n_open"] >= 2
     for key in (
         "isolation_rewrite_with_wire",
         "form_label_change_shipped",
@@ -95,11 +94,11 @@ def test_report_always_on_honesty_locks():
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
     assert report["not_case1_solve"] is True
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
-    assert report["form_label_change_required_still_true"] is True
+    assert report["form_label_change_required_still_true"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
     assert report["gate_flip_allowed_today"] is False
@@ -167,7 +166,7 @@ def test_gate_flip_permission_hard_false():
     assert met["online_lambda_owns_verdict_gate"] is True
     assert met["isolation_rewrite_with_wire"] is True
     assert met["wire_shipped"] is False
-    assert met["form_label_change_shipped"] is False
+    assert met["form_label_change_shipped"] is True
     report = tlb.offline_case1_online_linf_gate_criteria_contract_report()
     assert report["gate_flip_allowed_today"] is False
     assert report["criteria_met_today"] is False
@@ -354,7 +353,7 @@ def test_form_contract_and_ladder_non_regression():
     contract = tlb.offline_case1_dual_space_form_contract_report()
     assert contract["ok"] is True
     assert contract["dual_linf_under_wire_status"] == "unproven"
-    assert contract["dual_linf_proof_checklist_n_open"] >= 3
+    assert contract["dual_linf_proof_checklist_n_open"] >= 2
     assert (
         contract["dual_linf_proof_checklist"]["online_linf_gate_under_tf_path"]
         == "open"
@@ -377,7 +376,7 @@ def test_form_contract_and_ladder_non_regression():
     assert warm["warmstart_ok"] is True
     assert warm["dual_linf_under_wire_status"] == "unproven"
     # form still classic
-    assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
+    assert tlb.CASE1_FORM_CURRENT == tlb.CASE1_PLANNED_TF_AWARE_FORM
     # criteria contract does not flip gate
     crit = tlb.offline_case1_online_linf_gate_criteria_contract_report()
     assert crit["online_linf_gate_under_tf_path"] == "open"

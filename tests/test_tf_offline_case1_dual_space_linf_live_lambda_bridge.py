@@ -28,7 +28,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -208,7 +207,7 @@ def test_critical_blockers_still_present():
     blockers = set(report["wire_blockers"])
     assert CRITICAL_BLOCKERS.issubset(blockers)
     assert CRITICAL_BLOCKERS.issubset(set(tlb.DEFAULT_WIRE_BLOCKERS))
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert "BLENDER" not in tlb.UNITS
     assert list(tlb.UNITS) == ["FCC", "COKER", "CDU"]
 

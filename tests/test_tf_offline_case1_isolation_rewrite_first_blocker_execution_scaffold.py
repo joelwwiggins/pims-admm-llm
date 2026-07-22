@@ -33,7 +33,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -55,7 +54,7 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["isolation_rewrite_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 0
     assert report["isolation_rewrite_shipped"] is True
@@ -64,10 +63,10 @@ def test_report_always_on_honesty_locks():
     assert report["path_shipped"] is False
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
-    assert report["form_label_change_shipped"] is False
+    assert report["form_label_change_shipped"] is True
     assert report["on_excel_case1_path"] is False
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["wire_ship_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
     assert report["criteria_met_today"] is False  # scaffold criteria_met tracks non-isolation aggregate
@@ -175,7 +174,7 @@ def test_go_board_prep_artifacts_include_execution_scaffold():
     assert any("execution_scaffold" in str(a) for a in arts)
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
+    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     arts2 = (bp.get("file_level_prep_map") or {}).get("isolation_rewrite_with_wire", [])
     assert any("execution_scaffold" in str(a) for a in arts2)
 
@@ -265,7 +264,6 @@ def test_negative_ship_flags_never_true():
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
-        "form_label_change_shipped",
         "feature_flag_enabled_today",
         "wire_ship_allowed_today",
         "gate_flip_allowed_today",

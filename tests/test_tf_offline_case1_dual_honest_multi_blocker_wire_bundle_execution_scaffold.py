@@ -39,7 +39,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
@@ -57,7 +56,7 @@ def test_report_always_on_honesty_locks():
     assert report["execution_scaffold_present"] is True
     assert report["bundle_scaffold_present"] is True
     assert report["companion_bundle_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert report["is_first_blocking_coreq"] is False
     assert report["companion_not_order_hint_primary"] is True
     assert report["bundle_shipped"] is False
@@ -79,10 +78,10 @@ def test_report_always_on_honesty_locks():
         == tlb.CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME
     )
     assert report["isolation_rewrite_shipped"] is True
-    assert report["form_label_change_shipped"] is False
+    assert report["form_label_change_shipped"] is True
     assert report["on_excel_case1_path"] is False
-    assert report["case1_form_unchanged"] is True
-    assert report["form_current"] == "classic_2block_excel_path"
+    assert report["case1_form_unchanged"] is False
+    assert report["form_current"] == "tf_affine_cdu_blender_shaped_excel_path"
     assert report["scaffold_is_not_bundle_shipped"] is True
     assert report["scaffold_is_not_bundle_allow"] is True
     assert report["scaffold_is_not_bundle_land_executed"] is True
@@ -153,7 +152,7 @@ def test_how_bundle_land_composition_inventory():
     assert inv["composition_status_today"] == "not_executed"
     assert inv["inventory_ok"] is True
     assert inv["inventory_ok_is_not_bundle_ship_allowed"] is True
-    assert inv["first_blocking_coreq"] == "form_label_change_shipped"
+    assert inv["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert inv["is_first_blocking_coreq"] is False
     assert inv["companion_not_order_hint_primary"] is True
     assert inv["dual_recovery_path"] is None
@@ -321,8 +320,6 @@ def test_negative_ship_and_proof_flags_never_true():
     for k in (
         "path_shipped",
         "dual_honest_tf_aware_path_present",
-        "form_label_change_shipped",
-        "form_label_ship_allowed_today",
         "wire_shipped",
         "bundle_shipped",
         "bundle_ship_allowed_today",
@@ -378,7 +375,7 @@ def test_feasibility_scaffold_present_does_not_allow_bundle_ship():
     assert report["dual_linf_under_wire_status"] == "unproven"
     assert report["dual_linf_proof_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
-    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
     assert report["is_first_blocking_coreq"] is False
     assert report["companion_not_order_hint_primary"] is True
     assert report["order_hint_is_not_executor"] is True
