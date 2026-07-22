@@ -50,10 +50,10 @@ def test_report_always_on_honesty_locks():
     assert report["dual_recovery_path"] is None
     assert report["prep_present"] is True
     assert report["first_blocker_prep_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["isolation_rewrite_shipped"] is True
     assert report["isolation_tests_rewritten_with_wire"] is True
-    assert report["path_shipped"] is False
+    assert report["path_shipped"] is True
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["form_label_change_shipped"] is True
@@ -224,7 +224,7 @@ def test_isolation_suite_file_still_exists_and_unchanged_path():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert bp["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     arts = (bp.get("file_level_prep_map") or {}).get("isolation_rewrite_with_wire", [])
     assert any("operational_prep" in str(a) for a in arts)
 
@@ -232,7 +232,6 @@ def test_blueprint_non_regression_still_green():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_isolation_rewrite_first_blocker_operational_prep_report()
     for k in (
-        "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",

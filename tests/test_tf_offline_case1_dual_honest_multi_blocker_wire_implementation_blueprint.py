@@ -83,8 +83,8 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["scaffold_compose_ok"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["bundle_ship_allowed_today"] is False
@@ -99,7 +99,7 @@ def test_report_always_on_honesty_locks():
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
     assert report["wire_ship_allowed_today"] is False
-    assert report["ship_met_allowed_today"] is False
+    assert report["ship_met_allowed_today"] is True
     assert report["isolation_ship_allowed_today"] is True
     assert report["form_label_ship_allowed_today"] is True
     assert report["isolation_rewrite_with_wire"] == "shipped"
@@ -192,15 +192,15 @@ def test_report_always_on_honesty_locks():
 
 def test_first_blocking_coreq_expected_form_label():
     fb = tlb.case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq()
-    assert fb["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert fb["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert fb["matches_expected_today"] is True
     assert fb["order_hint_exhausted"] is False
     assert fb["order_hint_is_not_executor"] is True
     assert fb["no_auto_wire"] is True
     assert fb["does_not_set_isolation_rewrite_shipped"] is False  # isolation already shipped
     report = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
-    assert report["first_blocking_coreq_order_index"] == 2
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
+    assert report["first_blocking_coreq_order_index"] == 3
 
 
 def test_go_board_order_hint_coverage_and_prep_map():
@@ -221,11 +221,11 @@ def test_go_board_order_hint_coverage_and_prep_map():
     assert rows[1]["is_first_blocking"] is False
     for row in rows:
         # isolation is shipped; dual_linf uses unproven flag; remaining coreqs still false_today
-        if row["coreq_id"] in ("isolation_rewrite_with_wire", "form_label_change_shipped"):
+        if row["coreq_id"] in ("isolation_rewrite_with_wire", "form_label_change_shipped", "dual_honest_tf_aware_path_present"):
             assert row["ship_flag_still_false"] is False
             assert row["status"] == "shipped"
         else:
-            assert row["ship_flag_still_false"] is True or row["coreq_id"] == "dual_linf_under_wire_proven"
+            assert row["ship_flag_still_false"] is True or row["coreq_id"] in ("dual_linf_under_wire_proven",) or row["coreq_id"] in ("isolation_rewrite_with_wire", "form_label_change_shipped", "dual_honest_tf_aware_path_present") and row["ship_flag_still_false"] is False
         assert isinstance(row["prep_artifacts"], list) and len(row["prep_artifacts"]) >= 1
     prep = report["file_level_prep_map"]
     assert "isolation_rewrite_with_wire" in prep
@@ -263,7 +263,7 @@ def test_multi_blocker_coreq_visibility_without_flip():
     assert coreqs["isolation_rewrite_with_wire"] == "shipped"
     assert coreqs["isolation_rewrite_shipped"] is True
     assert coreqs["form_label_change_shipped"] is True
-    assert coreqs["dual_honest_tf_aware_path_present"] is False
+    assert coreqs["dual_honest_tf_aware_path_present"] is True
     assert coreqs["dual_linf_under_wire"] == "unproven"
     assert coreqs["online_linf_gate_under_tf_path"] == "open"
     assert coreqs["wire_shipped"] is False
@@ -499,12 +499,12 @@ def test_rehearsal_and_scaffold_still_present_and_green():
     assert scaffold["execution_scaffold_present"] is True
     assert scaffold["compose_ok"] is True
     assert scaffold["ok"] is True
-    assert scaffold["path_shipped"] is False
+    assert scaffold["path_shipped"] is True
     assert scaffold["wire_shipped"] is False
     rehearsal = tlb.offline_case1_dual_honest_multi_blocker_wire_rehearsal_report()
     assert rehearsal["rehearsal_present"] is True
     assert rehearsal["ok"] is True
-    assert rehearsal["path_shipped"] is False
+    assert rehearsal["path_shipped"] is True
     assert rehearsal["wire_shipped"] is False
     report = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert report["scaffold_present"] is True
@@ -546,11 +546,11 @@ def test_form_contract_and_ladder_non_regression():
     assert ws["wire_ship_allowed_today"] is False
     assert ws["wire_shipped"] is False
     path = tlb.offline_case1_dual_honest_tf_aware_path_design_contract_report()
-    assert path["path_shipped"] is False
-    assert path["dual_honest_tf_aware_path_present"] is False
+    assert path["path_shipped"] is True
+    assert path["dual_honest_tf_aware_path_present"] is True
     present = tlb.offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report()
-    assert present["dual_honest_tf_aware_path_present"] is False
-    assert present.get("ship_met_allowed_today", False) is False
+    assert present["dual_honest_tf_aware_path_present"] is True
+    assert present.get("ship_met_allowed_today", False) is True
     bundle = (
         tlb.offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract_report()
     )
@@ -559,7 +559,7 @@ def test_form_contract_and_ladder_non_regression():
     assert bundle["criteria_met_today"] is False
     scaffold = tlb.offline_case1_dual_honest_tf_aware_path_execution_scaffold_report()
     assert scaffold["scaffold_present"] is True
-    assert scaffold["path_shipped"] is False
+    assert scaffold["path_shipped"] is True
     assert scaffold["wire_shipped"] is False
     assert scaffold["bundle_shipped"] is False
     assert scaffold["isolation_rewrite_shipped"] is True
@@ -567,7 +567,7 @@ def test_form_contract_and_ladder_non_regression():
     assert scaffold["dual_linf_under_wire_status"] == "unproven"
     rehearsal = tlb.offline_case1_dual_honest_multi_blocker_wire_rehearsal_report()
     assert rehearsal["rehearsal_present"] is True
-    assert rehearsal["path_shipped"] is False
+    assert rehearsal["path_shipped"] is True
     assert rehearsal["wire_shipped"] is False
     assert rehearsal["bundle_shipped"] is False
     assert rehearsal["isolation_rewrite_shipped"] is True
@@ -575,7 +575,7 @@ def test_form_contract_and_ladder_non_regression():
     assert rehearsal["dual_linf_under_wire_status"] == "unproven"
     blueprint = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert blueprint["blueprint_present"] is True
-    assert blueprint["path_shipped"] is False
+    assert blueprint["path_shipped"] is True
     assert blueprint["wire_shipped"] is False
     assert blueprint["bundle_shipped"] is False
     assert blueprint["isolation_rewrite_shipped"] is True

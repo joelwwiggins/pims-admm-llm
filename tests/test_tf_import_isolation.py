@@ -328,8 +328,8 @@ def test_isolation_rewrite_shipped_honesty_and_first_blocking_advanced():
     assert fb["first_blocking_coreq"] != "isolation_rewrite_with_wire" or fb[
         "first_blocking_coreq_status"
     ] == "shipped"
-    assert fb["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
-    assert fb["first_blocking_coreq_status"] == "false_today"
+    assert fb["first_blocking_coreq"] == "dual_linf_under_wire_proven"
+    assert fb["first_blocking_coreq_status"] == "unproven"  # dual_linf first after path ship
     assert fb.get("wire_shipped", fb["status_snapshot"].get("wire_shipped")) is False or (
         fb["status_snapshot"]["wire_shipped"] is False
     )

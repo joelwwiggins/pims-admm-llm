@@ -56,7 +56,7 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["wire_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 4
     assert report["order_hint_coreq"] == "wire_shipped"
@@ -71,7 +71,7 @@ def test_report_always_on_honesty_locks():
     assert report["isolation_rewrite_shipped"] is True
     assert report["isolation_ship_allowed_today"] is True
     assert report["isolation_tests_rewritten_with_wire"] is True
-    assert report["path_shipped"] is False
+    assert report["path_shipped"] is True
     assert report["wire_shipped"] is False
     assert report["wire_ship_criteria_met_today"] is False
     assert report["wire_land_path_executed_today"] is False
@@ -168,7 +168,7 @@ def test_wire_land_composition_inventory_pieces_not_executed():
     assert inv["n_pieces"] >= 8
     assert inv["is_first_blocking_coreq"] is False
     assert inv["order_hint_index"] == 4
-    assert inv["first_blocking_coreq_unchanged"] == "dual_honest_tf_aware_path_present"
+    assert inv["first_blocking_coreq_unchanged"] == "dual_linf_under_wire_proven"
     for p in inv["pieces"]:
         assert p["executes_wire_land"] is False
         assert p["ships_wire"] is False
@@ -212,7 +212,7 @@ def test_go_board_prep_artifacts_include_execution_scaffold():
     assert any("execution_scaffold" in str(a) for a in arts)
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert bp["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     arts2 = (bp.get("file_level_prep_map") or {}).get("wire_shipped", [])
     assert any("execution_scaffold" in str(a) for a in arts2)
 
@@ -313,7 +313,6 @@ def test_source_purity_no_excel_pulp_tf_on_scaffold_hot_path():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_wire_fifth_coreq_execution_scaffold_report()
     for k in (
-                                "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",

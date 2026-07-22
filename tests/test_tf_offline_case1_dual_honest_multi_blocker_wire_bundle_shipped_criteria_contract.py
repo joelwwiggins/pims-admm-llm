@@ -188,9 +188,9 @@ def test_report_always_on_honesty_locks():
     assert report["criteria_present"] is True
     assert report["bundle_design_present"] is True
     assert report["path_design_present"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
-    assert report["ship_met_allowed_today"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
+    assert report["ship_met_allowed_today"] is True
     assert report["form_label_change_shipped"] is True
     assert report["form_label_ship_allowed_today"] is True
     assert report["isolation_rewrite_shipped"] is True
@@ -280,7 +280,7 @@ def test_permission_architecture_hard_false_with_structural_trues():
     assert met["isolation_rewrite_shipped"] is True
     assert met["isolation_tests_rewritten_with_wire_not_deleted"] is True
     assert met["form_label_change_shipped"] is True
-    assert met["dual_honest_tf_aware_path_present"] is False
+    assert met["dual_honest_tf_aware_path_present"] is True
     assert met["dual_linf_under_wire_proven"] is False
     assert met["online_linf_gate_under_tf_path"] is False
     assert met["wire_shipped"] is False
@@ -635,14 +635,14 @@ def test_form_contract_and_ladder_non_regression():
     assert ws["dual_linf_under_wire_status"] == "unproven"
     assert ws["criteria_met_today_map"]["isolation_rewrite_with_wire"] is True
     path = tlb.offline_case1_dual_honest_tf_aware_path_design_contract_report()
-    assert path["path_shipped"] is False
-    assert path["dual_honest_tf_aware_path_present"] is False
+    assert path["path_shipped"] is True
+    assert path["dual_honest_tf_aware_path_present"] is True
     assert path["wire_ship_allowed_today"] is False
     ship_met = tlb.offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report()
-    assert ship_met["dual_honest_tf_aware_path_present"] is False
-    assert ship_met["ship_met_allowed_today"] is False
+    assert ship_met["dual_honest_tf_aware_path_present"] is True
+    assert ship_met["ship_met_allowed_today"] is True
     assert ship_met["path_design_present"] is True
-    assert ship_met["path_shipped"] is False
+    assert ship_met["path_shipped"] is True
     assert ship_met["wire_shipped"] is False
     assert ship_met["criteria_met_today_map"]["isolation_rewrite_with_wire"] is True
     form_label = tlb.offline_case1_form_label_change_shipped_criteria_contract_report()

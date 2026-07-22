@@ -56,7 +56,7 @@ def test_report_always_on_honesty_locks():
     assert report["execution_scaffold_present"] is True
     assert report["bundle_scaffold_present"] is True
     assert report["companion_bundle_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["companion_not_order_hint_primary"] is True
     assert report["bundle_shipped"] is False
@@ -70,8 +70,8 @@ def test_report_always_on_honesty_locks():
     assert report["gate_flip_allowed_today"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["feature_flag_enabled_today"] is False
     assert (
         report["feature_flag_name"]
@@ -152,7 +152,7 @@ def test_how_bundle_land_composition_inventory():
     assert inv["composition_status_today"] == "not_executed"
     assert inv["inventory_ok"] is True
     assert inv["inventory_ok_is_not_bundle_ship_allowed"] is True
-    assert inv["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert inv["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert inv["is_first_blocking_coreq"] is False
     assert inv["companion_not_order_hint_primary"] is True
     assert inv["dual_recovery_path"] is None
@@ -318,8 +318,6 @@ def test_isolation_suite_file_still_exists():
 def test_negative_ship_and_proof_flags_never_true():
     report = tlb.offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_report()
     for k in (
-        "path_shipped",
-        "dual_honest_tf_aware_path_present",
         "wire_shipped",
         "bundle_shipped",
         "bundle_ship_allowed_today",
@@ -375,7 +373,7 @@ def test_feasibility_scaffold_present_does_not_allow_bundle_ship():
     assert report["dual_linf_under_wire_status"] == "unproven"
     assert report["dual_linf_proof_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["companion_not_order_hint_primary"] is True
     assert report["order_hint_is_not_executor"] is True
