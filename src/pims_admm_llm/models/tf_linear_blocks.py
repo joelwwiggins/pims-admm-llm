@@ -15102,8 +15102,10 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
             "source": "dual_linf_proof_checklist",
         },
         "isolation_rewrite_shipped": {
-            "status": "false_today",
-            "value": False,
+            "status": (
+                "shipped" if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY else "false_today"
+            ),
+            "value": bool(CASE1_ISOLATION_REWRITE_SHIPPED_TODAY),
             "ship_critical": True,
             "allows_wire_today": False,
             "source": "isolation_ship_met_map",
@@ -16272,37 +16274,66 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
         )
     checklist = dual_linf["dual_linf_proof_checklist"]
     open_ids = list(dual_linf["dual_linf_proof_checklist_open_ids"])
-    isolation_status = checklist.get(CASE1_ISOLATION_REWRITE_CHECKLIST_KEY, "open")
+    isolation_status = checklist.get(
+        CASE1_ISOLATION_REWRITE_CHECKLIST_KEY,
+        CASE1_ISOLATION_REWRITE_WITH_WIRE_STATUS_TODAY,
+    )
+    iso_shipped = bool(CASE1_ISOLATION_REWRITE_SHIPPED_TODAY)
+    if iso_shipped or isolation_status in ("shipped", "closed", "done"):
+        isolation_row_status = (
+            isolation_status
+            if isolation_status in ("shipped", "closed", "done")
+            else "shipped"
+        )
+    else:
+        isolation_row_status = (
+            isolation_status if isolation_status == "open" else "false_today"
+        )
     gate_status = checklist.get(CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY, "open")
     dual_status = dual_linf["dual_linf_under_wire_status"]
+    fb_id = first_blocking.get("first_blocking_coreq")
 
     order_rows: List[Dict[str, Any]] = [
         {
             "order_index": 0,
             "coreq_id": "isolation_rewrite_with_wire",
-            "status": isolation_status if isolation_status == "open" else "false_today",
+            "status": isolation_row_status,
             "ship_flag_key": "isolation_rewrite_shipped",
-            "ship_flag_still_false": True,
-            "is_first_blocking": (
-                first_blocking.get("first_blocking_coreq")
-                == "isolation_rewrite_with_wire"
+            "ship_flag_still_false": not iso_shipped,
+            "is_first_blocking": fb_id == "isolation_rewrite_with_wire",
+            "prep_artifacts": (
+                [
+                    "tests/test_tf_import_isolation.py (dual-path isolation suite; rewrite-not-delete SHIPPED)",
+                    "offline_case1_isolation_rewrite_design_contract_report (design present)",
+                    "offline_case1_isolation_rewrite_shipped_criteria_contract_report (criteria met; isolation_rewrite_shipped True)",
+                    "offline_case1_isolation_rewrite_first_blocker_operational_prep_report (prep_present; isolation shipped)",
+                    "offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report (scaffold_present; isolation_rewrite_shipped True; isolation_ship_allowed True; not first_blocking after ship)",
+                ]
+                if iso_shipped
+                else [
+                    "tests/test_tf_import_isolation.py (rewrite-not-delete plan notes only; do not rewrite suite this cycle)",
+                    "offline_case1_isolation_rewrite_design_contract_report (design present)",
+                    "offline_case1_isolation_rewrite_shipped_criteria_contract_report (criteria present; ship false)",
+                    "offline_case1_isolation_rewrite_first_blocker_operational_prep_report (prep_present; ship false)",
+                    "offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report (scaffold_present; isolation_rewrite_shipped false; isolation_ship_allowed false; first_blocking; not rewrite applied)",
+                ]
             ),
-            "prep_artifacts": [
-                "tests/test_tf_import_isolation.py (rewrite-not-delete plan notes only; do not rewrite suite this cycle)",
-                "offline_case1_isolation_rewrite_design_contract_report (design present)",
-                "offline_case1_isolation_rewrite_shipped_criteria_contract_report (criteria present; ship false)",
-                "offline_case1_isolation_rewrite_first_blocker_operational_prep_report (prep_present; ship false)",
-                "offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report (scaffold_present; isolation_rewrite_shipped false; isolation_ship_allowed false; first_blocking; not rewrite applied)",
-            ],
             "test_surface": (
                 "tests/test_tf_import_isolation.py; "
                 "tests/test_tf_offline_case1_isolation_rewrite_first_blocker_execution_scaffold.py"
             ),
             "prep_note": (
-                "Isolation suite rewrite-with-wire (not delete) remains open. Design "
-                "+ ship-met criteria + operational prep + execution scaffold present; "
-                "scaffold_present ≠ rewrite shipped ≠ isolation allow ≠ design alone ≠ "
-                "prep alone ≠ path scaffold; suite behavior unchanged this cycle."
+                "Isolation dual-path suite rewrite-with-wire SHIPPED (flag default off; "
+                "classic path still isolated). isolation_rewrite_shipped=True; no longer "
+                "first_blocking_coreq. Design + ship-met criteria + operational prep + "
+                "execution scaffold present; suite rewrite-not-delete."
+                if iso_shipped
+                else (
+                    "Isolation suite rewrite-with-wire (not delete) remains open. Design "
+                    "+ ship-met criteria + operational prep + execution scaffold present; "
+                    "scaffold_present ≠ rewrite shipped ≠ isolation allow ≠ design alone ≠ "
+                    "prep alone ≠ path scaffold; suite behavior unchanged this cycle."
+                )
             ),
         },
         {
@@ -16311,15 +16342,13 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
             "status": "false_today",
             "ship_flag_key": "form_label_change_shipped",
             "ship_flag_still_false": True,
-            "is_first_blocking": (
-                first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
-            ),
+            "is_first_blocking": fb_id == "form_label_change_shipped",
             "prep_artifacts": [
                 "CASE1_FORM_CURRENT / CASE1_PLANNED_TF_AWARE_FORM constants",
                 "offline_case1_form_label_change_shipped_criteria_contract_report",
                 "case1_form_label_contract (form classic registration)",
-                "offline_case1_form_label_second_coreq_operational_prep_report (prep_present; form classic; form_label_change_shipped false; second coreq; not first_blocking)",
-                "offline_case1_form_label_second_coreq_execution_scaffold_report (scaffold_present; form_label_change_shipped false; form_label_ship_allowed false; form classic; mutation not executed; second coreq; not first_blocking)",
+                "offline_case1_form_label_second_coreq_operational_prep_report (prep_present; form classic; form_label_change_shipped false; first_blocking after isolation ship)",
+                "offline_case1_form_label_second_coreq_execution_scaffold_report (scaffold_present; form_label_change_shipped false; form_label_ship_allowed false; form classic; mutation not executed; first_blocking after isolation ship)",
             ],
             "test_surface": (
                 "tests/test_tf_offline_case1_form_label_second_coreq_operational_prep.py; "
@@ -16327,8 +16356,9 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
             ),
             "prep_note": (
                 "Form flip touch points registered; form remains classic_2block_excel_path; "
-                "form_label_change_shipped still False; operational prep + execution scaffold "
-                "present ≠ form ship; scaffold_present ≠ form allow ≠ form flip."
+                "form_label_change_shipped still False; first_blocking_coreq after isolation "
+                "ship. Operational prep + execution scaffold present ≠ form ship; "
+                "scaffold_present ≠ form allow ≠ form flip."
             ),
         },
         {
@@ -16337,10 +16367,7 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
             "status": "false_today",
             "ship_flag_key": "path_shipped",
             "ship_flag_still_false": True,
-            "is_first_blocking": (
-                first_blocking.get("first_blocking_coreq")
-                == "dual_honest_tf_aware_path_present"
-            ),
+            "is_first_blocking": fb_id == "dual_honest_tf_aware_path_present",
             "prep_artifacts": [
                 "offline_case1_dual_honest_tf_aware_path_design_contract_report",
                 "offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report",
@@ -16363,10 +16390,7 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
             "status": "unproven" if dual_status != "proven" else "proven",
             "ship_flag_key": "dual_linf_under_wire",
             "ship_flag_still_false": dual_status != "proven",
-            "is_first_blocking": (
-                first_blocking.get("first_blocking_coreq")
-                == "dual_linf_under_wire_proven"
-            ),
+            "is_first_blocking": fb_id == "dual_linf_under_wire_proven",
             "prep_artifacts": [
                 "offline_case1_dual_space_linf_probe_report (diagnostic only)",
                 "offline_case1_dual_space_linf_live_lambda_bridge_report (diagnostic only)",
@@ -16394,9 +16418,7 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
             "status": "false_today",
             "ship_flag_key": "wire_shipped",
             "ship_flag_still_false": True,
-            "is_first_blocking": (
-                first_blocking.get("first_blocking_coreq") == "wire_shipped"
-            ),
+            "is_first_blocking": fb_id == "wire_shipped",
             "prep_artifacts": [
                 "offline_case1_wire_ship_acceptance_design_contract_report",
                 "DEFAULT_WIRE_BLOCKERS / offline_wire_preflight_report",
@@ -16495,10 +16517,20 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_go_board(
             r["coreq_id"]: r["prep_artifacts"] for r in companion_rows
         },
         "order_hint_coverage_ok": order_hint_ok,
-        "first_row_matches_first_blocking_coreq": (
-            order_rows[0]["coreq_id"] == first_blocking.get("first_blocking_coreq")
-            if order_rows
+        # After isolation ship, first_blocking may be order_index>0; match the
+        # is_first_blocking row (not order_rows[0] which is historical isolation).
+        "first_row_matches_first_blocking_coreq": bool(
+            any(
+                bool(r.get("is_first_blocking"))
+                and r.get("coreq_id") == fb_id
+                for r in order_rows
+            )
+            if order_rows and fb_id
             else False
+        ),
+        "first_blocking_order_index": next(
+            (r["order_index"] for r in order_rows if r.get("is_first_blocking")),
+            None,
         ),
         "order_hint_is_not_executor": True,
         "no_auto_wire": True,
@@ -21765,9 +21797,13 @@ def case1_form_label_execution_scaffold_mutation_inventory() -> Dict[str, Any]:
         "n_sites": len(sites),
         "sites": sites,
         "site_ids": [s["site_id"] for s in sites],
-        "first_blocking_coreq_unchanged": "isolation_rewrite_with_wire",
+        "first_blocking_coreq_unchanged": (
+            "form_label_change_shipped"
+            if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+            else "isolation_rewrite_with_wire"
+        ),
         "order_hint_index": CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX,
-        "is_first_blocking_coreq": False,
+        "is_first_blocking_coreq": bool(CASE1_ISOLATION_REWRITE_SHIPPED_TODAY),
         "note": (
             "Dry-run form-mutation inventory for classic → planned form land. "
             "Not applied this cycle; form remains classic; mutation path named not executed."
@@ -22532,7 +22568,11 @@ def case1_dual_linf_execution_scaffold_proof_composition_inventory() -> Dict[str
         "n_pieces": len(pieces),
         "pieces": pieces,
         "piece_ids": [p["piece_id"] for p in pieces],
-        "first_blocking_coreq_unchanged": "isolation_rewrite_with_wire",
+        "first_blocking_coreq_unchanged": (
+            "form_label_change_shipped"
+            if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+            else "isolation_rewrite_with_wire"
+        ),
         "order_hint_index": CASE1_DUAL_LINF_FOURTH_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX,
         "is_first_blocking_coreq": False,
         "note": (
@@ -23402,7 +23442,11 @@ def case1_wire_execution_scaffold_wire_land_composition_inventory() -> Dict[str,
         "n_pieces": len(pieces),
         "pieces": pieces,
         "piece_ids": [p["piece_id"] for p in pieces],
-        "first_blocking_coreq_unchanged": "isolation_rewrite_with_wire",
+        "first_blocking_coreq_unchanged": (
+            "form_label_change_shipped"
+            if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+            else "isolation_rewrite_with_wire"
+        ),
         "order_hint_index": CASE1_WIRE_FIFTH_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX,
         "is_first_blocking_coreq": False,
         "n_wire_blockers": len(blockers),
@@ -24157,7 +24201,7 @@ def case1_bundle_companion_operational_prep_land_composition_inventory() -> Dict
         "feature_flag_name": flag,
         "feature_flag_enabled_today": False,
         "composition_status_today": "not_executed",
-        "first_blocking_coreq": "isolation_rewrite_with_wire",
+        "first_blocking_coreq": ("form_label_change_shipped" if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY else "isolation_rewrite_with_wire"),
         "is_first_blocking_coreq": False,
         "companion_not_order_hint_primary": True,
         "order_hint_is_not_executor": True,
@@ -25140,8 +25184,16 @@ def case1_bundle_companion_execution_scaffold_land_composition_inventory() -> Di
         "n_pieces": len(pieces),
         "pieces": pieces,
         "piece_ids": [p["piece_id"] for p in pieces],
-        "first_blocking_coreq": "isolation_rewrite_with_wire",
-        "first_blocking_coreq_unchanged": "isolation_rewrite_with_wire",
+        "first_blocking_coreq": (
+            "form_label_change_shipped"
+            if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+            else "isolation_rewrite_with_wire"
+        ),
+        "first_blocking_coreq_unchanged": (
+            "form_label_change_shipped"
+            if CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+            else "isolation_rewrite_with_wire"
+        ),
         "is_first_blocking_coreq": False,
         "companion_not_order_hint_primary": True,
         "order_hint_is_not_executor": True,

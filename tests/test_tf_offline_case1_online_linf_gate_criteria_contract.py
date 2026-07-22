@@ -45,7 +45,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -74,13 +73,15 @@ def test_checklist_gate_stays_open():
     cl = tlb.case1_dual_linf_proof_checklist()
     assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 4
+    assert cl["dual_linf_proof_checklist_n_open"] >= 3
     for key in (
         "isolation_rewrite_with_wire",
         "form_label_change_shipped",
         "online_linf_gate_under_tf_path",
         "wire_shipped",
     ):
+        assert key not in cl["dual_linf_proof_checklist_open_ids"] if key == "isolation_rewrite_with_wire" else True  # isolation shipped
+    if key != "isolation_rewrite_with_wire":
         assert key in cl["dual_linf_proof_checklist_open_ids"]
 
 
@@ -164,7 +165,7 @@ def test_gate_flip_permission_hard_false():
     met = tlb.case1_online_linf_gate_criteria_met_today_map()
     # Some structural labels may be True; aggregate still False
     assert met["online_lambda_owns_verdict_gate"] is True
-    assert met["isolation_rewrite_with_wire"] is False
+    assert met["isolation_rewrite_with_wire"] is True
     assert met["wire_shipped"] is False
     assert met["form_label_change_shipped"] is False
     report = tlb.offline_case1_online_linf_gate_criteria_contract_report()
@@ -353,7 +354,7 @@ def test_form_contract_and_ladder_non_regression():
     contract = tlb.offline_case1_dual_space_form_contract_report()
     assert contract["ok"] is True
     assert contract["dual_linf_under_wire_status"] == "unproven"
-    assert contract["dual_linf_proof_checklist_n_open"] >= 4
+    assert contract["dual_linf_proof_checklist_n_open"] >= 3
     assert (
         contract["dual_linf_proof_checklist"]["online_linf_gate_under_tf_path"]
         == "open"

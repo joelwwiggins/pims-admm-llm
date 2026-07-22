@@ -10,7 +10,7 @@ the blueprint hot path. Locks:
 - scaffold_present / execution_scaffold_present True (visibility link)
 - path_shipped False; dual_honest_tf_aware_path_present ship-met False
 - wire_shipped False; bundle_shipped False; bundle_ship_allowed_today False
-- criteria_met_today False; isolation_rewrite_shipped False; form classic
+- criteria_met_today False; isolation_rewrite_shipped True; form classic
 - form_label_change_shipped False; online_linf_gate open; gate_flip False
 - feature_flag_enabled_today False; UNITS FCC/COKER/CDU (no silent BLENDER)
 - critical blockers still in DEFAULT_WIRE_BLOCKERS
@@ -41,7 +41,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -52,17 +51,17 @@ CRITICAL_BLOCKERS = {
 
 def test_checklist_stays_open_and_dual_linf_unproven():
     assert (
-        tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["isolation_rewrite_with_wire"] == "open"
+        tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["isolation_rewrite_with_wire"] == "shipped"
     )
     assert (
         tlb.CASE1_DUAL_LINF_PROOF_CHECKLIST["online_linf_gate_under_tf_path"]
         == "open"
     )
     cl = tlb.case1_dual_linf_proof_checklist()
-    assert "isolation_rewrite_with_wire" in cl["dual_linf_proof_checklist_open_ids"]
+    assert "isolation_rewrite_with_wire" not in cl["dual_linf_proof_checklist_open_ids"]
     assert "online_linf_gate_under_tf_path" in cl["dual_linf_proof_checklist_open_ids"]
     assert cl["dual_linf_under_wire_status"] == "unproven"
-    assert cl["dual_linf_proof_checklist_n_open"] >= 4
+    assert cl["dual_linf_proof_checklist_n_open"] >= 3
 
 
 def test_report_always_on_honesty_locks():
@@ -91,7 +90,7 @@ def test_report_always_on_honesty_locks():
     assert report["bundle_shipped"] is False
     assert report["bundle_ship_allowed_today"] is False
     assert report["criteria_met_today"] is False
-    assert report["isolation_rewrite_shipped"] is False
+    assert report["isolation_rewrite_shipped"] is True
     assert report["form_label_change_shipped"] is False
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
@@ -102,11 +101,11 @@ def test_report_always_on_honesty_locks():
     assert report["planned_form_distinct"] is True
     assert report["wire_ship_allowed_today"] is False
     assert report["ship_met_allowed_today"] is False
-    assert report["isolation_ship_allowed_today"] is False
+    assert report["isolation_ship_allowed_today"] is True
     assert report["form_label_ship_allowed_today"] is False
-    assert report["isolation_rewrite_with_wire"] == "open"
-    assert report["isolation_rewrite_still_open"] is True
-    assert report["isolation_rewrite_checklist_open"] is True
+    assert report["isolation_rewrite_with_wire"] == "shipped"
+    assert report["isolation_rewrite_still_open"] is False
+    assert report["isolation_rewrite_checklist_open"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
     assert report["gate_flip_allowed_today"] is False
@@ -192,17 +191,17 @@ def test_report_always_on_honesty_locks():
         assert a in anti
 
 
-def test_first_blocking_coreq_expected_isolation():
+def test_first_blocking_coreq_expected_form_label():
     fb = tlb.case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq()
-    assert fb["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert fb["first_blocking_coreq"] == "form_label_change_shipped"
     assert fb["matches_expected_today"] is True
     assert fb["order_hint_exhausted"] is False
     assert fb["order_hint_is_not_executor"] is True
     assert fb["no_auto_wire"] is True
-    assert fb["does_not_set_isolation_rewrite_shipped"] is True
+    assert fb["does_not_set_isolation_rewrite_shipped"] is False  # isolation already shipped
     report = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
-    assert report["first_blocking_coreq"] == "isolation_rewrite_with_wire"
-    assert report["first_blocking_coreq_order_index"] == 0
+    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["first_blocking_coreq_order_index"] == 1
 
 
 def test_go_board_order_hint_coverage_and_prep_map():
@@ -213,10 +212,21 @@ def test_go_board_order_hint_coverage_and_prep_map():
     assert report["order_hint"] == list(
         tlb.CASE1_DUAL_HONEST_MULTI_BLOCKER_WIRE_BUNDLE_ORDER_HINT
     )
-    assert rows[0]["coreq_id"] == report["first_blocking_coreq"]
-    assert rows[0]["is_first_blocking"] is True
+    fb_rows = [r for r in rows if r.get("is_first_blocking")]
+    assert len(fb_rows) == 1
+    assert fb_rows[0]["coreq_id"] == report["first_blocking_coreq"]
+    assert rows[0]["coreq_id"] == "isolation_rewrite_with_wire"
+    assert rows[0]["status"] == "shipped"
+    assert rows[0]["ship_flag_still_false"] is False
+    assert rows[0]["is_first_blocking"] is False
+    assert rows[1]["is_first_blocking"] is True
     for row in rows:
-        assert row["ship_flag_still_false"] is True or row["coreq_id"] == "dual_linf_under_wire_proven"
+        # isolation is shipped; dual_linf uses unproven flag; remaining coreqs still false_today
+        if row["coreq_id"] == "isolation_rewrite_with_wire":
+            assert row["ship_flag_still_false"] is False
+            assert row["status"] == "shipped"
+        else:
+            assert row["ship_flag_still_false"] is True or row["coreq_id"] == "dual_linf_under_wire_proven"
         assert isinstance(row["prep_artifacts"], list) and len(row["prep_artifacts"]) >= 1
     prep = report["file_level_prep_map"]
     assert "isolation_rewrite_with_wire" in prep
@@ -251,8 +261,8 @@ def test_multi_blocker_coreq_visibility_without_flip():
     assert before_bundle == after_bundle
 
     coreqs = report["multi_blocker_coreqs"]
-    assert coreqs["isolation_rewrite_with_wire"] == "open"
-    assert coreqs["isolation_rewrite_shipped"] is False
+    assert coreqs["isolation_rewrite_with_wire"] == "shipped"
+    assert coreqs["isolation_rewrite_shipped"] is True
     assert coreqs["form_label_change_shipped"] is False
     assert coreqs["dual_honest_tf_aware_path_present"] is False
     assert coreqs["dual_linf_under_wire"] == "unproven"
@@ -272,14 +282,14 @@ def test_critical_blockers_still_present():
     assert CRITICAL_BLOCKERS.issubset(blockers)
     assert CRITICAL_BLOCKERS.issubset(set(tlb.DEFAULT_WIRE_BLOCKERS))
     assert "no_blender_offline_affine_kernel" in tlb.DEFAULT_WIRE_BLOCKERS
-    assert "isolation_rewrite_required" in tlb.DEFAULT_WIRE_BLOCKERS
+    assert "isolation_rewrite_required" not in tlb.DEFAULT_WIRE_BLOCKERS
     assert "wire_not_shipped" in tlb.DEFAULT_WIRE_BLOCKERS
     assert (
         "affine_kernels_are_yield_drivers_not_plant_blocks_feed_lp"
         in tlb.DEFAULT_WIRE_BLOCKERS
     )
     assert report["blockers_still_documented"] is True
-    assert report["isolation_rewrite_required_in_default_wire_blockers"] is True
+    assert report.get("isolation_rewrite_required_in_default_wire_blockers", False) is False
     assert report["no_blender_offline_affine_kernel_in_default_wire_blockers"] is True
     assert report["wire_not_shipped_blocker_still_true"] is True
     assert report["dual_linf_under_wire_unproven_blocker_still_true"] is True
@@ -450,7 +460,7 @@ def test_preflight_surfaces_blueprint_flag_and_blockers():
     assert pf["wire_shipped"] is False
     assert pf["dual_recovery_path"] is None
     assert CRITICAL_BLOCKERS.issubset(set(pf["wire_blockers"]))
-    assert "isolation_rewrite_required" in pf["wire_blockers"]
+    assert "isolation_rewrite_required" not in pf["wire_blockers"]
     assert pf.get("admm_case1_dual_honest_multi_blocker_wire_implementation_blueprint_ok") is True
     assert pf.get("admm_case1_dual_honest_multi_blocker_wire_rehearsal_ok") is True
     assert pf.get("admm_case1_dual_honest_tf_aware_path_execution_scaffold_ok") is True
@@ -530,8 +540,8 @@ def test_form_contract_and_ladder_non_regression():
     assert crit["online_linf_gate_under_tf_path"] == "open"
     assert crit["gate_flip_allowed_today"] is False
     design = tlb.offline_case1_isolation_rewrite_design_contract_report()
-    assert design["isolation_rewrite_with_wire"] == "open"
-    assert design["isolation_rewrite_shipped"] is False
+    assert design["isolation_rewrite_with_wire"] == "shipped"
+    assert design["isolation_rewrite_shipped"] is True
     assert tlb.CASE1_FORM_CURRENT == "classic_2block_excel_path"
     ws = tlb.offline_case1_wire_ship_acceptance_design_contract_report()
     assert ws["wire_ship_allowed_today"] is False
@@ -553,7 +563,7 @@ def test_form_contract_and_ladder_non_regression():
     assert scaffold["path_shipped"] is False
     assert scaffold["wire_shipped"] is False
     assert scaffold["bundle_shipped"] is False
-    assert scaffold["isolation_rewrite_shipped"] is False
+    assert scaffold["isolation_rewrite_shipped"] is True
     assert scaffold["form_label_change_shipped"] is False
     assert scaffold["dual_linf_under_wire_status"] == "unproven"
     rehearsal = tlb.offline_case1_dual_honest_multi_blocker_wire_rehearsal_report()
@@ -561,7 +571,7 @@ def test_form_contract_and_ladder_non_regression():
     assert rehearsal["path_shipped"] is False
     assert rehearsal["wire_shipped"] is False
     assert rehearsal["bundle_shipped"] is False
-    assert rehearsal["isolation_rewrite_shipped"] is False
+    assert rehearsal["isolation_rewrite_shipped"] is True
     assert rehearsal["form_label_change_shipped"] is False
     assert rehearsal["dual_linf_under_wire_status"] == "unproven"
     blueprint = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
@@ -569,6 +579,6 @@ def test_form_contract_and_ladder_non_regression():
     assert blueprint["path_shipped"] is False
     assert blueprint["wire_shipped"] is False
     assert blueprint["bundle_shipped"] is False
-    assert blueprint["isolation_rewrite_shipped"] is False
+    assert blueprint["isolation_rewrite_shipped"] is True
     assert blueprint["form_label_change_shipped"] is False
     assert blueprint["dual_linf_under_wire_status"] == "unproven"

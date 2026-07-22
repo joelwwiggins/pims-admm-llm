@@ -152,9 +152,9 @@ def test_mutation_inventory_sites_not_applied():
     assert inv["inventory_is_not_form_allow"] is True
     assert inv["inventory_is_not_form_flip"] is True
     assert inv["n_sites"] >= 5
-    assert inv["is_first_blocking_coreq"] is False
+    assert inv["is_first_blocking_coreq"] is True  # form is first_blocking after isolation ship
     assert inv["order_hint_index"] == 1
-    assert inv["first_blocking_coreq_unchanged"] == "isolation_rewrite_with_wire"
+    assert inv["first_blocking_coreq_unchanged"] == "form_label_change_shipped"
     for s in inv["sites"]:
         assert s["executes_form_flip"] is False
         assert s["mutation_status_today"] == "not_applied"

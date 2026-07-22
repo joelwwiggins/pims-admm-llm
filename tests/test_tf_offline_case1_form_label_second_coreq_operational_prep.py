@@ -6,7 +6,7 @@ the prep hot path. Locks:
 - form remains classic_2block_excel_path
 - form_label_change_shipped False; form_label_ship_allowed_today False
 - form_mutation_path_executed_today False; mutation path named
-- first_blocking_coreq = isolation_rewrite_with_wire (form is second)
+- first_blocking_coreq = form_label_change_shipped (form is second)
 - dual_recovery_path is None; dual_linf_under_wire unproven
 - path/wire/bundle/isolation ship flags hard false
 - feature_flag_enabled_today False; UNITS FCC/COKER/CDU
@@ -34,7 +34,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -55,7 +54,7 @@ def test_report_always_on_honesty_locks():
     assert report["prep_present"] is True
     assert report["form_label_second_coreq_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert report["first_blocking_coreq"] == "form_label_change_shipped"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 1
     assert report["order_hint_coreq"] == "form_label_change_shipped"
@@ -70,11 +69,11 @@ def test_report_always_on_honesty_locks():
     assert report["path_shipped"] is False
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
-    assert report["isolation_rewrite_shipped"] is False
+    assert report["isolation_rewrite_shipped"] is True
     assert report["on_excel_case1_path"] is False
     assert report["case1_form_unchanged"] is True
     assert report["form_current"] == "classic_2block_excel_path"
-    assert report["isolation_ship_allowed_today"] is False
+    assert report["isolation_ship_allowed_today"] is True
     assert report["wire_ship_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
     assert report["dual_linf_under_wire_status"] == "unproven"
@@ -242,7 +241,7 @@ def test_isolation_suite_file_still_exists():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
     arts = (bp.get("file_level_prep_map") or {}).get("form_label_change_shipped", [])
     assert any(
         "operational_prep" in str(a) or "form_label_second_coreq" in str(a)
@@ -256,14 +255,11 @@ def test_negative_ship_flags_never_true():
         "form_label_change_shipped",
         "form_label_ship_allowed_today",
         "form_mutation_path_executed_today",
-        "isolation_rewrite_shipped",
-        "isolation_tests_rewritten_with_wire",
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",
         "criteria_met_today",
-        "isolation_ship_allowed_today",
         "wire_ship_allowed_today",
         "gate_flip_allowed_today",
         "dual_linf_proof_allowed_today",
@@ -279,7 +275,7 @@ def test_iso_prep_and_dual_linf_criteria_non_regression():
     iso = tlb.offline_case1_isolation_rewrite_first_blocker_operational_prep_report()
     assert iso["ok"] is True
     assert iso["prep_present"] is True
-    assert iso["isolation_rewrite_shipped"] is False
+    assert iso["isolation_rewrite_shipped"] is True
     dl = tlb.offline_case1_dual_linf_under_wire_criteria_contract_report()
     assert dl["ok"] is True
     assert dl["dual_linf_under_wire_status"] == "unproven"

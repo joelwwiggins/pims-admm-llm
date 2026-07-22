@@ -42,7 +42,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -236,7 +235,7 @@ def test_critical_blockers_still_present_after_probe_ok():
     assert report["dual_linf_under_wire_unproven_blocker_still_true"] is True
     assert report["wire_not_shipped_blocker_still_true"] is True
     assert "form_label_change_required" in blockers
-    assert "isolation_rewrite_required" in blockers
+    assert "isolation_rewrite_required" not in blockers
 
 
 def test_alias_and_no_tf_required():
