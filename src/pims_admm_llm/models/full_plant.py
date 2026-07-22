@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pulp
 
 from .assay_loader import load_assays_json, load_routing
-from .properties import crude_to_props
+from .properties import FeedProperties, crude_to_props
 from .quality_blender import (
     GASOLINE_COMPONENT_DEFAULTS,
     GasolineQualityConfig,
@@ -220,6 +220,111 @@ def _arc_upbound(meta: Dict[str, Any], *, force_open: bool = False) -> Optional[
     return float(cap)
 
 
+def _feed_props_from_yields(
+    yields: Dict[str, Any], key: str, fallback: FeedProperties
+) -> FeedProperties:
+    """Rebuild FeedProperties from build_yield_tables feed_props dicts."""
+    raw = (yields.get("feed_props") or {}).get(key)
+    if not isinstance(raw, dict):
+        return fallback
+    try:
+        return FeedProperties(
+            name=str(raw.get("name") or key),
+            api=float(raw.get("api", fallback.api)),
+            sulfur_wt=float(raw.get("sulfur_wt", fallback.sulfur_wt)),
+            ccr_wt=float(raw.get("ccr_wt", fallback.ccr_wt)),
+            nitrogen_ppm=float(raw.get("nitrogen_ppm", fallback.nitrogen_ppm)),
+            paraffins_vol=float(raw.get("paraffins_vol", fallback.paraffins_vol)),
+            naphthenes_vol=float(raw.get("naphthenes_vol", fallback.naphthenes_vol)),
+            aromatics_vol=float(raw.get("aromatics_vol", fallback.aromatics_vol)),
+        )
+    except Exception:
+        return fallback
+
+
+def apply_process_pool_modes_to_yields(
+    yields: Dict[str, Any],
+    assays: Dict[str, Any],
+    *,
+    fcc_feed_kbd: Optional[float] = None,
+    coker_feed_kbd: Optional[float] = None,
+    seed: Optional["FullPlantResult"] = None,
+    msg: bool = False,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Run process-pool MIP and attach selected FCC/coker mode yields to plant tables.
+
+    Plant stays LP: binaries live only in the process-pool MIP; selected yield
+    vectors are fixed into the continuous plant model. Mono duals remain plan
+    truth for the LP solve that uses these yields.
+    """
+    from .process_pool import (
+        COKER_RECYCLE_MODES,
+        FCC_ROT_MODES,
+        attach_process_pool_to_plant_yields,
+        default_gasoil_feed,
+        default_resid_feed,
+        solve_process_pool_mip,
+    )
+
+    caps = assays.get("capacities") or {}
+    if seed is not None:
+        fcc_f = float(seed.unit_feeds.get("fcc_feed") or 0.0)
+        cok_f = float(seed.unit_feeds.get("coker_feed") or 0.0)
+    else:
+        fcc_f = float(fcc_feed_kbd) if fcc_feed_kbd is not None else (
+            float(caps.get("fcc_kbd", 55.0)) * 0.7
+        )
+        cok_f = float(coker_feed_kbd) if coker_feed_kbd is not None else (
+            float(caps.get("coker_kbd", 40.0)) * 0.5
+        )
+    # MIP needs positive fixed feeds for mode economics; clamp tiny feeds.
+    fcc_f = max(fcc_f, 1.0)
+    cok_f = max(cok_f, 1.0)
+
+    gasoil = _feed_props_from_yields(yields, "gasoil", default_gasoil_feed())
+    resid = _feed_props_from_yields(yields, "resid", default_resid_feed())
+    pool = solve_process_pool_mip(
+        gasoil=gasoil,
+        resid=resid,
+        fcc_feed_kbd=fcc_f,
+        coker_feed_kbd=cok_f,
+        msg=msg,
+    )
+    merged = attach_process_pool_to_plant_yields(yields, pool)
+
+    # Honesty: stamp process_conditions from selected discrete modes.
+    pc = dict(merged.get("process_conditions") or {})
+    for m in FCC_ROT_MODES:
+        if m["id"] == pool.fcc_mode:
+            pc["FCC"] = dict(m["conditions"])
+            break
+    for m in COKER_RECYCLE_MODES:
+        if m["id"] == pool.coker_mode:
+            pc["COKER"] = dict(m["conditions"])
+            break
+    merged["process_conditions"] = pc
+
+    meta = {
+        "enabled": True,
+        "fcc_mode": pool.fcc_mode,
+        "coker_mode": pool.coker_mode,
+        "fcc_mode_selection": dict(pool.fcc_mode_selection or {}),
+        "coker_mode_selection": dict(pool.coker_mode_selection or {}),
+        "fcc_feed_kbd_used": fcc_f,
+        "coker_feed_kbd_used": cok_f,
+        "pool_objective": float(pool.objective),
+        "pool_feasible": bool(pool.feasible),
+        "two_pass": seed is not None,
+        "plant_remains_lp": True,
+        "modes_fixed_from_mip": True,
+        "note": (
+            "Discrete FCC ROT + coker recycle modes selected by process-pool MIP; "
+            "yield tables attached to plant LP (plant stays continuous LP, not MIP)."
+        ),
+    }
+    return merged, meta
+
+
 def solve_full_plant(
     assays: Optional[Dict[str, Any]] = None,
     *,
@@ -227,11 +332,52 @@ def solve_full_plant(
     inventory_mode: Optional[bool] = None,
     routing: Optional[Dict[str, Any]] = None,
     force_all_arcs_open: bool = False,
+    process_pool_modes: bool = False,
+    process_pool_two_pass: bool = False,
+    yields_override: Optional[Dict[str, Any]] = None,
 ) -> FullPlantResult:
-    """Monolithic max-margin plant LP with arc-flow superstructure + quality pooling."""
+    """Monolithic max-margin plant LP with arc-flow superstructure + quality pooling.
+
+    process_pool_modes:
+      When True, run the Wave5 process-pool MIP (FCC ROT + coker recycle bands)
+      and attach selected mode yields before the plant LP. Default False keeps
+      continuous process-condition yields (existing demos/tests).
+
+    process_pool_two_pass:
+      When True (implies process_pool_modes), first solve the continuous plant,
+      then re-select modes using realized FCC/coker feeds and re-solve. Slightly
+      more expensive; better mode choice when feeds differ from capacity guesses.
+    """
     assays = assays or load_assays_json()
     routing = routing or load_routing()
-    yields = build_yield_tables(assays, routing=routing)
+    pool_meta: Optional[Dict[str, Any]] = None
+
+    if yields_override is not None:
+        yields = dict(yields_override)
+        pool_meta = dict(yields.get("process_pool") or {}) or None
+    elif process_pool_two_pass or process_pool_modes:
+        base_yields = build_yield_tables(assays, routing=routing)
+        seed: Optional[FullPlantResult] = None
+        if process_pool_two_pass:
+            seed = solve_full_plant(
+                assays,
+                msg=msg,
+                inventory_mode=inventory_mode,
+                routing=routing,
+                force_all_arcs_open=force_all_arcs_open,
+                process_pool_modes=False,
+                process_pool_two_pass=False,
+                yields_override=None,
+            )
+        yields, pool_meta = apply_process_pool_modes_to_yields(
+            base_yields,
+            assays,
+            seed=seed,
+            msg=msg,
+        )
+    else:
+        yields = build_yield_tables(assays, routing=routing)
+
     caps = assays.get("capacities") or {}
     tanks = assays.get("tanks") or {}
     products = dict(assays.get("products") or {})
@@ -874,6 +1020,7 @@ def solve_full_plant(
             or routing.get("feed_poolers")
             or [],
             "credits_used": credits,
+            "process_pool": pool_meta,
         },
     )
 
@@ -887,6 +1034,8 @@ def admm_price_directed_plant(
     tol: float = 1e-2,
     recovery_path: str = "mono-oracle",
     routing: Optional[Dict[str, Any]] = None,
+    process_pool_modes: bool = False,
+    process_pool_two_pass: bool = False,
 ) -> Dict[str, Any]:
     """Price-directed multi-block coordination.
 
@@ -894,14 +1043,24 @@ def admm_price_directed_plant(
       - "mono-oracle" (default): economic duals from mono solve (L∞ gap 0 by construction).
       - "pure-admm": free λ from block price iteration (no mono dual injection for λ);
         report L∞ |λ| vs mono bal_* duals honestly — may be large on free-disposal faces.
+
+    process_pool_modes / process_pool_two_pass:
+      Forwarded to ``solve_full_plant`` so mono ground truth uses the same yield
+      tables as a process-pool mode selection run.
     """
     from pims_admm_llm.admm.residuals import linf_dual_gap, residual_norms
     from pims_admm_llm.models.plant_blocks import solve_all_plant_blocks
 
     assays = assays or load_assays_json()
     routing = routing or load_routing()
-    yields = build_yield_tables(assays, routing=routing)
-    mono = solve_full_plant(assays, routing=routing)
+    mono = solve_full_plant(
+        assays,
+        routing=routing,
+        process_pool_modes=process_pool_modes,
+        process_pool_two_pass=process_pool_two_pass,
+    )
+    # Prefer mono's attached yields (includes process-pool modes when enabled).
+    yields = mono.yields_used or build_yield_tables(assays, routing=routing)
 
     links = list(
         routing.get("linking_streams")
