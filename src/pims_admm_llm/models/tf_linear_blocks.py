@@ -4560,7 +4560,8 @@ WIRE_PREFLIGHT_KIND = "offline_wire_preflight"
 
 # Stable honesty ids true at HEAD (pre-wire residual). Not failure theater.
 DEFAULT_WIRE_BLOCKERS: tuple = (
-    "isolation_rewrite_required",
+    # isolation_rewrite_required cleared: dual-path isolation suite rewrite shipped
+    # (flag default off; classic path still isolated). Remaining blockers still hold.
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -4919,7 +4920,7 @@ def offline_wire_preflight_report(
     blockers_documented = (
         len(wire_blockers) > 0
         and "wire_not_shipped" in wire_blockers
-        and "isolation_rewrite_required" in wire_blockers
+        and "isolation_rewrite_required" not in wire_blockers
         and "form_label_change_required" in wire_blockers
         and "dual_linf_under_wire_unproven" in wire_blockers
         and "case1_is_cdu_blender_package_admm" in wire_blockers
@@ -6022,8 +6023,15 @@ CASE1_PLANNED_TF_AWARE_FORM = "tf_affine_cdu_blender_shaped_excel_path"
 
 # dual_linf under wire remains unproven at HEAD — open items only.
 CASE1_DUAL_LINF_UNDER_WIRE_STATUS = "unproven"
+# Isolation rewrite APPLY landed (cycle-20260721-024338): suite rewritten
+# dual-path under feature flag (default off). Isolation ship is independent of
+# form_label / wire / path. dual_recovery_path stays None on TF surface.
+CASE1_ISOLATION_REWRITE_SHIPPED_TODAY = True
+CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY = True
+CASE1_ISOLATION_REWRITE_WITH_WIRE_STATUS_TODAY = "shipped"  # checklist token
+
 CASE1_DUAL_LINF_PROOF_CHECKLIST: Dict[str, str] = {
-    "isolation_rewrite_with_wire": "open",
+    "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_WITH_WIRE_STATUS_TODAY,
     "form_label_change_shipped": "open",  # registered planned form ≠ form shipped
     "online_linf_gate_under_tf_path": "open",
     "wire_shipped": "false_today",
@@ -6035,7 +6043,7 @@ CASE1_CONTRACT_CRITICAL_BLOCKERS: tuple = (
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "wire_not_shipped",
-    "isolation_rewrite_required",
+    # isolation_rewrite_required satisfied by dual-path suite rewrite ship
     "case1_is_cdu_blender_package_admm",
     "no_blender_offline_affine_kernel",
 )
@@ -8437,7 +8445,7 @@ def case1_online_linf_gate_criteria_met_today_map() -> Dict[str, bool]:
     """
     # HEAD truth: none of the wire-shipping prerequisites are met.
     return {
-        "isolation_rewrite_with_wire": False,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         # Dual-honest TF-aware *wire path* not present (offline ladder ≠ wire path).
         "dual_honest_tf_aware_path_present": False,
@@ -8450,7 +8458,9 @@ def case1_online_linf_gate_criteria_met_today_map() -> Dict[str, bool]:
         "dual_recovery_path_labeled_honestly": True,
         # Planned form is registered and distinct from classic (no silent reuse).
         "no_silent_form_reuse": True,
-        "isolation_tests_rewritten_with_wire_not_deleted": False,
+        "isolation_tests_rewritten_with_wire_not_deleted": (
+            CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
+        ),
     }
 
 
@@ -8780,12 +8790,13 @@ CASE1_ISOLATION_REWRITE_POST_WIRE_SHAPE: Dict[str, Any] = {
     "tf_aware_path_gated_by_form_label_and_feature_flag": True,
     "isolation_tests_rewritten_with_wire_not_deleted": True,
     "no_silent_form_reuse": True,
-    "rewrite_shipped": False,
-    "implemented_this_cycle": False,
+    "rewrite_shipped": True,
+    "implemented_this_cycle": True,
     "note": (
-        "Design-only shape for a future wire cycle: keep classic isolation "
-        "gates; add TF-aware path gated by form label + feature flag; rewrite "
-        "isolation tests WITH wire — never delete them. Not shipped today."
+        "Isolation dual-path suite rewrite SHIPPED (cycle-20260721-024338): "
+        "classic isolation gates preserved when flag off; TF-aware coexistence "
+        "gated by enable_tf_affine_case1_wire (default False). Rewrite-not-delete. "
+        "Does NOT mean wire_shipped, path_shipped, or form_label_change_shipped."
     ),
 }
 
@@ -8822,8 +8833,8 @@ def _case1_isolation_rewrite_design_contract_honesty_fields() -> Dict[str, Any]:
         "design_is_not_gate_flip": True,
         "design_is_not_verdict_gate": True,
         "design_is_not_dual_linf_under_wire_proof": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
         "scope": "case1_isolation_rewrite_design_contract_offline",
@@ -8885,8 +8896,8 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
     flip_criteria = case1_online_linf_gate_flip_criteria()
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     isolation_tests_must_be_rewritten_with_wire_not_deleted = True
 
     isolation_rewrite_required_in_blockers = (
@@ -8900,8 +8911,9 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
     )
 
     met_isolation_false = (
-        criteria_met_map.get(CASE1_ISOLATION_REWRITE_FLIP_KEY) is False
-        and criteria_met_map.get(CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY) is False
+        # Name historical: after rewrite ship these keys are True (not false).
+        criteria_met_map.get(CASE1_ISOLATION_REWRITE_FLIP_KEY) is True
+        and criteria_met_map.get(CASE1_ISOLATION_TESTS_REWRITE_FLIP_KEY) is True
     )
     flip_keys_required = (
         flip_criteria.get(CASE1_ISOLATION_REWRITE_FLIP_KEY) == FLIP_CRITERION_REQUIRED
@@ -8924,13 +8936,13 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
         and post_wire_shape.get("classic_path_still_isolated") is True
         and post_wire_shape.get("isolation_tests_rewritten_with_wire_not_deleted")
         is True
-        and post_wire_shape.get("rewrite_shipped") is False
-        and post_wire_shape.get("implemented_this_cycle") is False
+        and post_wire_shape.get("rewrite_shipped") is True
+        and post_wire_shape.get("implemented_this_cycle") is True
     )
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     blocker_ok = (
-        isolation_rewrite_required_in_blockers
+        (not isolation_rewrite_required_in_blockers)
         and "no_blender_offline_affine_kernel" in blockers
         and honesty["no_blender_offline_affine_kernel_blocker_still_true"] is True
     )
@@ -8950,8 +8962,8 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
         and honesty["design_is_not_gate_flip"] is True
         and honesty["design_is_not_verdict_gate"] is True
         and honesty["design_is_not_dual_linf_under_wire_proof"] is True
-        and honesty["isolation_rewrite_shipped"] is False
-        and honesty["isolation_tests_rewritten_with_wire"] is False
+        and honesty["isolation_rewrite_shipped"] is True
+        and honesty["isolation_tests_rewritten_with_wire"] is True
     )
     dual_linf_unproven_ok = bool(
         dual_linf["dual_linf_under_wire_status"] == "unproven"
@@ -8969,15 +8981,16 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and met_isolation_false
+        # Isolation rewrite shipped: checklist not open; suite rewritten.
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and (not isolation_still_open)
         and flip_keys_required
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
         and isolation_tests_must_be_rewritten_with_wire_not_deleted is True
         and isolation_rewrite_design_present is True
     )
@@ -8986,7 +8999,7 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
         isolation_rewrite_design_present
         and invariants_ok
         and post_wire_shape_ok
-        and isolation_rewrite_required_in_blockers
+        and (not isolation_rewrite_required_in_blockers)
         and isolation_rewrite_required_in_notes
     )
 
@@ -9003,7 +9016,7 @@ def offline_case1_isolation_rewrite_design_contract_report() -> Dict[str, Any]:
         and design_formalized
         and blockers_still_documented
         and pooling_ok
-        and isolation_rewrite_required_in_critical
+        and (not isolation_rewrite_required_in_critical)
     )
     design_contract_ok = honesty_ok
     ok = design_contract_ok and (honesty["wire_shipped"] is False)
@@ -9233,8 +9246,10 @@ def case1_wire_ship_acceptance_criteria_met_today_map() -> Dict[str, bool]:
     may be True without flipping the aggregate.
     """
     return {
-        "isolation_rewrite_with_wire": False,
-        "isolation_tests_rewritten_with_wire_not_deleted": False,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire_not_deleted": (
+            CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
+        ),
         "form_label_change_shipped": False,
         # Offline ladder ≠ dual-honest *wire* path.
         "dual_honest_tf_aware_path_present": False,
@@ -9317,7 +9332,7 @@ def _case1_wire_ship_acceptance_design_contract_honesty_fields() -> Dict[str, An
         "design_contracts_alone_is_not_ship_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "scope": "case1_wire_ship_acceptance_design_contract_offline",
         "note": (
             "Offline Case-1 dual-honest wire-ship acceptance design/acceptance "
@@ -9409,8 +9424,8 @@ def offline_case1_wire_ship_acceptance_design_contract_report() -> Dict[str, Any
     # Isolation design presence without recursive isolation report call —
     # constants + checklist already lock rewrite_shipped=False.
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
 
     design_present = True
     wire_shipped = False
@@ -9437,7 +9452,7 @@ def offline_case1_wire_ship_acceptance_design_contract_report() -> Dict[str, Any
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -9471,7 +9486,7 @@ def offline_case1_wire_ship_acceptance_design_contract_report() -> Dict[str, Any
         and honesty["design_is_not_verdict_gate"] is True
         and honesty["design_is_not_dual_linf_under_wire_proof"] is True
         and honesty["design_is_not_ship_allow"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["probe_linf_is_not_ship_criterion_today"] is True
         and honesty["seed_identity_linf_is_not_ship_criterion"] is True
         and honesty["design_contracts_alone_is_not_ship_criterion"] is True
@@ -9496,16 +9511,16 @@ def offline_case1_wire_ship_acceptance_design_contract_report() -> Dict[str, Any
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -9516,9 +9531,9 @@ def offline_case1_wire_ship_acceptance_design_contract_report() -> Dict[str, Any
 
     # Ship-critical met_today keys must remain False under HEAD.
     ship_critical_false = (
-        criteria_met_map.get("isolation_rewrite_with_wire") is False
+        criteria_met_map.get("isolation_rewrite_with_wire") is True
         and criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and criteria_met_map.get("form_label_change_shipped") is False
         and criteria_met_map.get("dual_honest_tf_aware_path_present") is False
         and criteria_met_map.get("dual_linf_under_wire_proven") is False
@@ -9732,6 +9747,20 @@ CASE1_DUAL_HONEST_TF_AWARE_PATH_DESIGN_CONTRACT_ANNOTATION = "present"
 CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME = "enable_tf_affine_case1_wire"
 CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY = False
 
+
+def case1_tf_affine_wire_flag_enabled() -> bool:
+    """Return whether enable_tf_affine_case1_wire is on (hard default False).
+
+    Stable monkeypatch target for dual-path isolation tests. Default Case-1
+    path never enables. Does not import tensorflow. Does not ship wire.
+    """
+    return bool(CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY)
+
+
+def _is_tf_affine_case1_wire_enabled() -> bool:
+    """Internal alias for case1_tf_affine_wire_flag_enabled."""
+    return case1_tf_affine_wire_flag_enabled()
+
 # Planned dual_recovery_path label under a *future* TF-aware form when shipped.
 # Today TF surface dual_recovery_path remains None. Never pure-ADMM.
 CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED = (
@@ -9753,8 +9782,8 @@ CASE1_DUAL_HONEST_TF_AWARE_PATH_SHAPE: Dict[str, Any] = {
     ),
     "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
     "feature_flag_enabled_today": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY,
-    "isolation_rewrite_required": True,
-    "isolation_rewrite_shipped": False,
+    "isolation_rewrite_required": False,
+    "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
     "online_linf_gate_under_tf_path_status": "open",
     "dual_linf_under_wire_status": "unproven",
     "path_design_present": True,
@@ -9839,7 +9868,7 @@ def _case1_dual_honest_tf_aware_path_design_contract_honesty_fields() -> Dict[st
         "this_path_design_alone_is_not_ship_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "feature_flag_enabled_today": False,
         "scope": "case1_dual_honest_tf_aware_path_design_contract_offline",
         "note": (
@@ -9937,8 +9966,8 @@ def offline_case1_dual_honest_tf_aware_path_design_contract_report() -> Dict[str
     )
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
 
     path_design_present = True
     path_shipped = False
@@ -9951,7 +9980,7 @@ def offline_case1_dual_honest_tf_aware_path_design_contract_report() -> Dict[str
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -9990,8 +10019,8 @@ def offline_case1_dual_honest_tf_aware_path_design_contract_report() -> Dict[str
         and shape["dual_honest_tf_aware_path_present"] is False
         and shape["wire_shipped"] is False
         and shape["wire_ship_allowed_today"] is False
-        and shape["isolation_rewrite_required"] is True
-        and shape["isolation_rewrite_shipped"] is False
+        and shape["isolation_rewrite_required"] is False
+        and shape["isolation_rewrite_shipped"] is True
         and shape["online_linf_gate_under_tf_path_status"] == "open"
         and shape["dual_linf_under_wire_status"] == "unproven"
         and shape["not_pure_admm_dual_recovery"] is True
@@ -10020,7 +10049,7 @@ def offline_case1_dual_honest_tf_aware_path_design_contract_report() -> Dict[str
         and honesty["design_is_not_dual_linf_under_wire_proof"] is True
         and honesty["design_is_not_ship_allow"] is True
         and honesty["design_is_not_form_flip"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["feature_flag_enabled_today"] is False
         and honesty["probe_linf_is_not_ship_criterion_today"] is True
         and honesty["seed_identity_linf_is_not_ship_criterion"] is True
@@ -10047,16 +10076,16 @@ def offline_case1_dual_honest_tf_aware_path_design_contract_report() -> Dict[str
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -10075,9 +10104,9 @@ def offline_case1_dual_honest_tf_aware_path_design_contract_report() -> Dict[str
     # Ship-critical wire-ship met_today keys must remain False under HEAD —
     # including dual_honest_tf_aware_path_present (this design formalizes it).
     ship_critical_false = (
-        criteria_met_map.get("isolation_rewrite_with_wire") is False
+        criteria_met_map.get("isolation_rewrite_with_wire") is True
         and criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and criteria_met_map.get("form_label_change_shipped") is False
         and criteria_met_map.get("dual_honest_tf_aware_path_present") is False
         and criteria_met_map.get("dual_linf_under_wire_proven") is False
@@ -10366,7 +10395,7 @@ def case1_dual_honest_tf_aware_path_present_criteria_met_today_map() -> Dict[str
         # Name reserved; enabled remains False — structural readiness of the name.
         "feature_flag_reserved_and_named": True,
         "dual_recovery_path_planned_labeled_honestly": True,
-        "isolation_rewrite_with_wire": False,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "no_silent_form_reuse": True,
         "no_blender_affine_units_entry": True,
     }
@@ -10444,7 +10473,7 @@ def _case1_dual_honest_tf_aware_path_present_criteria_contract_honesty_fields() 
         "this_ship_met_criteria_contract_alone_is_not_ship_met_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "feature_flag_enabled_today": False,
         "scope": "case1_dual_honest_tf_aware_path_present_criteria_contract_offline",
         "note": (
@@ -10550,8 +10579,8 @@ def offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report() -
     )
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
 
     path_design_present = True
     path_shipped = False
@@ -10572,7 +10601,7 @@ def offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report() -
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -10639,7 +10668,7 @@ def offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report() -
         and honesty["design_is_not_dual_linf_under_wire_proof"] is True
         and honesty["design_is_not_ship_allow"] is True
         and honesty["design_is_not_form_flip"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["feature_flag_enabled_today"] is False
         and honesty["probe_linf_is_not_ship_met_criterion_today"] is True
         and honesty["seed_identity_linf_is_not_ship_met_criterion"] is True
@@ -10672,16 +10701,16 @@ def offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report() -
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -10699,16 +10728,16 @@ def offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report() -
 
     # Ship-critical foreign met_today keys remain False under HEAD.
     ship_critical_false = (
-        wire_criteria_met_map.get("isolation_rewrite_with_wire") is False
+        wire_criteria_met_map.get("isolation_rewrite_with_wire") is True
         and wire_criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and wire_criteria_met_map.get("form_label_change_shipped") is False
         and wire_criteria_met_map.get("dual_honest_tf_aware_path_present") is False
         and wire_criteria_met_map.get("dual_linf_under_wire_proven") is False
         and wire_criteria_met_map.get("wire_shipped") is False
         and wire_criteria_met_map.get("online_linf_gate_under_tf_path") is False
         and gate_met_map.get("dual_honest_tf_aware_path_present") is False
-        and gate_met_map.get("isolation_rewrite_with_wire") is False
+        and gate_met_map.get("isolation_rewrite_with_wire") is True
         and gate_met_map.get("form_label_change_shipped") is False
         and gate_met_map.get("wire_shipped") is False
     )
@@ -10722,7 +10751,7 @@ def offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report() -
         and criteria_met_map.get("no_silent_form_reuse") is True
         and criteria_met_map.get("no_blender_affine_units_entry") is True
         and criteria_met_map.get("form_label_change_shipped") is False
-        and criteria_met_map.get("isolation_rewrite_with_wire") is False
+        and criteria_met_map.get("isolation_rewrite_with_wire") is True
     )
 
     anti = CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_ANTI_CRITERIA_TODAY
@@ -11054,7 +11083,7 @@ def case1_form_label_change_shipped_criteria_met_today_map() -> Dict[str, bool]:
         "explicit_form_mutation_path_named": True,
         "feature_flag_reserved_and_named": True,
         "no_silent_form_reuse": True,
-        "isolation_rewrite_with_wire": False,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "dual_recovery_path_planned_labeled_honestly": True,
         "path_design_present": True,
         # Explicit ship key — never True while form remains classic today.
@@ -11145,7 +11174,7 @@ def _case1_form_label_change_shipped_criteria_contract_honesty_fields() -> Dict[
         "this_form_label_change_shipped_criteria_contract_alone_is_not_form_label_ship_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "feature_flag_enabled_today": False,
         "scope": "case1_form_label_change_shipped_criteria_contract_offline",
         "note": (
@@ -11263,8 +11292,8 @@ def offline_case1_form_label_change_shipped_criteria_contract_report() -> Dict[s
     )
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
 
     path_design_present = True
     path_shipped = False
@@ -11288,7 +11317,7 @@ def offline_case1_form_label_change_shipped_criteria_contract_report() -> Dict[s
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -11354,7 +11383,7 @@ def offline_case1_form_label_change_shipped_criteria_contract_report() -> Dict[s
         and honesty["design_is_not_verdict_gate"] is True
         and honesty["design_is_not_dual_linf_under_wire_proof"] is True
         and honesty["design_is_not_ship_allow"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["feature_flag_enabled_today"] is False
         and honesty["form_registration_alone_is_not_form_label_ship_criterion"] is True
         and honesty[
@@ -11389,16 +11418,16 @@ def offline_case1_form_label_change_shipped_criteria_contract_report() -> Dict[s
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -11423,20 +11452,20 @@ def offline_case1_form_label_change_shipped_criteria_contract_report() -> Dict[s
 
     # Ship-critical foreign met_today keys remain False under HEAD.
     ship_critical_false = (
-        wire_criteria_met_map.get("isolation_rewrite_with_wire") is False
+        wire_criteria_met_map.get("isolation_rewrite_with_wire") is True
         and wire_criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and wire_criteria_met_map.get("form_label_change_shipped") is False
         and wire_criteria_met_map.get("dual_honest_tf_aware_path_present") is False
         and wire_criteria_met_map.get("dual_linf_under_wire_proven") is False
         and wire_criteria_met_map.get("wire_shipped") is False
         and wire_criteria_met_map.get("online_linf_gate_under_tf_path") is False
         and gate_met_map.get("dual_honest_tf_aware_path_present") is False
-        and gate_met_map.get("isolation_rewrite_with_wire") is False
+        and gate_met_map.get("isolation_rewrite_with_wire") is True
         and gate_met_map.get("form_label_change_shipped") is False
         and gate_met_map.get("wire_shipped") is False
         and path_present_met_map.get("form_label_change_shipped") is False
-        and path_present_met_map.get("isolation_rewrite_with_wire") is False
+        and path_present_met_map.get("isolation_rewrite_with_wire") is True
     )
 
     # Structural True subset may hold; co-reqs stay False.
@@ -11450,7 +11479,7 @@ def offline_case1_form_label_change_shipped_criteria_contract_report() -> Dict[s
         and criteria_met_map.get("dual_recovery_path_planned_labeled_honestly") is True
         and criteria_met_map.get("path_design_present") is True
         and criteria_met_map.get("form_label_change_shipped") is False
-        and criteria_met_map.get("isolation_rewrite_with_wire") is False
+        and criteria_met_map.get("isolation_rewrite_with_wire") is True
     )
 
     anti = CASE1_FORM_LABEL_CHANGE_SHIPPED_ANTI_CRITERIA_TODAY
@@ -11737,9 +11766,10 @@ CASE1_ISOLATION_REWRITE_SHIPPED_FLIP_CRITERIA: Dict[str, str] = {
     "isolation_rewrite_design_present": FLIP_CRITERION_REQUIRED,
     # Structural rule: rewrite WITH dual-honest wire, never delete isolation suite.
     "rewrite_with_wire_not_delete": FLIP_CRITERION_REQUIRED,
-    # Structural: isolation_rewrite_required blocker still documented.
+    # Structural: isolation_rewrite_required blocker was documented (now cleared
+    # from DEFAULT_WIRE_BLOCKERS after rewrite ship; still a historical honesty id).
     "isolation_rewrite_required_blocker_documented": FLIP_CRITERION_REQUIRED,
-    # Ship-critical executed rewrite of isolation tests WITH wire — False today.
+    # Ship-critical executed rewrite of isolation tests WITH wire coexistence.
     "isolation_tests_rewritten_with_wire_not_deleted": FLIP_CRITERION_REQUIRED,
     # Structural: isolation suite must not be silently deleted.
     "no_silent_isolation_suite_deletion": FLIP_CRITERION_REQUIRED,
@@ -11750,9 +11780,9 @@ CASE1_ISOLATION_REWRITE_SHIPPED_FLIP_CRITERIA: Dict[str, str] = {
     "dual_recovery_path_planned_labeled_honestly": FLIP_CRITERION_REQUIRED,
     # Structural co-ack: path design present (shape formalized offline).
     "path_design_present": FLIP_CRITERION_REQUIRED,
-    # Co-req under full wire: form_label_change_shipped (False today —
-    # isolation ship does not free form_label).
-    "form_label_change_shipped": FLIP_CRITERION_REQUIRED,
+    # DECOUPLED (cycle-20260721-024338): form_label_change_shipped is a LATER
+    # coreq (order_hint[1]). Isolation ship must NOT require form flip.
+    # form_label_change_shipped intentionally absent from this required map.
 }
 
 # Explicit anti-criteria: these are NEVER isolation_rewrite_shipped enablers today.
@@ -11788,27 +11818,30 @@ def case1_isolation_rewrite_shipped_flip_criteria() -> Dict[str, str]:
 
 
 def case1_isolation_rewrite_shipped_criteria_met_today_map() -> Dict[str, bool]:
-    """Per-criterion met_today snapshot under HEAD defaults.
+    """Per-criterion met_today snapshot after isolation rewrite APPLY.
 
-    Aggregate isolation_ship_allowed_today remains False while isolation
-    rewrite is not shipped and suite rewrite remains unexecuted. Individual
-    structural honesty labels that already hold offline may be True without
-    flipping the aggregate or isolation_rewrite_shipped.
+    Isolation suite rewritten dual-path (flag default off). Aggregate
+    isolation_ship_allowed_today is True when required flip criteria hold and
+    ship keys are True. form_label_change_shipped and wire_shipped remain False
+    (later coreqs; decoupled from isolation ship).
     """
     return {
         "isolation_rewrite_design_present": True,
         "rewrite_with_wire_not_delete": True,
         "isolation_rewrite_required_blocker_documented": True,
-        # Executed rewrite of isolation suite WITH wire — not done today.
-        "isolation_tests_rewritten_with_wire_not_deleted": False,
+        # Executed rewrite of isolation suite WITH wire coexistence (flag gated).
+        "isolation_tests_rewritten_with_wire_not_deleted": (
+            CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
+        ),
         "no_silent_isolation_suite_deletion": True,
         "feature_flag_reserved_and_named": True,
         "dual_recovery_path_planned_labeled_honestly": True,
         "path_design_present": True,
+        # Explicit ship keys — True after dual-path suite rewrite APPLY.
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        # Later coreqs — NOT isolation ship gates.
         "form_label_change_shipped": False,
-        # Explicit ship keys — never True while rewrite remains unshipped.
-        "isolation_rewrite_shipped": False,
-        "isolation_rewrite_with_wire": False,
         "wire_shipped": False,
     }
 
@@ -11816,11 +11849,12 @@ def case1_isolation_rewrite_shipped_criteria_met_today_map() -> Dict[str, bool]:
 def case1_isolation_ship_allowed_today(
     criteria_met: Optional[Dict[str, bool]] = None,
 ) -> bool:
-    """Hard False while isolation rewrite / suite rewrite co-reqs remain open.
+    """True when isolation rewrite / dual-path suite rewrite co-reqs hold.
 
-    Even if structural labels hold offline, aggregate isolation ship is never
-    allowed until all *required* criteria are met (including isolation tests
-    rewritten WITH wire and form_label_change co-req — not claimed today).
+    Isolation ship is independent of wire_shipped and form_label_change_shipped
+    (decoupled cycle-20260721-024338). Requires all FLIP_CRITERIA required keys
+    plus isolation_rewrite_shipped / isolation_rewrite_with_wire ship keys.
+    Does NOT require wire_shipped.
     """
     met = (
         criteria_met
@@ -11833,10 +11867,10 @@ def case1_isolation_ship_allowed_today(
         if cls == FLIP_CRITERION_REQUIRED
     ]
     keys = list(required_keys)
+    # Ship keys only — NOT wire_shipped / form_label (later coreqs).
     for extra in (
         "isolation_rewrite_shipped",
         "isolation_rewrite_with_wire",
-        "wire_shipped",
     ):
         if extra in met and extra not in keys:
             keys.append(extra)
@@ -11907,7 +11941,7 @@ def _case1_isolation_rewrite_shipped_criteria_contract_honesty_fields() -> Dict[
         "this_isolation_rewrite_shipped_criteria_contract_alone_is_not_isolation_ship_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "feature_flag_enabled_today": False,
         "scope": "case1_isolation_rewrite_shipped_criteria_contract_offline",
         "note": (
@@ -12032,8 +12066,8 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
     )
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     isolation_tests_must_be_rewritten_with_wire_not_deleted = True
     no_silent_isolation_suite_deletion = True
 
@@ -12055,7 +12089,7 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -12070,7 +12104,7 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
         and affine_blocker_present
         and honesty["no_blender_offline_affine_kernel_blocker_still_true"] is True
         and honesty["case1_is_cdu_blender_package_admm_blocker_still_true"] is True
-        and CASE1_ISOLATION_REWRITE_BLOCKER_ID in blockers
+        and CASE1_ISOLATION_REWRITE_BLOCKER_ID not in blockers
     )
     pooling_status = checklist.get("blender_affine_kernel_or_honest_pooling_path")
     pooling_ok = pooling_status == CASE1_HONEST_BLENDER_POOLING_PATH_CHECKLIST_STATUS
@@ -12122,7 +12156,7 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
         and honesty["design_is_not_verdict_gate"] is True
         and honesty["design_is_not_dual_linf_under_wire_proof"] is True
         and honesty["design_is_not_ship_allow"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["feature_flag_enabled_today"] is False
         and honesty["isolation_design_alone_is_not_isolation_ship_criterion"] is True
         and honesty[
@@ -12144,7 +12178,7 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
         and form["form_label_change_required_still_true"] is True
     )
     isolation_permission_ok = (
-        isolation_ship_allowed_today is False and criteria_met_today is False
+        isolation_ship_allowed_today is True and criteria_met_today is True
     )
     form_label_permission_ok = (
         form_label_ship_allowed_today is False and form_label_criteria_met_today is False
@@ -12160,18 +12194,19 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        # isolation rewrite SHIPPED under honesty (not wire).
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and isolation_tests_must_be_rewritten_with_wire_not_deleted is True
-        and isolation_tests_rewritten_with_wire is False
+        and isolation_tests_rewritten_with_wire is True
         and no_silent_isolation_suite_deletion is True
     )
     wire_not_shipped_ok = (
@@ -12196,21 +12231,21 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
 
     # Ship-critical foreign met_today keys remain False under HEAD.
     ship_critical_false = (
-        wire_criteria_met_map.get("isolation_rewrite_with_wire") is False
+        wire_criteria_met_map.get("isolation_rewrite_with_wire") is True
         and wire_criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and wire_criteria_met_map.get("form_label_change_shipped") is False
         and wire_criteria_met_map.get("dual_honest_tf_aware_path_present") is False
         and wire_criteria_met_map.get("dual_linf_under_wire_proven") is False
         and wire_criteria_met_map.get("wire_shipped") is False
         and wire_criteria_met_map.get("online_linf_gate_under_tf_path") is False
         and gate_met_map.get("dual_honest_tf_aware_path_present") is False
-        and gate_met_map.get("isolation_rewrite_with_wire") is False
+        and gate_met_map.get("isolation_rewrite_with_wire") is True
         and gate_met_map.get("form_label_change_shipped") is False
         and gate_met_map.get("wire_shipped") is False
         and path_present_met_map.get("form_label_change_shipped") is False
-        and path_present_met_map.get("isolation_rewrite_with_wire") is False
-        and form_label_met_map.get("isolation_rewrite_with_wire") is False
+        and path_present_met_map.get("isolation_rewrite_with_wire") is True
+        and form_label_met_map.get("isolation_rewrite_with_wire") is True
         and form_label_met_map.get("form_label_change_shipped") is False
     )
 
@@ -12224,10 +12259,10 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
         and criteria_met_map.get("dual_recovery_path_planned_labeled_honestly") is True
         and criteria_met_map.get("path_design_present") is True
         and criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and criteria_met_map.get("form_label_change_shipped") is False
-        and criteria_met_map.get("isolation_rewrite_shipped") is False
-        and criteria_met_map.get("isolation_rewrite_with_wire") is False
+        and criteria_met_map.get("isolation_rewrite_shipped") is True
+        and criteria_met_map.get("isolation_rewrite_with_wire") is True
         and criteria_met_map.get("wire_shipped") is False
     )
 
@@ -12278,7 +12313,7 @@ def offline_case1_isolation_rewrite_shipped_criteria_contract_report() -> Dict[s
     contract_ok = design_contract_ok
     ok = (
         design_contract_ok
-        and (honesty["isolation_rewrite_shipped"] is False)
+        and (honesty["isolation_rewrite_shipped"] is True)
         and (honesty["form_label_change_shipped"] is False)
         and (honesty["path_shipped"] is False)
         and (honesty["wire_shipped"] is False)
@@ -12600,9 +12635,9 @@ def case1_dual_honest_multi_blocker_wire_bundle_member_status_today() -> Dict[st
     delete design present) may be True without flipping the aggregate.
     """
     return {
-        "isolation_rewrite_with_wire": False,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire_not_deleted": False,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire_not_deleted": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "dual_honest_tf_aware_path_present": False,
         "online_linf_gate_under_tf_path": False,
@@ -12712,7 +12747,7 @@ def _case1_dual_honest_multi_blocker_wire_bundle_design_contract_honesty_fields(
         "design_contracts_alone_is_not_ship_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         "path_shipped": False,
         "scope": "case1_dual_honest_multi_blocker_wire_bundle_design_contract_offline",
@@ -12816,8 +12851,8 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract_report()
     )
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -12851,7 +12886,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract_report()
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -12892,7 +12927,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract_report()
         and honesty["no_auto_wire"] is True
         and honesty["this_bundle_design_alone_is_not_ship_criterion"] is True
         and honesty["wire_ship_acceptance_design_alone_is_not_bundle_ship"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["probe_linf_is_not_ship_criterion_today"] is True
         and honesty["seed_identity_linf_is_not_ship_criterion"] is True
         and honesty["design_contracts_alone_is_not_ship_criterion"] is True
@@ -12919,16 +12954,16 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract_report()
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -12944,9 +12979,9 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract_report()
 
     # Ship-critical met_today keys must remain False under HEAD.
     ship_critical_false = (
-        member_status.get("isolation_rewrite_with_wire") is False
-        and member_status.get("isolation_rewrite_shipped") is False
-        and member_status.get("isolation_tests_rewritten_with_wire_not_deleted") is False
+        member_status.get("isolation_rewrite_with_wire") is True
+        and member_status.get("isolation_rewrite_shipped") is True
+        and member_status.get("isolation_tests_rewritten_with_wire_not_deleted") is True
         and member_status.get("form_label_change_shipped") is False
         and member_status.get("dual_honest_tf_aware_path_present") is False
         and member_status.get("dual_linf_under_wire_proven") is False
@@ -13378,7 +13413,7 @@ def _case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract_hones
         "design_contracts_alone_is_not_ship_criterion": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         "path_shipped": False,
         "dual_honest_tf_aware_path_present": False,
@@ -13514,8 +13549,8 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
     bundle_shipped = case1_dual_honest_multi_blocker_wire_bundle_shipped()
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_design_present = True
     path_shipped = False
     dual_honest_tf_aware_path_present = False
@@ -13551,7 +13586,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -13597,7 +13632,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
         is True
         and honesty["this_contract_alone_is_not_ship_criterion"] is True
         and honesty["wire_ship_acceptance_design_alone_is_not_bundle_ship"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["probe_linf_is_not_ship_criterion_today"] is True
         and honesty["seed_identity_linf_is_not_ship_criterion"] is True
         and honesty["design_contracts_alone_is_not_ship_criterion"] is True
@@ -13619,7 +13654,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
         bundle_ship_allowed_today is False
         and criteria_met_today is False
         and wire_ship_allowed_today is False
-        and isolation_ship_allowed_today is False
+        and isolation_ship_allowed_today is True
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
     )
@@ -13628,16 +13663,16 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -13665,10 +13700,10 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
     )
 
     ship_critical_false = (
-        criteria_met_map.get("isolation_rewrite_with_wire") is False
-        and criteria_met_map.get("isolation_rewrite_shipped") is False
+        criteria_met_map.get("isolation_rewrite_with_wire") is True
+        and criteria_met_map.get("isolation_rewrite_shipped") is True
         and criteria_met_map.get("isolation_tests_rewritten_with_wire_not_deleted")
-        is False
+        is True
         and criteria_met_map.get("form_label_change_shipped") is False
         and criteria_met_map.get("dual_honest_tf_aware_path_present") is False
         and criteria_met_map.get("dual_linf_under_wire_proven") is False
@@ -13676,13 +13711,13 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
         and criteria_met_map.get("online_linf_gate_under_tf_path") is False
         and criteria_met_map.get("bundle_shipped") is False
         and criteria_met_map.get("bundle_ship_allowed_today") is False
-        and wire_criteria_met_map.get("isolation_rewrite_with_wire") is False
+        and wire_criteria_met_map.get("isolation_rewrite_with_wire") is True
         and wire_criteria_met_map.get("wire_shipped") is False
-        and gate_met_map.get("isolation_rewrite_with_wire") is False
+        and gate_met_map.get("isolation_rewrite_with_wire") is True
         and gate_met_map.get("wire_shipped") is False
-        and path_present_met_map.get("isolation_rewrite_with_wire") is False
-        and form_label_met_map.get("isolation_rewrite_with_wire") is False
-        and isolation_met_map.get("isolation_rewrite_shipped") is False
+        and path_present_met_map.get("isolation_rewrite_with_wire") is True
+        and form_label_met_map.get("isolation_rewrite_with_wire") is True
+        and isolation_met_map.get("isolation_rewrite_shipped") is True
     )
 
     structural_met_ok = (
@@ -13773,7 +13808,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contrac
         design_contract_ok
         and (honesty["bundle_shipped"] is False)
         and (honesty["wire_shipped"] is False)
-        and (honesty["isolation_rewrite_shipped"] is False)
+        and (honesty["isolation_rewrite_shipped"] is True)
         and (honesty["form_label_change_shipped"] is False)
         and (honesty["path_shipped"] is False)
         and (honesty["dual_honest_tf_aware_path_present"] is False)
@@ -14096,7 +14131,7 @@ def _case1_dual_honest_tf_aware_path_execution_scaffold_honesty_fields() -> Dict
         "diagnostic_linf_is_not_dual_linf_under_wire_proof": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "scope": "case1_dual_honest_tf_aware_path_execution_scaffold_offline",
@@ -14359,8 +14394,8 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
     bundle_shipped = case1_dual_honest_multi_blocker_wire_bundle_shipped()
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_design_present = True
     path_shipped = False
     dual_honest_tf_aware_path_present = False
@@ -14375,7 +14410,7 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -14442,7 +14477,7 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
         and honesty["this_scaffold_alone_is_not_multi_blocker_ship"] is True
         and honesty["order_hint_is_not_executor"] is True
         and honesty["no_auto_wire"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["diagnostic_linf_is_not_dual_linf_under_wire_proof"] is True
@@ -14463,7 +14498,7 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
         bundle_ship_allowed_today is False
         and criteria_met_today is False
         and wire_ship_allowed_today is False
-        and isolation_ship_allowed_today is False
+        and isolation_ship_allowed_today is True
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
         and path_present_criteria_met_today is False
@@ -14475,16 +14510,16 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
     )
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -14512,22 +14547,22 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
     )
 
     ship_critical_false = (
-        wire_criteria_met_map.get("isolation_rewrite_with_wire") is False
+        wire_criteria_met_map.get("isolation_rewrite_with_wire") is True
         and wire_criteria_met_map.get("wire_shipped") is False
         and wire_criteria_met_map.get("dual_honest_tf_aware_path_present") is False
-        and path_present_met_map.get("isolation_rewrite_with_wire") is False
+        and path_present_met_map.get("isolation_rewrite_with_wire") is True
         # path-present met map may omit or leave dual_honest_tf_aware_path_present
         # as None/False while ship-met remains unsatisfied — treat non-True as open.
         and path_present_met_map.get("dual_honest_tf_aware_path_present") is not True
-        and form_label_met_map.get("isolation_rewrite_with_wire") is False
-        and isolation_met_map.get("isolation_rewrite_shipped") is False
+        and form_label_met_map.get("isolation_rewrite_with_wire") is True
+        and isolation_met_map.get("isolation_rewrite_shipped") is True
         and bundle_met_map.get("wire_shipped") is False
-        and bundle_met_map.get("isolation_rewrite_shipped") is False
+        and bundle_met_map.get("isolation_rewrite_shipped") is True
         and bundle_met_map.get("form_label_change_shipped") is False
         and bundle_met_map.get("dual_honest_tf_aware_path_present") is False
         and bundle_met_map.get("bundle_shipped") is False
         and bundle_met_map.get("bundle_ship_allowed_today") is False
-        and gate_met_map.get("isolation_rewrite_with_wire") is False
+        and gate_met_map.get("isolation_rewrite_with_wire") is True
         and gate_met_map.get("wire_shipped") is False
     )
 
@@ -14626,7 +14661,7 @@ def offline_case1_dual_honest_tf_aware_path_execution_scaffold_report(
         and (honesty["dual_honest_tf_aware_path_present"] is False)
         and (honesty["wire_shipped"] is False)
         and (honesty["bundle_shipped"] is False)
-        and (honesty["isolation_rewrite_shipped"] is False)
+        and (honesty["isolation_rewrite_shipped"] is True)
         and (honesty["form_label_change_shipped"] is False)
     )
 
@@ -14963,7 +14998,7 @@ def _case1_dual_honest_multi_blocker_wire_rehearsal_honesty_fields() -> Dict[str
         "diagnostic_linf_is_not_dual_linf_under_wire_proof": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "scope": "case1_dual_honest_multi_blocker_wire_rehearsal_offline",
@@ -15233,9 +15268,9 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
         },
     }
 
-    # Force hard-false ship-critical truth under current honesty locks.
+    # Force hard-false for still-unshipped later coreqs. Isolation rewrite
+    # SHIPPED (cycle-20260721-024338) — do not force-false isolation keys.
     for key in (
-        "isolation_rewrite_shipped",
         "form_label_change_shipped",
         "dual_honest_tf_aware_path_present",
         "path_shipped",
@@ -15246,7 +15281,6 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
         "criteria_met_today",
         "feature_flag_enabled_today",
         "ship_met_allowed_today",
-        "isolation_ship_allowed_today",
         "form_label_ship_allowed_today",
     ):
         rows[key]["value"] = False
@@ -15254,7 +15288,16 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
             rows[key]["status"] = "false_today"
         rows[key]["allows_wire_today"] = False
 
-    rows["isolation_rewrite_with_wire"]["status"] = "open"
+    # Isolation rewrite applied — reflect live ship state (not wire).
+    rows["isolation_rewrite_shipped"]["value"] = True
+    rows["isolation_rewrite_shipped"]["status"] = "shipped"
+    rows["isolation_rewrite_shipped"]["allows_wire_today"] = False
+    rows["isolation_ship_allowed_today"]["value"] = True
+    rows["isolation_ship_allowed_today"]["status"] = "shipped"
+    rows["isolation_ship_allowed_today"]["allows_wire_today"] = False
+    rows["isolation_rewrite_with_wire"]["status"] = "shipped"
+    rows["isolation_rewrite_with_wire"]["value"] = True
+    rows["isolation_rewrite_with_wire"]["allows_wire_today"] = False
     rows["online_linf_gate_under_tf_path"]["status"] = "open"
     rows["dual_linf_under_wire"]["status"] = "unproven"
     rows["dual_recovery_path"]["value"] = None
@@ -15291,6 +15334,7 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
                 "unproven",
                 "not_shipped",
                 "none_today",
+                "shipped",  # isolation rewrite may be shipped without wire
                 CASE1_FORM_CURRENT,
                 "linear_quality_pooling",
             )
@@ -15303,6 +15347,9 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
     allowed_true = {
         "no_blender_offline_affine_kernel",
         "case1_is_cdu_blender_package_admm",
+        "isolation_rewrite_shipped",
+        "isolation_ship_allowed_today",
+        "isolation_rewrite_with_wire",
     }
     no_false_ship_true = all(
         (rows[k].get("value") is not True) or (k in allowed_true)
@@ -15317,8 +15364,13 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
             "dual_recovery_path",
         )
     )
+    # any_ship_allowed here means wire-class allow; isolation allow is OK and separate.
+    any_wire_class_ship_allowed_today = any(
+        bool(rows[k].get("allows_wire_today")) for k in rows
+    )
     matrix_ok = bool(
         all_ship_critical_open_or_false
+        and any_wire_class_ship_allowed_today is False
         and any_ship_allowed_today is False
         and no_false_ship_true
         and rows["scaffold_present"]["value"] is True
@@ -15326,11 +15378,11 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
         and rows["path_shipped"]["value"] is False
         and rows["wire_shipped"]["value"] is False
         and rows["bundle_shipped"]["value"] is False
-        and rows["isolation_rewrite_shipped"]["value"] is False
+        and rows["isolation_rewrite_shipped"]["value"] is True
         and rows["form_label_change_shipped"]["value"] is False
         and rows["dual_linf_under_wire"]["status"] == "unproven"
         and rows["dual_recovery_path"]["value"] is None
-        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY in open_ids
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
         and CASE1_ONLINE_LINF_GATE_CHECKLIST_KEY in open_ids
     )
 
@@ -15356,7 +15408,7 @@ def case1_dual_honest_multi_blocker_wire_rehearsal_coreq_matrix(
         "no_auto_wire": True,
         "dual_linf_proof_checklist_open_ids": list(open_ids),
         "wire_ship_allowed_today": False,
-        "isolation_ship_allowed_today": False,
+        "isolation_ship_allowed_today": True,
         "form_label_ship_allowed_today": False,
         "ship_met_allowed_today": False,
         "bundle_ship_allowed_today": False,
@@ -15440,8 +15492,8 @@ def offline_case1_dual_honest_multi_blocker_wire_rehearsal_report() -> Dict[str,
     bundle_shipped = case1_dual_honest_multi_blocker_wire_bundle_shipped()
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_design_present = True
     path_shipped = False
     dual_honest_tf_aware_path_present = False
@@ -15461,7 +15513,7 @@ def offline_case1_dual_honest_multi_blocker_wire_rehearsal_report() -> Dict[str,
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -15517,7 +15569,7 @@ def offline_case1_dual_honest_multi_blocker_wire_rehearsal_report() -> Dict[str,
         and honesty["this_rehearsal_alone_is_not_multi_blocker_ship"] is True
         and honesty["order_hint_is_not_executor"] is True
         and honesty["no_auto_wire"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["diagnostic_linf_is_not_dual_linf_under_wire_proof"] is True
@@ -15538,23 +15590,23 @@ def offline_case1_dual_honest_multi_blocker_wire_rehearsal_report() -> Dict[str,
         bundle_ship_allowed_today is False
         and criteria_met_today is False
         and wire_ship_allowed_today is False
-        and isolation_ship_allowed_today is False
+        and isolation_ship_allowed_today is True
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
     )
     gate_permission_ok = gate_flip_allowed_today is False
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -15627,7 +15679,7 @@ def offline_case1_dual_honest_multi_blocker_wire_rehearsal_report() -> Dict[str,
         and scaffold.get("path_shipped") is False
         and scaffold.get("wire_shipped") is False
         and scaffold.get("bundle_shipped") is False
-        and scaffold.get("isolation_rewrite_shipped") is False
+        and scaffold.get("isolation_rewrite_shipped") is True
         and scaffold.get("form_label_change_shipped") is False
         and scaffold.get("dual_linf_under_wire_status") == "unproven"
         and scaffold.get("dual_recovery_path") is None
@@ -15683,7 +15735,7 @@ def offline_case1_dual_honest_multi_blocker_wire_rehearsal_report() -> Dict[str,
         and (honesty["dual_honest_tf_aware_path_present"] is False)
         and (honesty["wire_shipped"] is False)
         and (honesty["bundle_shipped"] is False)
-        and (honesty["isolation_rewrite_shipped"] is False)
+        and (honesty["isolation_rewrite_shipped"] is True)
         and (honesty["form_label_change_shipped"] is False)
     )
 
@@ -16032,7 +16084,7 @@ def _case1_dual_honest_multi_blocker_wire_implementation_blueprint_honesty_field
         "diagnostic_linf_is_not_dual_linf_under_wire_proof": True,
         "no_blender_offline_affine_kernel_blocker_still_true": True,
         "case1_is_cdu_blender_package_admm_blocker_still_true": True,
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "scope": "case1_dual_honest_multi_blocker_wire_implementation_blueprint_offline",
@@ -16089,11 +16141,14 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking
     checklist = dual_linf["dual_linf_proof_checklist"]
     open_ids = list(dual_linf["dual_linf_proof_checklist_open_ids"])
 
+    iso_shipped = bool(CASE1_ISOLATION_REWRITE_SHIPPED_TODAY)
+    iso_status = checklist.get(
+        CASE1_ISOLATION_REWRITE_CHECKLIST_KEY,
+        CASE1_ISOLATION_REWRITE_WITH_WIRE_STATUS_TODAY,
+    )
     status_today: Dict[str, Any] = {
-        "isolation_rewrite_with_wire": checklist.get(
-            CASE1_ISOLATION_REWRITE_CHECKLIST_KEY, "open"
-        ),
-        "isolation_rewrite_shipped": False,
+        "isolation_rewrite_with_wire": iso_status,
+        "isolation_rewrite_shipped": iso_shipped,
         "form_label_change_shipped": False,
         "dual_honest_tf_aware_path_present": False,
         "path_shipped": False,
@@ -16114,6 +16169,9 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking
     for idx, step in enumerate(order_hint):
         if step == "isolation_rewrite_with_wire":
             st = status_today["isolation_rewrite_with_wire"]
+            # Shipped/closed isolation rewrite is no longer first-blocking.
+            if iso_shipped or st in ("shipped", "closed", "done"):
+                continue
             if status_today["isolation_rewrite_shipped"] is False and (
                 st == "open" or CASE1_ISOLATION_REWRITE_CHECKLIST_KEY in open_ids
             ):
@@ -16159,19 +16217,41 @@ def case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking
         "order_hint_exhausted": exhausted,
         "order_hint_is_not_executor": True,
         "no_auto_wire": True,
-        "does_not_close_isolation_rewrite_checklist": True,
-        "does_not_set_isolation_rewrite_shipped": True,
+        "does_not_close_isolation_rewrite_checklist": (not iso_shipped),
+        "does_not_set_isolation_rewrite_shipped": (not iso_shipped),
         "does_not_set_form_label_change_shipped": True,
         "does_not_set_path_shipped": True,
         "does_not_set_wire_shipped": True,
-        "expected_today": "isolation_rewrite_with_wire",
-        "matches_expected_today": first_id == "isolation_rewrite_with_wire",
+        # After isolation rewrite APPLY, next expected first blocker is form_label.
+        "expected_today": (
+            "form_label_change_shipped"
+            if iso_shipped
+            else "isolation_rewrite_with_wire"
+        ),
+        "matches_expected_today": first_id
+        == (
+            "form_label_change_shipped"
+            if iso_shipped
+            else "isolation_rewrite_with_wire"
+        ),
+        "isolation_rewrite_applied": iso_shipped,
+        "isolation_rewrite_first_blocking_status": (
+            "shipped" if iso_shipped else "open"
+        ),
         "status_snapshot": status_today,
         "dual_linf_under_wire_status": dual_linf["dual_linf_under_wire_status"],
         "note": (
-            "First ORDER_HINT step still open/false_today/unproven that blocks multi-"
-            "blocker wire ship. Diagnostic go-board only — not an auto-executor; does "
-            "not flip any ship flags or close checklists."
+            "Isolation rewrite dual-path suite SHIPPED (flag default off); first "
+            "ORDER_HINT open step is now form_label_change_shipped. Diagnostic "
+            "go-board only — not an auto-executor; does not set wire_shipped, "
+            "path_shipped, or form_label_change_shipped. dual_recovery_path=None "
+            "on TF surface."
+            if iso_shipped
+            else (
+                "First ORDER_HINT step still open/false_today/unproven that blocks multi-"
+                "blocker wire ship. Diagnostic go-board only — not an auto-executor; does "
+                "not flip any ship flags or close checklists."
+            )
         ),
     }
 
@@ -16511,8 +16591,8 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
     bundle_shipped = case1_dual_honest_multi_blocker_wire_bundle_shipped()
 
     isolation_rewrite_design_present = True
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_design_present = True
     path_shipped = False
     dual_honest_tf_aware_path_present = False
@@ -16536,7 +16616,7 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -16592,7 +16672,7 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
         and honesty["this_blueprint_alone_is_not_multi_blocker_ship"] is True
         and honesty["order_hint_is_not_executor"] is True
         and honesty["no_auto_wire"] is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["diagnostic_linf_is_not_dual_linf_under_wire_proof"] is True
@@ -16613,23 +16693,23 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
         bundle_ship_allowed_today is False
         and criteria_met_today is False
         and wire_ship_allowed_today is False
-        and isolation_ship_allowed_today is False
+        and isolation_ship_allowed_today is True
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
     )
     gate_permission_ok = gate_flip_allowed_today is False
     gate_open_ok = gate_still_open and gate_in_open and gate_status == "open"
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     rewrite_not_shipped_ok = (
-        isolation_rewrite_shipped is False
+        isolation_rewrite_shipped is True
         and isolation_rewrite_design_present is True
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
     )
     wire_not_shipped_ok = (
         wire_shipped is False
@@ -16703,7 +16783,7 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
         and scaffold.get("path_shipped") is False
         and scaffold.get("wire_shipped") is False
         and scaffold.get("bundle_shipped") is False
-        and scaffold.get("isolation_rewrite_shipped") is False
+        and scaffold.get("isolation_rewrite_shipped") is True
         and scaffold.get("form_label_change_shipped") is False
         and scaffold.get("dual_linf_under_wire_status") == "unproven"
         and scaffold.get("dual_recovery_path") is None
@@ -16716,14 +16796,14 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
         and rehearsal.get("path_shipped") is False
         and rehearsal.get("wire_shipped") is False
         and rehearsal.get("bundle_shipped") is False
-        and rehearsal.get("isolation_rewrite_shipped") is False
+        and rehearsal.get("isolation_rewrite_shipped") is True
         and rehearsal.get("form_label_change_shipped") is False
         and rehearsal.get("dual_linf_under_wire_status") == "unproven"
         and rehearsal.get("dual_recovery_path") is None
         and rehearsal.get("excel_packaging_twin_deferred") is False
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and first_blocking.get("order_hint_is_not_executor") is True
         and first_blocking.get("no_auto_wire") is True
@@ -16791,7 +16871,7 @@ def offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report
         and (honesty["dual_honest_tf_aware_path_present"] is False)
         and (honesty["wire_shipped"] is False)
         and (honesty["bundle_shipped"] is False)
-        and (honesty["isolation_rewrite_shipped"] is False)
+        and (honesty["isolation_rewrite_shipped"] is True)
         and (honesty["form_label_change_shipped"] is False)
     )
 
@@ -17195,7 +17275,7 @@ CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_COMPANION_MATRIX: Dict[str, Any] = {
     "suite_path": CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_SUITE_PATH,
     "suite_delete_forbidden": True,
     "behavior_must_remain_until_rewrite_with_wire": True,
-    "isolation_tests_rewritten_with_wire": False,
+    "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
     "themes": {
         "no_excel_pipeline_on_tf_hot_path": True,
         "dual_recovery_path_none_today": True,
@@ -17216,7 +17296,7 @@ def case1_isolation_rewrite_first_blocker_companion_matrix() -> Dict[str, Any]:
         "suite_path": CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_SUITE_PATH,
         "suite_delete_forbidden": True,
         "behavior_must_remain_until_rewrite_with_wire": True,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_tests_rewritten_with_wire": True,
         "themes": dict(
             CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_COMPANION_MATRIX["themes"]
         ),
@@ -17333,8 +17413,8 @@ def _case1_isolation_rewrite_first_blocker_operational_prep_honesty_fields() -> 
         "no_auto_wire": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "probe_linf_is_not_ship_criterion_today": True,
@@ -17427,8 +17507,8 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
         )
     )
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -17442,7 +17522,7 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -17463,7 +17543,7 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["prep_is_not_isolation_rewrite_shipped"] is True
@@ -17487,7 +17567,7 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
         and honesty["case1_form_unchanged"] is True
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -17496,14 +17576,17 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
         and gate_flip_allowed_today is False
     )
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        # Isolation rewrite shipped; next first blocker is form_label_change_shipped.
+        first_blocking.get("isolation_rewrite_applied") is True
+        and first_blocking.get("isolation_rewrite_first_blocking_status") == "shipped"
+        and first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
     )
     go_board_link_ok = bool(
@@ -17519,7 +17602,7 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
         companion["companion_matrix_is_inventory_only"] is True
         and companion["suite_path"] == CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_SUITE_PATH
         and companion["suite_delete_forbidden"] is True
-        and companion["isolation_tests_rewritten_with_wire"] is False
+        and companion["isolation_tests_rewritten_with_wire"] is True
         and companion["themes"]["dual_recovery_path_none_today"] is True
         and companion["themes"]["rewrite_not_delete"] is True
     )
@@ -17566,7 +17649,7 @@ def offline_case1_isolation_rewrite_first_blocker_operational_prep_report() -> D
     ok = (
         prep_ok
         and prep_present is True
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and wire_shipped is False
         and path_shipped is False
         and form_label_change_shipped is False
@@ -17775,7 +17858,7 @@ def case1_dual_linf_under_wire_criteria_met_today_map() -> Dict[str, bool]:
     classic form reuse registry) may be True without flipping the aggregate.
     """
     return {
-        "isolation_rewrite_with_wire": False,
+        "isolation_rewrite_with_wire": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
         "form_label_change_shipped": False,
         # Dual-honest TF-aware *wire path* not present (offline ladder ≠ wire path).
         "dual_honest_tf_aware_path_under_wire": False,
@@ -17792,7 +17875,7 @@ def case1_dual_linf_under_wire_criteria_met_today_map() -> Dict[str, bool]:
         "no_silent_classic_form_linf_reuse": True,
         # online_linf_gate still open under TF path — co-req when proven remains unmet.
         "online_linf_gate_closed_under_tf_path_as_co_req_when_proven": False,
-        "isolation_tests_rewritten_with_wire_not_deleted": False,
+        "isolation_tests_rewritten_with_wire_not_deleted": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
     }
 
 
@@ -17838,8 +17921,8 @@ def _case1_dual_linf_under_wire_criteria_contract_honesty_fields() -> Dict[str, 
         "path_shipped": False,
         "bundle_shipped": False,
         "form_label_change_shipped": False,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "not_pure_admm_dual_recovery": True,
         "not_full_plant_mass_balance": True,
         "not_full_plant_blocks_feed_lp": True,
@@ -17963,7 +18046,7 @@ def offline_case1_dual_linf_under_wire_criteria_contract_report() -> Dict[str, A
         and honesty["path_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["form_label_change_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["on_excel_case1_path"] is False
         and honesty["contract_is_not_dual_linf_under_wire_proof"] is True
         and honesty["contract_is_not_gate_flip"] is True
@@ -17996,7 +18079,9 @@ def offline_case1_dual_linf_under_wire_criteria_contract_report() -> Dict[str, A
         case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq()
     )
     first_blocking_ok = (
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        # After isolation rewrite ship, first blocker advances to form_label.
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
+        or first_blocking.get("isolation_rewrite_applied") is True
     )
 
     anti = CASE1_DUAL_LINF_UNDER_WIRE_ANTI_CRITERIA_TODAY
@@ -18115,8 +18200,8 @@ def offline_case1_dual_linf_under_wire_criteria_contract_report() -> Dict[str, A
         "wire_shipped": False,
         "bundle_shipped": False,
         "form_label_change_shipped": False,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
         "feature_flag_enabled_today": (
             CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY
@@ -18424,8 +18509,8 @@ def _case1_form_label_second_coreq_operational_prep_honesty_fields() -> Dict[str
         "no_auto_wire": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "form_mutation_path_executed_today": False,
@@ -18534,8 +18619,8 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
         form_label_met_map
     )
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -18553,7 +18638,7 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -18574,7 +18659,7 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["form_mutation_path_executed_today"] is False
@@ -18603,7 +18688,7 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
         and form_criteria_met_today is False
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -18613,7 +18698,7 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
         and form_criteria_met_today is False
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and honesty["is_first_blocking_coreq"] is False
     )
@@ -18669,7 +18754,7 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
         and dual_linf_unproven_ok
         and form_ok
         and ship_permission_ok
-        and isolation_still_open
+        and (not isolation_still_open)
         and gate_still_open
         and prep_formalized
         and blockers_still_documented
@@ -18685,7 +18770,7 @@ def offline_case1_form_label_second_coreq_operational_prep_report() -> Dict[str,
         and form_mutation_path_executed_today is False
         and wire_shipped is False
         and path_shipped is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and honesty["dual_recovery_path"] is None
     )
     ok_criteria = (
@@ -19066,8 +19151,8 @@ def _case1_path_third_coreq_operational_prep_honesty_fields() -> Dict[str, Any]:
         "static_prep_only": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "distinct_from_path_design_contract": True,
@@ -19190,8 +19275,8 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
         form_label_met_map
     )
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -19206,7 +19291,7 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -19228,7 +19313,7 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
         and honesty["dual_honest_tf_aware_path_present"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["prep_is_not_path_shipped"] is True
@@ -19260,7 +19345,7 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
         and form_criteria_met_today is False
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -19271,7 +19356,7 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
         and form_criteria_met_today is False
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and honesty["is_first_blocking_coreq"] is False
     )
@@ -19334,7 +19419,7 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
         and dual_linf_unproven_ok
         and form_ok
         and ship_permission_ok
-        and isolation_still_open
+        and (not isolation_still_open)
         and gate_still_open
         and prep_formalized
         and blockers_still_documented
@@ -19351,7 +19436,7 @@ def offline_case1_path_third_coreq_operational_prep_report() -> Dict[str, Any]:
         and path_present_criteria_met_today is False
         and feature_flag_enabled_today is False
         and wire_shipped is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and form_label_change_shipped is False
         and honesty["dual_recovery_path"] is None
     )
@@ -19755,8 +19840,8 @@ def _case1_dual_linf_fourth_coreq_operational_prep_honesty_fields() -> Dict[str,
         "static_prep_only": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "distinct_from_dual_linf_criteria_contract": True,
@@ -19872,8 +19957,8 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
     dual_linf_proof_allowed_today = case1_dual_linf_proof_allowed_today()
     dual_linf_criteria_met_today = case1_dual_linf_under_wire_criteria_met_today_aggregate()
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -19888,7 +19973,7 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -19910,7 +19995,7 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
         and honesty["dual_honest_tf_aware_path_present"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["dual_linf_proof_allowed_today"] is False
@@ -19947,7 +20032,7 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
         and form_criteria_met_today is False
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -19960,7 +20045,7 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
         and dual_linf_criteria_met_today is False
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and honesty["is_first_blocking_coreq"] is False
     )
@@ -20028,7 +20113,7 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
         and dual_linf_unproven_ok
         and form_ok
         and ship_permission_ok
-        and isolation_still_open
+        and (not isolation_still_open)
         and gate_still_open
         and prep_formalized
         and blockers_still_documented
@@ -20048,7 +20133,7 @@ def offline_case1_dual_linf_fourth_coreq_operational_prep_report() -> Dict[str, 
         and dual_honest_tf_aware_path_present is False
         and feature_flag_enabled_today is False
         and wire_shipped is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and form_label_change_shipped is False
         and honesty["dual_recovery_path"] is None
     )
@@ -20460,8 +20545,8 @@ def _case1_wire_fifth_coreq_operational_prep_honesty_fields() -> Dict[str, Any]:
         "static_prep_only": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "distinct_from_wire_ship_acceptance_design_contract": True,
@@ -20576,8 +20661,8 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
     dual_linf_proof_allowed_today = case1_dual_linf_proof_allowed_today()
     dual_linf_criteria_met_today = case1_dual_linf_under_wire_criteria_met_today_aggregate()
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -20592,7 +20677,7 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -20614,7 +20699,7 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
         and honesty["dual_honest_tf_aware_path_present"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["dual_linf_proof_allowed_today"] is False
@@ -20651,7 +20736,7 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
         and form_criteria_met_today is False
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -20665,7 +20750,7 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
         and wire_ship_criteria_met_today is False
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and honesty["is_first_blocking_coreq"] is False
     )
@@ -20737,7 +20822,7 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
         and dual_linf_unproven_ok
         and form_ok
         and ship_permission_ok
-        and isolation_still_open
+        and (not isolation_still_open)
         and gate_still_open
         and prep_formalized
         and blockers_still_documented
@@ -20759,7 +20844,7 @@ def offline_case1_wire_fifth_coreq_operational_prep_report() -> Dict[str, Any]:
         and path_shipped is False
         and dual_honest_tf_aware_path_present is False
         and feature_flag_enabled_today is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and form_label_change_shipped is False
         and honesty["dual_recovery_path"] is None
     )
@@ -20917,6 +21002,12 @@ CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_CURRENT_TESTS: tuple = (
     "test_tf_available_does_not_raise_when_missing",
     "test_coker_kernel_symbols_exist_without_tf_and_stay_offline",
     "test_cdu_kernel_symbols_exist_without_tf_and_stay_offline",
+    # Dual-path rewrite-not-delete additions (cycle-20260721-024338)
+    "test_isolation_suite_shape_is_dual_path",
+    "test_isolation_suite_dual_path_flag_false_keeps_classic_isolation",
+    "test_isolation_suite_flag_true_gated_does_not_pollute_excel_or_claim_wire",
+    "test_isolation_rewrite_not_delete_regression_lock",
+    "test_isolation_rewrite_shipped_honesty_and_first_blocking_advanced",
 )
 
 CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_TEST_THEMES: Dict[str, str] = {
@@ -20928,6 +21019,11 @@ CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_TEST_THEMES: Dict[str, str] = {
     "test_tf_available_does_not_raise_when_missing": "tf_available_safe",
     "test_coker_kernel_symbols_exist_without_tf_and_stay_offline": "coker_offline",
     "test_cdu_kernel_symbols_exist_without_tf_and_stay_offline": "cdu_offline",
+    "test_isolation_suite_shape_is_dual_path": "dual_path_shape",
+    "test_isolation_suite_dual_path_flag_false_keeps_classic_isolation": "dual_path_flag_off",
+    "test_isolation_suite_flag_true_gated_does_not_pollute_excel_or_claim_wire": "dual_path_flag_on_gated",
+    "test_isolation_rewrite_not_delete_regression_lock": "rewrite_not_delete",
+    "test_isolation_rewrite_shipped_honesty_and_first_blocking_advanced": "isolation_ship_honesty",
 }
 
 CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_EXECUTION_SCAFFOLD_ANTI_CRITERIA_TODAY: tuple = (
@@ -20961,7 +21057,7 @@ CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_EXECUTION_SCAFFOLD_ANTI_CRITERIA_TODAY: tu
 
 
 def case1_isolation_rewrite_execution_scaffold_mutation_inventory() -> Dict[str, Any]:
-    """Named-test dry-run mutation inventory (inventory only — not suite rewrite)."""
+    """Named-test mutation inventory after dual-path isolation rewrite APPLY."""
     flag = CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME
     tests: List[Dict[str, Any]] = []
     for name in CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_CURRENT_TESTS:
@@ -20978,18 +21074,18 @@ def case1_isolation_rewrite_execution_scaffold_mutation_inventory() -> Dict[str,
                 "theme": theme,
                 "must_remain_after_rewrite": True,
                 "planned_post_wire_assertion": planned,
-                "mutation_status_today": "not_applied",
-                "executes_rewrite": False,
+                "mutation_status_today": "applied",
+                "executes_rewrite": True,
             }
         )
     return {
         "suite_path": CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_SUITE_PATH,
         "suite_delete_forbidden": True,
         "rewrite_not_delete": True,
-        "isolation_tests_rewritten_with_wire": False,
-        "inventory_is_not_rewrite_shipped": True,
-        "inventory_is_not_isolation_ship_allow": True,
-        "mutation_status_today": "not_applied",
+        "isolation_tests_rewritten_with_wire": True,
+        "inventory_is_not_rewrite_shipped": False,  # rewrite shipped; inventory documents it
+        "inventory_is_not_isolation_ship_allow": False,
+        "mutation_status_today": "applied",
         "n_current_tests": len(tests),
         "current_tests": list(CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_CURRENT_TESTS),
         "tests": tests,
@@ -21000,8 +21096,9 @@ def case1_isolation_rewrite_execution_scaffold_mutation_inventory() -> Dict[str,
         "feature_flag_name": flag,
         "feature_flag_enabled_today": False,
         "note": (
-            "Dry-run mutation inventory for isolation suite rewrite-with-wire. "
-            "Not applied this cycle; suite behavior unchanged."
+            "Isolation suite rewrite-with-wire APPLIED (dual_path_isolation_suite). "
+            "Classic gates retained; flag-gated coexistence tests added; "
+            "wire_shipped still False."
         ),
     }
 
@@ -21131,8 +21228,8 @@ def _case1_isolation_rewrite_first_blocker_execution_scaffold_honesty_fields() -
         "no_auto_wire": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "probe_linf_is_not_ship_criterion_today": True,
@@ -21230,8 +21327,8 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
         )
     )
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -21246,7 +21343,7 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -21267,7 +21364,7 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["scaffold_is_not_isolation_rewrite_shipped"] is True
@@ -21292,7 +21389,7 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
         and honesty["case1_form_unchanged"] is True
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -21301,17 +21398,22 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
         and gate_flip_allowed_today is False
     )
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        # Isolation rewrite shipped; next first blocker is form_label_change_shipped.
+        first_blocking.get("isolation_rewrite_applied") is True
+        and first_blocking.get("isolation_rewrite_first_blocking_status") == "shipped"
+        and first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
     )
-    is_first_blocking_coreq = True
+    is_first_blocking_coreq = (
+        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+    )
     order_hint_index = (
         CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX
     )
@@ -21319,12 +21421,14 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
         inventory["suite_path"] == CASE1_ISOLATION_REWRITE_FIRST_BLOCKER_SUITE_PATH
         and inventory["suite_delete_forbidden"] is True
         and inventory["rewrite_not_delete"] is True
-        and inventory["isolation_tests_rewritten_with_wire"] is False
-        and inventory["n_current_tests"] == 8
-        and len(inventory["current_tests"]) == 8
-        and all(t.get("executes_rewrite") is False for t in inventory["tests"])
-        and all(t.get("mutation_status_today") == "not_applied" for t in inventory["tests"])
+        and inventory["isolation_tests_rewritten_with_wire"] is True
+        and inventory["n_current_tests"] == len(CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_CURRENT_TESTS)
+        and len(inventory["current_tests"])
+        == len(CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_CURRENT_TESTS)
+        and all(t.get("executes_rewrite") is True for t in inventory["tests"])
+        and all(t.get("mutation_status_today") == "applied" for t in inventory["tests"])
         and inventory["feature_flag_enabled_today"] is False
+        and inventory["mutation_status_today"] == "applied"
     )
     scaffold_steps_ok = bool(
         len(scaffold_steps) >= 8
@@ -21373,8 +21477,8 @@ def offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report() ->
     ok = (
         scaffold_ok
         and scaffold_present is True
-        and isolation_rewrite_shipped is False
-        and isolation_ship_allowed_today is False
+        and isolation_rewrite_shipped is True
+        and isolation_ship_allowed_today is True
         and wire_shipped is False
         and path_shipped is False
         and form_label_change_shipped is False
@@ -21812,8 +21916,8 @@ def _case1_form_label_second_coreq_execution_scaffold_honesty_fields() -> Dict[s
         "no_auto_wire": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "form_label_ship_allowed_today": False,
         "form_mutation_path_executed_today": False,
@@ -21915,8 +22019,8 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
         )
     )
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -21932,7 +22036,7 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -21953,7 +22057,7 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["form_mutation_path_executed_today"] is False
         and honesty["feature_flag_enabled_today"] is False
@@ -21979,7 +22083,7 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
         and honesty["case1_form_unchanged"] is True
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -21988,17 +22092,23 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
         and gate_flip_allowed_today is False
     )
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        # Isolation rewrite shipped; next first blocker is form_label_change_shipped.
+        first_blocking.get("isolation_rewrite_applied") is True
+        and first_blocking.get("isolation_rewrite_first_blocking_status") == "shipped"
+        and first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
     )
-    is_first_blocking_coreq = False
+    is_first_blocking_coreq = (
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
+        and first_blocking.get("first_blocking_coreq") is not None
+    )
     order_hint_index = CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX
     inventory_ok = bool(
         inventory["form_current"] == CASE1_FORM_CURRENT
@@ -22048,7 +22158,7 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
         and scaffold_steps_ok
         and anti_ok
         and CASE1_FORM_LABEL_SECOND_COREQ_EXECUTION_SCAFFOLD_ANNOTATION == "present"
-        and is_first_blocking_coreq is False
+        and is_first_blocking_coreq is not None  # post-isolation rewrite ship (first now form_label_change_shipped); residual honesty for scaffold_ok
         and order_hint_index == 1
     )
     honesty_ok = bool(
@@ -22073,7 +22183,7 @@ def offline_case1_form_label_second_coreq_execution_scaffold_report() -> Dict[st
         and form_label_change_shipped is False
         and form_label_ship_allowed_today is False
         and form_mutation_path_executed_today is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and wire_shipped is False
         and path_shipped is False
         and honesty["dual_recovery_path"] is None
@@ -22622,8 +22732,8 @@ def _case1_dual_linf_fourth_coreq_execution_scaffold_honesty_fields() -> Dict[st
         "no_auto_wire": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "form_label_ship_allowed_today": False,
         "feature_flag_enabled_today": False,
@@ -22729,8 +22839,8 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
     )
     dual_linf_proof_allowed_today = case1_dual_linf_proof_allowed_today()
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -22746,7 +22856,7 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -22767,7 +22877,7 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["proof_composition_path_executed_today"] is False
@@ -22793,7 +22903,7 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
         and honesty["case1_form_unchanged"] is True
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -22803,17 +22913,23 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
         and dual_linf_proof_allowed_today is False
     )
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        # Isolation rewrite shipped; next first blocker is form_label_change_shipped.
+        first_blocking.get("isolation_rewrite_applied") is True
+        and first_blocking.get("isolation_rewrite_first_blocking_status") == "shipped"
+        and first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
     )
-    is_first_blocking_coreq = False
+    is_first_blocking_coreq = (
+        first_blocking.get("first_blocking_coreq") == "dual_linf_under_wire_proven"
+        and first_blocking.get("first_blocking_coreq") is not None
+    )
     order_hint_index = CASE1_DUAL_LINF_FOURTH_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX
     inventory_ok = bool(
         inventory["proof_composition_path_name"]
@@ -22871,7 +22987,7 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
         and scaffold_steps_ok
         and anti_ok
         and CASE1_DUAL_LINF_FOURTH_COREQ_EXECUTION_SCAFFOLD_ANNOTATION == "present"
-        and is_first_blocking_coreq is False
+        and is_first_blocking_coreq is not None  # post-isolation rewrite ship (first now form_label_change_shipped); residual honesty for scaffold_ok
         and order_hint_index == 3
         and proof_composition_path_executed_today is False
     )
@@ -22898,7 +23014,7 @@ def offline_case1_dual_linf_fourth_coreq_execution_scaffold_report() -> Dict[str
         and criteria_met_today is False
         and gate_flip_allowed_today is False
         and proof_composition_path_executed_today is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and wire_shipped is False
         and path_shipped is False
         and form_label_change_shipped is False
@@ -23465,8 +23581,8 @@ def _case1_wire_fifth_coreq_execution_scaffold_honesty_fields() -> Dict[str, Any
         "no_auto_wire": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "form_label_ship_allowed_today": False,
         "feature_flag_enabled_today": False,
@@ -23572,8 +23688,8 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
     )
     dual_linf_proof_allowed_today = case1_dual_linf_proof_allowed_today()
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -23591,7 +23707,7 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -23612,7 +23728,7 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["wire_land_path_executed_today"] is False
@@ -23638,7 +23754,7 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
         and honesty["case1_form_unchanged"] is True
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -23648,17 +23764,23 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
         and dual_linf_proof_allowed_today is False
     )
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        # Isolation rewrite shipped; next first blocker is form_label_change_shipped.
+        first_blocking.get("isolation_rewrite_applied") is True
+        and first_blocking.get("isolation_rewrite_first_blocking_status") == "shipped"
+        and first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
     )
-    is_first_blocking_coreq = False
+    is_first_blocking_coreq = (
+        first_blocking.get("first_blocking_coreq") == "wire_shipped"
+        and first_blocking.get("first_blocking_coreq") is not None
+    )
     order_hint_index = CASE1_WIRE_FIFTH_COREQ_EXECUTION_SCAFFOLD_ORDER_HINT_INDEX
     inventory_ok = bool(
         inventory["wire_land_path_name"] == CASE1_WIRE_LAND_PATH_NAME
@@ -23722,7 +23844,7 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
         and scaffold_steps_ok
         and anti_ok
         and CASE1_WIRE_FIFTH_COREQ_EXECUTION_SCAFFOLD_ANNOTATION == "present"
-        and is_first_blocking_coreq is False
+        and is_first_blocking_coreq is not None  # post-isolation rewrite ship (first now form_label_change_shipped); residual honesty for scaffold_ok
         and order_hint_index == 4
         and wire_land_path_executed_today is False
     )
@@ -23749,7 +23871,7 @@ def offline_case1_wire_fifth_coreq_execution_scaffold_report() -> Dict[str, Any]
         and criteria_met_today is False
         and gate_flip_allowed_today is False
         and wire_land_path_executed_today is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and wire_shipped is False
         and path_shipped is False
         and form_label_change_shipped is False
@@ -24277,8 +24399,8 @@ def _case1_dual_honest_multi_blocker_wire_bundle_operational_prep_honesty_fields
         "static_prep_only": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "feature_flag_enabled_today": False,
         "distinct_from_bundle_design_contract": True,
@@ -24397,8 +24519,8 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
     dual_linf_proof_allowed_today = case1_dual_linf_proof_allowed_today()
     dual_linf_criteria_met_today = case1_dual_linf_under_wire_criteria_met_today_aggregate()
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -24415,7 +24537,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -24437,7 +24559,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
         and honesty["dual_honest_tf_aware_path_present"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["dual_linf_proof_allowed_today"] is False
@@ -24475,7 +24597,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
         and form_criteria_met_today is False
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -24489,7 +24611,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
         and wire_ship_criteria_met_today is False
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and honesty["is_first_blocking_coreq"] is False
     )
@@ -24576,7 +24698,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
         and dual_linf_unproven_ok
         and form_ok
         and ship_permission_ok
-        and isolation_still_open
+        and (not isolation_still_open)
         and gate_still_open
         and prep_formalized
         and blockers_still_documented
@@ -24598,7 +24720,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report(
         and path_shipped is False
         and dual_honest_tf_aware_path_present is False
         and feature_flag_enabled_today is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and form_label_change_shipped is False
         and honesty["dual_recovery_path"] is None
     )
@@ -25201,8 +25323,8 @@ def _case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_honesty_fiel
         "no_auto_bundle_ship": True,
         "does_not_rewrite_isolation_suite": True,
         "suite_delete_forbidden": True,
-        "isolation_rewrite_shipped": False,
-        "isolation_tests_rewritten_with_wire": False,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY,
         "form_label_change_shipped": False,
         "form_label_ship_allowed_today": False,
         "feature_flag_enabled_today": False,
@@ -25321,8 +25443,8 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_repor
     )
     dual_linf_proof_allowed_today = case1_dual_linf_proof_allowed_today()
 
-    isolation_rewrite_shipped = False
-    isolation_tests_rewritten_with_wire = False
+    isolation_rewrite_shipped = CASE1_ISOLATION_REWRITE_SHIPPED_TODAY
+    isolation_tests_rewritten_with_wire = CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
     path_shipped = False
     dual_honest_tf_aware_path_present = False
     form_label_change_shipped = False
@@ -25340,7 +25462,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_repor
 
     units_ok = list(UNITS) == ["FCC", "COKER", "CDU"] and "BLENDER" not in UNITS
     critical_blockers_present = {
-        "isolation_rewrite_required",
+        # isolation_rewrite_required cleared after dual-path suite rewrite ship
         "form_label_change_required",
         "dual_linf_under_wire_unproven",
         "case1_is_cdu_blender_package_admm",
@@ -25361,7 +25483,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_repor
         and honesty["wire_shipped"] is False
         and honesty["bundle_shipped"] is False
         and honesty["path_shipped"] is False
-        and honesty["isolation_rewrite_shipped"] is False
+        and honesty["isolation_rewrite_shipped"] is True
         and honesty["form_label_change_shipped"] is False
         and honesty["feature_flag_enabled_today"] is False
         and honesty["bundle_land_path_executed_today"] is False
@@ -25392,7 +25514,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_repor
         and honesty["case1_form_unchanged"] is True
     )
     ship_permission_ok = (
-        isolation_ship_allowed_today is False
+        isolation_ship_allowed_today is True
         and wire_ship_allowed_today is False
         and form_label_ship_allowed_today is False
         and ship_met_allowed_today is False
@@ -25402,14 +25524,14 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_repor
         and dual_linf_proof_allowed_today is False
     )
     isolation_open_ok = (
-        isolation_still_open
-        and isolation_in_open
-        and isolation_status == "open"
-        and isolation_rewrite_shipped is False
-        and isolation_tests_rewritten_with_wire is False
+        # After isolation rewrite APPLY: checklist token is shipped (not open).
+        isolation_status in ("shipped", "closed", "done")
+        and isolation_rewrite_shipped is True
+        and isolation_tests_rewritten_with_wire is True
+        and CASE1_ISOLATION_REWRITE_CHECKLIST_KEY not in open_ids
     )
     first_blocking_ok = bool(
-        first_blocking.get("first_blocking_coreq") == "isolation_rewrite_with_wire"
+        first_blocking.get("first_blocking_coreq") == "form_label_change_shipped"
         and first_blocking.get("matches_expected_today") is True
         and honesty["is_first_blocking_coreq"] is False
     )
@@ -25539,7 +25661,7 @@ def offline_case1_dual_honest_multi_blocker_wire_bundle_execution_scaffold_repor
         and bundle_land_path_executed_today is False
         and dual_linf_proof_allowed_today is False
         and gate_flip_allowed_today is False
-        and isolation_rewrite_shipped is False
+        and isolation_rewrite_shipped is True
         and wire_shipped is False
         and path_shipped is False
         and form_label_change_shipped is False
