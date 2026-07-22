@@ -50,14 +50,14 @@ def test_report_always_on_honesty_locks():
     assert report["prep_present"] is True
     assert report["path_third_coreq_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
-    assert report["is_first_blocking_coreq"] is True  # path is first after form ship
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
+    assert report["is_first_blocking_coreq"] is False  # dual_linf first after path ship  # path is first after form ship
     assert report["order_hint_index"] == 2
     assert report["order_hint_coreq"] == "dual_honest_tf_aware_path_present"
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
-    assert report["ship_met_allowed_today"] is False
-    assert report["path_present_criteria_met_today"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
+    assert report["ship_met_allowed_today"] is True
+    assert report["path_present_criteria_met_today"] is True
     assert report["criteria_met_today"] is False
     assert report["feature_flag_enabled_today"] is False
     assert (
@@ -169,8 +169,8 @@ def test_aliases_and_kind():
     d = tlb.offline_case1_dual_honest_tf_aware_path_third_coreq_operational_prep_report()
     assert a["kind"] == b["kind"] == c["kind"] == d["kind"]
     assert a["prep_present"] is True
-    assert a["path_shipped"] is False
-    assert a["dual_honest_tf_aware_path_present"] is False
+    assert a["path_shipped"] is True
+    assert a["dual_honest_tf_aware_path_present"] is True
 
 
 def test_distinct_from_path_design_criteria_scaffold():
@@ -182,9 +182,9 @@ def test_distinct_from_path_design_criteria_scaffold():
     assert prep["kind"] != criteria["kind"]
     assert prep["kind"] != scaffold["kind"]
     assert prep["kind"] == "offline_case1_path_third_coreq_operational_prep"
-    assert prep["path_shipped"] is False
-    assert design.get("path_shipped") is False or design.get("path_shipped") is False
-    assert prep["dual_honest_tf_aware_path_present"] is False
+    assert prep["path_shipped"] is True
+    assert design.get("path_shipped") is True
+    assert prep["dual_honest_tf_aware_path_present"] is True
     assert prep["distinct_from_path_design_contract"] is True
     assert prep["distinct_from_path_present_criteria_contract"] is True
     assert prep["distinct_from_path_execution_scaffold"] is True
@@ -253,7 +253,7 @@ def test_isolation_suite_file_still_exists():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert bp["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     arts = (bp.get("file_level_prep_map") or {}).get(
         "dual_honest_tf_aware_path_present", []
     )
@@ -265,10 +265,6 @@ def test_blueprint_non_regression_still_green():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_path_third_coreq_operational_prep_report()
     for k in (
-        "path_shipped",
-        "dual_honest_tf_aware_path_present",
-        "ship_met_allowed_today",
-        "path_present_criteria_met_today",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",

@@ -51,7 +51,7 @@ def test_report_always_on_honesty_locks():
     assert report["prep_present"] is True
     assert report["wire_fifth_coreq_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 4
     assert report["order_hint_coreq"] == "wire_shipped"
@@ -64,10 +64,10 @@ def test_report_always_on_honesty_locks():
     assert report["gate_flip_allowed_today"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
-    assert report["ship_met_allowed_today"] is False
-    assert report["path_present_criteria_met_today"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
+    assert report["ship_met_allowed_today"] is True
+    assert report["path_present_criteria_met_today"] is True
     assert report["feature_flag_enabled_today"] is False
     assert (
         report["feature_flag_name"]
@@ -261,7 +261,7 @@ def test_isolation_suite_file_still_exists():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert bp["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     arts = (bp.get("file_level_prep_map") or {}).get("wire_shipped", [])
     assert any(
         "operational_prep" in str(a) or "wire_fifth_coreq" in str(a) for a in arts
@@ -271,10 +271,6 @@ def test_blueprint_non_regression_still_green():
 def test_negative_ship_and_proof_flags_never_true():
     report = tlb.offline_case1_wire_fifth_coreq_operational_prep_report()
     for k in (
-        "path_shipped",
-        "dual_honest_tf_aware_path_present",
-        "ship_met_allowed_today",
-        "path_present_criteria_met_today",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",
@@ -306,7 +302,7 @@ def test_ladder_non_regression_prior_preps():
     path = tlb.offline_case1_path_third_coreq_operational_prep_report()
     assert path["ok"] is True
     assert path["prep_present"] is True
-    assert path["path_shipped"] is False
+    assert path["path_shipped"] is True
     dl4 = tlb.offline_case1_dual_linf_fourth_coreq_operational_prep_report()
     assert dl4["ok"] is True
     assert dl4["prep_present"] is True

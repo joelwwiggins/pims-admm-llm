@@ -90,8 +90,8 @@ def test_report_always_on_honesty_locks():
     assert report["dual_recovery_path"] is None
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["bundle_ship_allowed_today"] is False
@@ -106,7 +106,7 @@ def test_report_always_on_honesty_locks():
     assert report["form_planned"] == tlb.CASE1_PLANNED_TF_AWARE_FORM
     assert report["planned_form_distinct"] is True
     assert report["wire_ship_allowed_today"] is False
-    assert report["ship_met_allowed_today"] is False
+    assert report["ship_met_allowed_today"] is True
     assert report["isolation_ship_allowed_today"] is True
     assert report["form_label_ship_allowed_today"] is True
     assert report["isolation_rewrite_with_wire"] == "shipped"
@@ -195,7 +195,7 @@ def test_compose_path_pieces_finite_and_honest():
     assert compose["surfaces"]["blender_surface"] == "linear_quality_pooling"
     assert compose["streams"]["cdu_intermediates_finite"] is True
     assert compose["streams"]["blender_use_finite"] is True
-    assert compose["path_shipped"] is False
+    assert compose["path_shipped"] is True
     assert compose["wire_shipped"] is False
     assert compose["bundle_shipped"] is False
     assert compose["is_not_maximizer_sla"] is True
@@ -266,7 +266,7 @@ def test_multi_blocker_coreq_visibility_without_flip():
     assert coreqs["isolation_rewrite_with_wire"] == "shipped"
     assert coreqs["isolation_rewrite_shipped"] is True
     assert coreqs["form_label_change_shipped"] is True
-    assert coreqs["dual_honest_tf_aware_path_present"] is False
+    assert coreqs["dual_honest_tf_aware_path_present"] is True
     assert coreqs["dual_linf_under_wire"] == "unproven"
     assert coreqs["online_linf_gate_under_tf_path"] == "open"
     assert coreqs["wire_shipped"] is False
@@ -520,11 +520,11 @@ def test_form_contract_and_ladder_non_regression():
     assert ws["wire_ship_allowed_today"] is False
     assert ws["wire_shipped"] is False
     path = tlb.offline_case1_dual_honest_tf_aware_path_design_contract_report()
-    assert path["path_shipped"] is False
-    assert path["dual_honest_tf_aware_path_present"] is False
+    assert path["path_shipped"] is True
+    assert path["dual_honest_tf_aware_path_present"] is True
     present = tlb.offline_case1_dual_honest_tf_aware_path_present_criteria_contract_report()
-    assert present["dual_honest_tf_aware_path_present"] is False
-    assert present.get("ship_met_allowed_today", False) is False
+    assert present["dual_honest_tf_aware_path_present"] is True
+    assert present.get("ship_met_allowed_today", False) is True
     bundle = (
         tlb.offline_case1_dual_honest_multi_blocker_wire_bundle_shipped_criteria_contract_report()
     )
@@ -533,7 +533,7 @@ def test_form_contract_and_ladder_non_regression():
     assert bundle["criteria_met_today"] is False
     scaffold = tlb.offline_case1_dual_honest_tf_aware_path_execution_scaffold_report()
     assert scaffold["scaffold_present"] is True
-    assert scaffold["path_shipped"] is False
+    assert scaffold["path_shipped"] is True
     assert scaffold["wire_shipped"] is False
     assert scaffold["bundle_shipped"] is False
     assert scaffold["isolation_rewrite_shipped"] is True

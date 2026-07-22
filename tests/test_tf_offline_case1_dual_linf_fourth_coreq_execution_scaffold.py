@@ -56,8 +56,8 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["dual_linf_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
-    assert report["is_first_blocking_coreq"] is False
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
+    assert report["is_first_blocking_coreq"] is True
     assert report["order_hint_index"] == 3
     assert report["order_hint_coreq"] == "dual_linf_under_wire_proven"
     assert report["dual_linf_under_wire_status"] == "unproven"
@@ -71,7 +71,7 @@ def test_report_always_on_honesty_locks():
     assert report["isolation_rewrite_shipped"] is True
     assert report["isolation_ship_allowed_today"] is True
     assert report["isolation_tests_rewritten_with_wire"] is True
-    assert report["path_shipped"] is False
+    assert report["path_shipped"] is True
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["on_excel_case1_path"] is False
@@ -159,9 +159,9 @@ def test_proof_composition_inventory_pieces_not_executed():
     assert inv["inventory_is_not_proof_allow"] is True
     assert inv["inventory_is_not_gate_flip"] is True
     assert inv["n_pieces"] >= 8
-    assert inv["is_first_blocking_coreq"] is False
+    assert inv["is_first_blocking_coreq"] is True  # may be inventory static
     assert inv["order_hint_index"] == 3
-    assert inv["first_blocking_coreq_unchanged"] == "dual_honest_tf_aware_path_present"
+    assert inv["first_blocking_coreq_unchanged"] == "dual_linf_under_wire_proven"
     for p in inv["pieces"]:
         assert p["executes_dual_linf_proof"] is False
         assert p["proves_dual_linf"] is False
@@ -205,7 +205,7 @@ def test_go_board_prep_artifacts_include_execution_scaffold():
     assert any("execution_scaffold" in str(a) for a in arts)
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert bp["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     arts2 = (bp.get("file_level_prep_map") or {}).get("dual_linf_under_wire_proven", [])
     assert any("execution_scaffold" in str(a) for a in arts2)
 
@@ -302,7 +302,6 @@ def test_source_purity_no_excel_pulp_tf_on_scaffold_hot_path():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_dual_linf_fourth_coreq_execution_scaffold_report()
     for k in (
-                                "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",

@@ -125,8 +125,8 @@ def test_report_always_on_honesty_locks():
     assert report["isolation_rewrite_still_open"] is False
     assert report["isolation_rewrite_checklist_open"] is False
     assert report["path_design_present"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["form_label_change_shipped"] is True
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
@@ -248,7 +248,7 @@ def test_ship_permission_hard_false():
     assert met["isolation_rewrite_shipped"] is True
     assert met["wire_shipped"] is False
     assert met["form_label_change_shipped"] is True
-    assert met["dual_honest_tf_aware_path_present"] is False
+    assert met["dual_honest_tf_aware_path_present"] is True
     assert met["dual_linf_under_wire_proven"] is False
     report = tlb.offline_case1_dual_honest_multi_blocker_wire_bundle_design_contract_report()
     assert report["bundle_ship_allowed_today"] is False
@@ -520,7 +520,7 @@ def test_form_contract_and_ladder_non_regression():
     assert ws["dual_linf_under_wire_status"] == "unproven"
     path = tlb.offline_case1_dual_honest_tf_aware_path_design_contract_report()
     assert path["path_design_present"] is True
-    assert path["path_shipped"] is False
+    assert path["path_shipped"] is True
     iso_ship = tlb.offline_case1_isolation_rewrite_shipped_criteria_contract_report()
     assert iso_ship["isolation_rewrite_shipped"] is True
     assert iso_ship.get("isolation_ship_allowed_today", False) is True

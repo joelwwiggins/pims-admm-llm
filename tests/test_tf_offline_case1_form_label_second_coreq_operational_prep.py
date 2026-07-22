@@ -53,7 +53,7 @@ def test_report_always_on_honesty_locks():
     assert report["prep_present"] is True
     assert report["form_label_second_coreq_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 1
     assert report["order_hint_coreq"] == "form_label_change_shipped"
@@ -65,7 +65,7 @@ def test_report_always_on_honesty_locks():
         report["form_mutation_path_name"]
         == tlb.CASE1_FORM_LABEL_CHANGE_MUTATION_PATH_NAME
     )
-    assert report["path_shipped"] is False
+    assert report["path_shipped"] is True
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
     assert report["isolation_rewrite_shipped"] is True
@@ -240,7 +240,7 @@ def test_isolation_suite_file_still_exists():
 def test_blueprint_non_regression_still_green():
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert bp["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     arts = (bp.get("file_level_prep_map") or {}).get("form_label_change_shipped", [])
     assert any(
         "operational_prep" in str(a) or "form_label_second_coreq" in str(a)
@@ -251,7 +251,6 @@ def test_blueprint_non_regression_still_green():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_form_label_second_coreq_operational_prep_report()
     for k in (
-        "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",

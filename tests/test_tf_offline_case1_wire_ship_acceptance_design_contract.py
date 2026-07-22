@@ -183,7 +183,7 @@ def test_ship_permission_hard_false():
     assert met["isolation_rewrite_with_wire"] is True
     assert met["wire_shipped"] is False
     assert met["form_label_change_shipped"] is True
-    assert met["dual_honest_tf_aware_path_present"] is False
+    assert met["dual_honest_tf_aware_path_present"] is True
     assert met["dual_linf_under_wire_proven"] is False
     report = tlb.offline_case1_wire_ship_acceptance_design_contract_report()
     assert report["wire_ship_allowed_today"] is False

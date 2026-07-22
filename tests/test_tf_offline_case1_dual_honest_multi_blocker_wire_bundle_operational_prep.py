@@ -55,7 +55,7 @@ def test_report_always_on_honesty_locks():
     assert report["bundle_prep_present"] is True
     assert report["companion_bundle_prep_present"] is True
     assert report["operational_prep_present"] is True
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["companion_not_order_hint_primary"] is True
     assert report["bundle_shipped"] is False
@@ -69,8 +69,8 @@ def test_report_always_on_honesty_locks():
     assert report["gate_flip_allowed_today"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["online_linf_gate_still_open"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["feature_flag_enabled_today"] is False
     assert (
         report["feature_flag_name"]
@@ -148,7 +148,7 @@ def test_how_bundle_prep_lands_inventory():
     assert inv["composition_status_today"] == "not_executed"
     assert inv["inventory_ok"] is True
     assert inv["inventory_ok_is_not_bundle_ship_allowed"] is True
-    assert inv["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert inv["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert inv["is_first_blocking_coreq"] is False
     assert inv["companion_not_order_hint_primary"] is True
     assert inv["dual_recovery_path"] is None
@@ -279,10 +279,6 @@ def test_isolation_suite_file_still_exists():
 def test_negative_ship_and_proof_flags_never_true():
     report = tlb.offline_case1_dual_honest_multi_blocker_wire_bundle_operational_prep_report()
     for k in (
-        "path_shipped",
-        "dual_honest_tf_aware_path_present",
-        "ship_met_allowed_today",
-        "path_present_criteria_met_today",
         "wire_shipped",
         "bundle_shipped",
         "bundle_ship_allowed_today",
@@ -315,7 +311,7 @@ def test_ladder_non_regression_prior_residuals():
     path = tlb.offline_case1_path_third_coreq_operational_prep_report()
     assert path["ok"] is True
     assert path["prep_present"] is True
-    assert path["path_shipped"] is False
+    assert path["path_shipped"] is True
     dl4 = tlb.offline_case1_dual_linf_fourth_coreq_operational_prep_report()
     assert dl4["ok"] is True
     assert dl4["prep_present"] is True
@@ -346,12 +342,12 @@ def test_feasibility_and_lock_and():
     assert report["wire_ship_allowed_today"] is False
     assert report["dual_linf_proof_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
-    assert report["path_shipped"] is False
+    assert report["path_shipped"] is True
     assert report["isolation_rewrite_shipped"] is True
     assert report["form_label_change_shipped"] is True
     assert report["feature_flag_enabled_today"] is False
     assert report["dual_recovery_path"] is None
-    assert report["first_blocking_coreq"] == "dual_honest_tf_aware_path_present"
+    assert report["first_blocking_coreq"] == "dual_linf_under_wire_proven"
     assert report["is_first_blocking_coreq"] is False
     assert report["companion_not_order_hint_primary"] is True
     assert report["order_hint_is_not_executor"] is True

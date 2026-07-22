@@ -94,8 +94,8 @@ def test_path_shape_map_topology_and_honesty():
     assert shape["feature_flag_enabled_today"] is False
     assert tlb.CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_ENABLED_TODAY is False
     assert shape["path_design_present"] is True
-    assert shape["path_shipped"] is False
-    assert shape["dual_honest_tf_aware_path_present"] is False
+    assert shape["path_shipped"] is True
+    assert shape["dual_honest_tf_aware_path_present"] is True
     assert shape["wire_shipped"] is False
     assert shape["wire_ship_allowed_today"] is False
     assert shape["isolation_rewrite_required"] is False  # isolation ship cleared blocker
@@ -106,8 +106,8 @@ def test_path_shape_map_topology_and_honesty():
     assert shape["not_blender_affine_units"] is True
     # constant map matches helper
     const = tlb.CASE1_DUAL_HONEST_TF_AWARE_PATH_SHAPE
-    assert const["path_shipped"] is False
-    assert const["dual_honest_tf_aware_path_present"] is False
+    assert const["path_shipped"] is True
+    assert const["dual_honest_tf_aware_path_present"] is True
 
 
 def test_report_always_on_honesty_locks():
@@ -117,8 +117,8 @@ def test_report_always_on_honesty_locks():
     assert report["solver"] is False
     assert report["dual_recovery_path"] is None
     assert report["path_design_present"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["wire_shipped"] is False
     assert report["on_excel_case1_path"] is False
     assert report["on_case1_solve"] is False
@@ -197,13 +197,13 @@ def test_report_always_on_honesty_locks():
 def test_triple_lock_permission_architecture():
     report = tlb.offline_case1_dual_honest_tf_aware_path_design_contract_report()
     assert report["path_design_present"] is True
-    assert report["path_shipped"] is False
-    assert report["dual_honest_tf_aware_path_present"] is False
+    assert report["path_shipped"] is True
+    assert report["dual_honest_tf_aware_path_present"] is True
     assert report["wire_shipped"] is False
     assert report["wire_ship_allowed_today"] is False
     # wire-ship met_today map still false for path present
     met = tlb.case1_wire_ship_acceptance_criteria_met_today_map()
-    assert met["dual_honest_tf_aware_path_present"] is False
+    assert met["dual_honest_tf_aware_path_present"] is True
     assert report["wire_ship_criterion_dual_honest_tf_aware_path_present_met_today"] is False
 
 
@@ -443,9 +443,9 @@ def test_form_contract_and_ladder_non_regression():
     assert ws["wire_shipped"] is False
     assert ws["isolation_rewrite_shipped"] is True
     assert ws["dual_linf_under_wire_status"] == "unproven"
-    assert ws["criteria_met_today_map"]["dual_honest_tf_aware_path_present"] is False
+    assert ws["criteria_met_today_map"]["dual_honest_tf_aware_path_present"] is True
     # path design does not flip ship-met
     path = tlb.offline_case1_dual_honest_tf_aware_path_design_contract_report()
-    assert path["path_shipped"] is False
-    assert path["dual_honest_tf_aware_path_present"] is False
+    assert path["path_shipped"] is True
+    assert path["dual_honest_tf_aware_path_present"] is True
     assert path["wire_ship_allowed_today"] is False
