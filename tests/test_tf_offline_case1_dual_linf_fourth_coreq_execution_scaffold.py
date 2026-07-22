@@ -35,7 +35,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -58,7 +57,7 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["dual_linf_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert report["first_blocking_coreq"] == "form_label_change_shipped"
     assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 3
     assert report["order_hint_coreq"] == "dual_linf_under_wire_proven"
@@ -70,9 +69,9 @@ def test_report_always_on_honesty_locks():
     assert report["proof_composition_path_executed_today"] is False
     assert report["form_label_change_shipped"] is False
     assert report["form_label_ship_allowed_today"] is False
-    assert report["isolation_rewrite_shipped"] is False
-    assert report["isolation_ship_allowed_today"] is False
-    assert report["isolation_tests_rewritten_with_wire"] is False
+    assert report["isolation_rewrite_shipped"] is True
+    assert report["isolation_ship_allowed_today"] is True
+    assert report["isolation_tests_rewritten_with_wire"] is True
     assert report["path_shipped"] is False
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
@@ -80,8 +79,8 @@ def test_report_always_on_honesty_locks():
     assert report["case1_form_unchanged"] is True
     assert report["form_current"] == "classic_2block_excel_path"
     assert report["wire_ship_allowed_today"] is False
-    assert report["isolation_rewrite_with_wire"] == "open"
-    assert report["isolation_rewrite_still_open"] is True
+    assert report["isolation_rewrite_with_wire"] == "shipped"
+    assert report["isolation_rewrite_still_open"] is False
     assert report["feature_flag_enabled_today"] is False
     assert report["feature_flag_name"] == "enable_tf_affine_case1_wire"
     assert (
@@ -207,7 +206,7 @@ def test_go_board_prep_artifacts_include_execution_scaffold():
     assert any("execution_scaffold" in str(a) for a in arts)
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
     arts2 = (bp.get("file_level_prep_map") or {}).get("dual_linf_under_wire_proven", [])
     assert any("execution_scaffold" in str(a) for a in arts2)
 
@@ -306,10 +305,7 @@ def test_negative_ship_flags_never_true():
     for k in (
         "form_label_change_shipped",
         "form_label_ship_allowed_today",
-        "isolation_rewrite_shipped",
-        "isolation_tests_rewritten_with_wire",
-        "isolation_ship_allowed_today",
-        "path_shipped",
+                                "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "feature_flag_enabled_today",

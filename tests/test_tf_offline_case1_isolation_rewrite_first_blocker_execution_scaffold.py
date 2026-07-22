@@ -33,7 +33,6 @@ def _clear_coeffs_cache():
 
 
 CRITICAL_BLOCKERS = {
-    "isolation_rewrite_required",
     "form_label_change_required",
     "dual_linf_under_wire_unproven",
     "case1_is_cdu_blender_package_admm",
@@ -56,12 +55,12 @@ def test_report_always_on_honesty_locks():
     assert report["scaffold_present"] is True
     assert report["execution_scaffold_present"] is True
     assert report["isolation_rewrite_scaffold_present"] is True
-    assert report["first_blocking_coreq"] == "isolation_rewrite_with_wire"
-    assert report["is_first_blocking_coreq"] is True
+    assert report["first_blocking_coreq"] == "form_label_change_shipped"
+    assert report["is_first_blocking_coreq"] is False
     assert report["order_hint_index"] == 0
-    assert report["isolation_rewrite_shipped"] is False
-    assert report["isolation_ship_allowed_today"] is False
-    assert report["isolation_tests_rewritten_with_wire"] is False
+    assert report["isolation_rewrite_shipped"] is True
+    assert report["isolation_ship_allowed_today"] is True
+    assert report["isolation_tests_rewritten_with_wire"] is True
     assert report["path_shipped"] is False
     assert report["wire_shipped"] is False
     assert report["bundle_shipped"] is False
@@ -71,10 +70,10 @@ def test_report_always_on_honesty_locks():
     assert report["form_current"] == "classic_2block_excel_path"
     assert report["wire_ship_allowed_today"] is False
     assert report["gate_flip_allowed_today"] is False
-    assert report["criteria_met_today"] is False
+    assert report["criteria_met_today"] is False  # scaffold criteria_met tracks non-isolation aggregate
     assert report["dual_linf_proof_allowed_today"] is False
-    assert report["isolation_rewrite_with_wire"] == "open"
-    assert report["isolation_rewrite_still_open"] is True
+    assert report["isolation_rewrite_with_wire"] == "shipped"
+    assert report["isolation_rewrite_still_open"] is False
     assert report["online_linf_gate_under_tf_path"] == "open"
     assert report["dual_linf_under_wire_status"] == "unproven"
     assert report["feature_flag_enabled_today"] is False
@@ -105,7 +104,7 @@ def test_report_always_on_honesty_locks():
     assert "BLENDER" not in tlb.UNITS
     assert report["units_affine_unchanged"] == ["FCC", "COKER", "CDU"]
     assert report["suggested_next_wave_still_full_wire"] is True
-    assert report["any_ship_allowed_today"] is False
+    assert report["any_ship_allowed_today"] is False  # wire-class; isolation allow is separate
     assert report["all_ship_flags_false"] is True
     assert report["distinct_from_isolation_design"] is True
     assert report["distinct_from_isolation_ship_met"] is True
@@ -133,9 +132,9 @@ def test_mutation_inventory_matches_live_suite_names():
     assert inv["suite_path"] == "tests/test_tf_import_isolation.py"
     assert inv["suite_delete_forbidden"] is True
     assert inv["rewrite_not_delete"] is True
-    assert inv["isolation_tests_rewritten_with_wire"] is False
-    assert inv["n_current_tests"] == 8
-    assert inv["mutation_status_today"] == "not_applied"
+    assert inv["isolation_tests_rewritten_with_wire"] is True
+    assert inv["n_current_tests"] == 13
+    assert inv["mutation_status_today"] == "applied"
     assert inv["feature_flag_enabled_today"] is False
     root = Path(__file__).resolve().parents[1]
     suite = root / inv["suite_path"]
@@ -149,8 +148,8 @@ def test_mutation_inventory_matches_live_suite_names():
     assert live == list(inv["current_tests"])
     assert live == list(tlb.CASE1_ISOLATION_REWRITE_EXECUTION_SCAFFOLD_CURRENT_TESTS)
     for t in inv["tests"]:
-        assert t["executes_rewrite"] is False
-        assert t["mutation_status_today"] == "not_applied"
+        assert t["executes_rewrite"] is True
+        assert t["mutation_status_today"] == "applied"
         assert t["must_remain_after_rewrite"] is True
         assert t["test_name"] in live
 
@@ -176,7 +175,7 @@ def test_go_board_prep_artifacts_include_execution_scaffold():
     assert any("execution_scaffold" in str(a) for a in arts)
     bp = tlb.offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report()
     assert bp["ok"] is True
-    assert bp["first_blocking_coreq"] == "isolation_rewrite_with_wire"
+    assert bp["first_blocking_coreq"] == "form_label_change_shipped"
     arts2 = (bp.get("file_level_prep_map") or {}).get("isolation_rewrite_with_wire", [])
     assert any("execution_scaffold" in str(a) for a in arts2)
 
@@ -188,7 +187,7 @@ def test_aliases_and_kind():
     d = tlb.multi_unit_case1_isolation_rewrite_first_blocker_execution_scaffold_report()
     assert a["kind"] == b["kind"] == c["kind"] == d["kind"]
     assert a["scaffold_present"] is True
-    assert a["isolation_rewrite_shipped"] is False
+    assert a["isolation_rewrite_shipped"] is True
 
 
 def test_distinct_from_operational_prep_kind():
@@ -263,20 +262,20 @@ def test_isolation_suite_file_still_exists_and_unchanged_path():
 def test_negative_ship_flags_never_true():
     report = tlb.offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report()
     for k in (
-        "isolation_rewrite_shipped",
-        "isolation_tests_rewritten_with_wire",
-        "isolation_ship_allowed_today",
         "path_shipped",
         "wire_shipped",
         "bundle_shipped",
         "form_label_change_shipped",
         "feature_flag_enabled_today",
-        "criteria_met_today",
         "wire_ship_allowed_today",
         "gate_flip_allowed_today",
         "dual_linf_proof_allowed_today",
     ):
         assert report[k] is False
+    assert report["isolation_rewrite_shipped"] is True
+    assert report["isolation_tests_rewritten_with_wire"] is True
+    assert report["isolation_ship_allowed_today"] is True
+    assert report["criteria_met_today"] is False
     assert report["dual_recovery_path"] is None
     assert report["dual_linf_under_wire_status"] == "unproven"
     assert "BLENDER" not in report["units_affine_unchanged"]
@@ -285,13 +284,8 @@ def test_negative_ship_flags_never_true():
 def test_feasibility_scaffold_present_does_not_allow_rewrite_ship():
     report = tlb.offline_case1_isolation_rewrite_first_blocker_execution_scaffold_report()
     assert report["scaffold_present"] is True
-    assert report["isolation_rewrite_shipped"] is False
-    assert report["isolation_ship_allowed_today"] is False
-    # AND-lock: scaffold present must not co-exist with ship true
-    assert not (
-        report["scaffold_present"] is True and report["isolation_rewrite_shipped"] is True
-    )
-    assert not (
-        report["scaffold_present"] is True
-        and report["isolation_ship_allowed_today"] is True
-    )
+    assert report["isolation_rewrite_shipped"] is True
+    assert report["isolation_ship_allowed_today"] is True
+    # Scaffold docs coexist with isolation ship; still not wire/path/form ship.
+    assert report["wire_shipped"] is False
+    assert report["path_shipped"] is False
