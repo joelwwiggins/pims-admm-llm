@@ -90,7 +90,16 @@ Toy **single-period mono CBC** is often faster than a parallel ADMM wave — the
 | FCC | ROT low / mid / high | SOS1-style binaries, exactly one mode |
 | Coker | recycle low / mid / high | SOS1-style binaries, exactly one mode |
 
-Each mode owns a fixed yield table from `yields.fcc_yields` / `coker_yields` under that mode's process conditions. Standalone MIP: `solve_process_pool_mip()`. Optional merge helper: `attach_process_pool_to_plant_yields` (no deep `full_plant` rewrite). Mono-oracle duals remain plan truth.
+Each mode owns a fixed yield table from `yields.fcc_yields` / `coker_yields` under that mode's process conditions. Standalone MIP: `solve_process_pool_mip()`. Optional merge helper: `attach_process_pool_to_plant_yields`.
+
+**Plant integration (meat path):** `solve_full_plant(process_pool_modes=True)` runs the process-pool MIP, attaches selected FCC/coker yields, then solves the continuous plant LP (plant remains LP — modes are fixed, not endogenous binaries). `process_pool_two_pass=True` first solves continuous plant, re-selects modes on realized FCC/coker feeds, then re-solves. Demo:
+
+```bash
+PYTHONPATH=src python -m demos.run_full_plant_demo --process-pool
+PYTHONPATH=src python -m demos.run_full_plant_demo --process-pool-two-pass
+```
+
+Meta: `result.meta["process_pool"]` reports `fcc_mode`, `coker_mode`, feeds used, `two_pass`. Mono-oracle duals remain plan truth for the LP that uses those yields.
 
 ### What we measure
 

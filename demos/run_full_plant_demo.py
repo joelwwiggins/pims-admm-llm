@@ -35,6 +35,22 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Use dual_recovery_path=pure-admm (free λ; honest L∞ vs mono bal duals)",
     )
+    ap.add_argument(
+        "--process-pool",
+        action="store_true",
+        help=(
+            "Select discrete FCC ROT + coker recycle modes via process-pool MIP, "
+            "then solve plant LP with attached yields (plant stays LP)"
+        ),
+    )
+    ap.add_argument(
+        "--process-pool-two-pass",
+        action="store_true",
+        help=(
+            "Two-pass process-pool: continuous plant → mode MIP on realized feeds "
+            "→ re-solve plant (implies --process-pool)"
+        ),
+    )
     ap.add_argument("--max-iter", type=int, default=40)
     args = ap.parse_args(argv)
 
@@ -51,9 +67,20 @@ def main(argv: list[str] | None = None) -> int:
         excel_ok = f"skip: {e}"
 
     recovery_path = "pure-admm" if args.pure_admm else "mono-oracle"
-    mono = solve_full_plant(assays)
+    use_pool = bool(args.process_pool or args.process_pool_two_pass)
+    two_pass = bool(args.process_pool_two_pass)
+    mono = solve_full_plant(
+        assays,
+        process_pool_modes=use_pool,
+        process_pool_two_pass=two_pass,
+    )
+    # ADMM mono-oracle ground truth should match the same yield tables as mono.
     admm = admm_price_directed_plant(
-        assays, recovery_path=recovery_path, max_iter=args.max_iter
+        assays,
+        recovery_path=recovery_path,
+        max_iter=args.max_iter,
+        process_pool_modes=use_pool,
+        process_pool_two_pass=two_pass,
     )
     blocks = solve_all_plant_blocks()
 
@@ -150,6 +177,8 @@ def main(argv: list[str] | None = None) -> int:
             "fcc_yields": mono.yields_used.get("fcc"),
             "coker_yields": mono.yields_used.get("coker"),
             "reformer_yields": mono.yields_used.get("reformer"),
+            "process_pool": mono.meta.get("process_pool"),
+            "process_conditions": mono.meta.get("process_conditions"),
         },
         "admm_recovered": {
             "status": admm["status"],
@@ -202,6 +231,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(f"  quality duals: {mono.quality_duals}")
     print(f"  tanks end:  {mono.tank_end}")
+    pp = mono.meta.get("process_pool")
+    if pp and pp.get("enabled"):
+        print("\n  process-pool modes (MIP → fixed plant yields):")
+        print(f"    FCC mode:    {pp.get('fcc_mode')}")
+        print(f"    Coker mode:  {pp.get('coker_mode')}")
+        print(f"    two_pass:    {pp.get('two_pass')}")
+        print(
+            f"    feeds used:  fcc={pp.get('fcc_feed_kbd_used')} "
+            f"coker={pp.get('coker_feed_kbd_used')}"
+        )
+        print(f"    plant LP:    remains continuous (modes fixed from MIP)")
     print("\n  property-driven yields (sample):")
     print(f"    FCC:      {mono.yields_used['fcc']}")
     print(f"    Coker:    {mono.yields_used['coker']}")
@@ -240,10 +280,18 @@ def main(argv: list[str] | None = None) -> int:
                 f"(NOT dual recovery; default remains mono-oracle)."
             )
         else:
+            pp = mono.meta.get("process_pool") or {}
+            pool_note = ""
+            if pp.get("enabled"):
+                pool_note = (
+                    f" process_pool fcc={pp.get('fcc_mode')} coker={pp.get('coker_mode')}"
+                    f"{' two_pass' if pp.get('two_pass') else ''}."
+                )
             print(
                 "VERDICT: PASS — full plant feasible; obj gap≤1%; dual recovery within tolerance; "
                 f"rho={admm.get('rho')} ||r||={admm.get('primal_residual_norm')} "
                 f"||s||={admm.get('dual_residual_norm')} path={admm.get('dual_recovery_path')}."
+                f"{pool_note}"
             )
         return 0
     print("VERDICT: FAIL — see dual/obj gaps above.")
