@@ -97,6 +97,7 @@ def honesty_metadata() -> Dict[str, Any]:
         "admm_case1_honest_blender_pooling_path_available": True,
         "admm_case1_online_linf_gate_criteria_contract_available": True,
         "admm_case1_dual_linf_under_wire_criteria_contract_available": True,
+        "admm_case1_dual_linf_proof_substrate_available": True,
         "admm_case1_isolation_rewrite_design_contract_available": True,
         "admm_case1_wire_ship_acceptance_design_contract_available": True,
         "admm_case1_dual_honest_tf_aware_path_design_contract_available": True,
@@ -18091,6 +18092,407 @@ def multi_unit_case1_isolation_rewrite_first_blocker_operational_prep_report() -
 
 
 # ---------------------------------------------------------------------------
+# Offline Case-1 dual_linf proof substrate (PR-A / post-#82 residual)
+# ---------------------------------------------------------------------------
+# Real measurement harness under the *path-present / planned form face* without
+# claiming dual_linf_under_wire proven, wire ship, gate close, or feature-flag
+# enable. Composes live-λ bridge → probe L∞ on Case-1-shaped streams with
+# path-present shape labels (CDU affine + blender linear_quality_pooling).
+# Hard: dual_linf stays unproven; dual_linf_proof_allowed_today=False;
+# wire_shipped=False; flag False; dual_recovery_path=None;
+# substrate ≠ proof ≠ VERDICT ≠ wire. Anti-criteria include probe/bridge alone
+# as proof. Does NOT clear DEFAULT_WIRE_BLOCKERS. No TF/PuLP/excel_pipeline.
+
+CASE1_DUAL_LINF_PROOF_SUBSTRATE_KIND = "offline_case1_dual_linf_proof_substrate"
+CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANNOTATION = "present"
+CASE1_DUAL_LINF_PROOF_SUBSTRATE_FACE = "path_present_planned_form_face"
+CASE1_DUAL_LINF_PROOF_SUBSTRATE_DIAGNOSTIC_THRESHOLD = 15.0
+CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY: tuple = (
+    "this_substrate_alone",
+    "probe_linf",
+    "bridge_linf",
+    "warmstart_linf",
+    "pooling_linf",
+    "seed_identity_linf",
+    "recovered_blender_linf",
+    "diagnostic_linf_alone",
+    "packaging_alone",
+    "dual_linf_criteria_alone",
+    "online_linf_gate_criteria_alone",
+    "path_present_alone",
+    "form_label_alone",
+    "scaffold_alone",
+    "prep_alone",
+)
+
+
+def _case1_dual_linf_proof_substrate_honesty_fields() -> Dict[str, Any]:
+    """Dual-ban / not-proof locks for the dual_linf proof substrate."""
+    checklist = dict(CASE1_DUAL_LINF_PROOF_CHECKLIST)
+    open_ids = [
+        k
+        for k, v in checklist.items()
+        if str(v).lower() in ("open", "false_today", "unproven")
+    ]
+    return {
+        "kind": CASE1_DUAL_LINF_PROOF_SUBSTRATE_KIND,
+        "solver": False,
+        "dual_recovery_path": None,
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "not_case1_solve": True,
+        "form_current": CASE1_FORM_CURRENT,
+        "form_planned": CASE1_PLANNED_TF_AWARE_FORM,
+        "form_label_change_shipped": CASE1_FORM_LABEL_CHANGE_SHIPPED_TODAY,
+        "path_shipped": CASE1_PATH_SHIPPED_TODAY,
+        "dual_honest_tf_aware_path_present": (
+            CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIPPED_TODAY
+        ),
+        # Path present ≠ path under wire (substrate measures under present face only).
+        "dual_honest_tf_aware_path_under_wire": False,
+        "wire_shipped": False,
+        "not_wire_shipped": True,
+        "bundle_shipped": False,
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": False,
+        "not_pure_admm_dual_recovery": True,
+        "not_full_plant_mass_balance": True,
+        "not_full_plant_blocks_feed_lp": True,
+        "not_live_plant_blocks": True,
+        "not_full_tf_admm_wire": True,
+        "substrate_is_not_dual_linf_under_wire_proof": True,
+        "substrate_is_not_wire": True,
+        "substrate_is_not_verdict_gate": True,
+        "substrate_is_not_gate_flip": True,
+        "probe_bridge_are_not_proof": True,
+        "dual_linf_under_wire_status": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_under_wire": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_under_wire_unproven_still_true": (
+            CASE1_DUAL_LINF_UNDER_WIRE_STATUS == "unproven"
+        ),
+        "dual_linf_proof_allowed_today": False,
+        "online_linf_gate_under_tf_path": checklist.get(
+            "online_linf_gate_under_tf_path", "open"
+        ),
+        "dual_linf_proof_checklist": checklist,
+        "dual_linf_proof_checklist_open_ids": open_ids,
+        "dual_linf_proof_checklist_n_open": len(open_ids),
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "cdu_surface": CASE1_DUAL_HONEST_TF_AWARE_PATH_SHAPE.get(
+            "cdu_surface", "offline_affine_base_delta"
+        ),
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "package_dual_gate": "online_lambda",
+        "package_dual_gate_role": "PRIMARY",
+        "scope": "case1_dual_linf_proof_substrate_offline",
+        "note": (
+            "Offline Case-1 dual_linf proof substrate: measures stream-aligned L∞ "
+            "between Case 1 PRIMARY online λ and Case-1-shaped skeleton λ under the "
+            "path-present / planned form face (CDU offline affine + blender "
+            "linear_quality_pooling). dual_linf_under_wire stays unproven; "
+            "dual_linf_proof_allowed_today=False; wire_shipped=False; feature flag "
+            "False; dual_recovery_path=None; path_under_wire=False. Substrate ≠ dual "
+            "L∞ under wire proof ≠ gate flip ≠ wire ≠ VERDICT. Probe/bridge/warmstart "
+            "alone never prove dual_linf. Does not clear DEFAULT_WIRE_BLOCKERS. Does "
+            "not redefine ready_for_wire_discussion. Always-on numpy; no TF/PuLP/"
+            "excel_pipeline on hot path."
+        ),
+    }
+
+
+def offline_case1_dual_linf_proof_substrate_report(
+    *,
+    case1_package: Optional[Mapping[str, Any]] = None,
+    case1_primary_online_lambda: Optional[Mapping[str, float]] = None,
+    case1_secondary_recovered_lambda: Optional[Mapping[str, float]] = None,
+    allow_fixture_fallback: bool = True,
+    skeleton_lambda: Optional[Mapping[str, float]] = None,
+    skeleton_report: Optional[Mapping[str, Any]] = None,
+    skeleton_n_rounds: int = 1,
+    dual_vector_face: str = CASE1_DUAL_VECTOR_FACE_PRIMARY_ONLINE,
+    streams: Optional[Sequence[str]] = None,
+    dual_gate_threshold_diagnostic: float = (
+        CASE1_DUAL_LINF_PROOF_SUBSTRATE_DIAGNOSTIC_THRESHOLD
+    ),
+) -> Dict[str, Any]:
+    """Always-on dual_linf proof substrate (no TF, no PuLP, no excel_pipeline).
+
+    Compose live-λ bridge → stream-aligned L∞ under path-present planned form face.
+    Aggregate ``substrate_ok`` / ``ok`` =
+    honesty locks ∧ bridge/probe honesty ∧ finite aligned L∞ ∧ dual-ban ∧
+    dual_linf still unproven ∧ wire_shipped=False ∧ proof_allowed=False —
+    **never** ``linf <= 15`` as proof; **not** VERDICT; **not** wire.
+
+    Does **not** clear ``DEFAULT_WIRE_BLOCKERS``. Does **not** redefine
+    ``ready_for_wire_discussion``. Does **not** flip dual_linf status.
+    """
+    honesty = _case1_dual_linf_proof_substrate_honesty_fields()
+    streams_list = (
+        list(streams) if streams is not None else list(CASE1_SHAPED_LINKING_STREAMS)
+    )
+    blockers = list(DEFAULT_WIRE_BLOCKERS)
+    critical = set(CASE1_CONTRACT_CRITICAL_BLOCKERS)
+    blockers_still_documented = critical.issubset(set(blockers)) and len(blockers) > 0
+
+    bridge = offline_case1_dual_space_linf_live_lambda_bridge_report(
+        case1_package=case1_package,
+        case1_primary_online_lambda=case1_primary_online_lambda,
+        case1_secondary_recovered_lambda=case1_secondary_recovered_lambda,
+        allow_fixture_fallback=allow_fixture_fallback,
+        skeleton_lambda=skeleton_lambda,
+        skeleton_report=skeleton_report,
+        skeleton_n_rounds=int(skeleton_n_rounds),
+        dual_vector_face=dual_vector_face,
+        streams=streams_list,
+        dual_gate_threshold_diagnostic=float(dual_gate_threshold_diagnostic),
+    )
+    probe = bridge.get("probe") if isinstance(bridge.get("probe"), Mapping) else {}
+    if not probe:
+        # Bridge always embeds probe fields at top level; fall back to direct probe.
+        probe = offline_case1_dual_space_linf_probe_report(
+            case1_primary_online_lambda=case1_primary_online_lambda,
+            case1_secondary_recovered_lambda=case1_secondary_recovered_lambda,
+            skeleton_lambda=skeleton_lambda,
+            skeleton_report=skeleton_report,
+            skeleton_n_rounds=int(skeleton_n_rounds),
+            dual_vector_face=dual_vector_face,
+            streams=streams_list,
+            dual_gate_threshold_diagnostic=float(dual_gate_threshold_diagnostic),
+        )
+
+    linf = bridge.get("linf", probe.get("linf"))
+    try:
+        linf_f = float(linf) if linf is not None else float("nan")
+    except (TypeError, ValueError):
+        linf_f = float("nan")
+    threshold = float(dual_gate_threshold_diagnostic)
+    # Diagnostic only — never a proof gate for substrate_ok.
+    linf_le_threshold_diagnostic = bool(
+        np.isfinite(linf_f) and linf_f <= threshold
+    )
+
+    form = case1_form_label_contract()
+    dual_linf = case1_dual_linf_proof_checklist()
+    first_blocking = (
+        case1_dual_honest_multi_blocker_wire_implementation_blueprint_first_blocking_coreq()
+    )
+    path_shape = dict(CASE1_DUAL_HONEST_TF_AWARE_PATH_SHAPE)
+
+    bridge_ok = bool(bridge.get("bridge_ok", bridge.get("ok", False)))
+    probe_ok = bool(
+        bridge.get("probe_ok", probe.get("probe_ok", probe.get("ok", False)))
+    )
+    alignment_ok = bool(
+        bridge.get("stream_alignment_ok", probe.get("stream_alignment_ok", False))
+    )
+    finite_ok = bool(bridge.get("finite_ok", probe.get("finite_ok", False))) and bool(
+        np.isfinite(linf_f)
+    )
+
+    dual_ban_ok = bool(
+        SOLVER is False
+        and DUAL_RECOVERY_PATH is None
+        and ON_EXCEL_CASE1_PATH is False
+        and honesty["dual_recovery_path"] is None
+        and honesty["solver"] is False
+        and honesty["wire_shipped"] is False
+        and honesty["on_excel_case1_path"] is False
+        and honesty["substrate_is_not_dual_linf_under_wire_proof"] is True
+        and honesty["substrate_is_not_wire"] is True
+        and honesty["substrate_is_not_verdict_gate"] is True
+        and honesty["feature_flag_enabled_today"] is False
+        and honesty["dual_honest_tf_aware_path_under_wire"] is False
+    )
+    dual_linf_unproven_ok = bool(
+        CASE1_DUAL_LINF_UNDER_WIRE_STATUS == "unproven"
+        and dual_linf["dual_linf_under_wire_status"] == "unproven"
+        and honesty["dual_linf_under_wire_status"] == "unproven"
+        and honesty["dual_linf_proof_allowed_today"] is False
+    )
+    path_face_ok = bool(
+        CASE1_PATH_SHIPPED_TODAY is True
+        and CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIPPED_TODAY is True
+        and path_shape.get("path_shipped") is True
+        and path_shape.get("dual_honest_tf_aware_path_present") is True
+        and path_shape.get("cdu_surface") == "offline_affine_base_delta"
+        and path_shape.get("blender_surface") == CASE1_SHAPED_BLENDER_SURFACE
+        and form["form_current"] == CASE1_PLANNED_TF_AWARE_FORM
+    )
+    gate_open_ok = bool(
+        honesty["online_linf_gate_under_tf_path"] == "open"
+        and "online_linf_gate_under_tf_path" in honesty["dual_linf_proof_checklist_open_ids"]
+    )
+    first_blocking_ok = bool(
+        first_blocking.get("first_blocking_coreq") == "dual_linf_under_wire_proven"
+    )
+    anti_ok = (
+        len(CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY) >= 10
+        and "this_substrate_alone" in CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY
+        and "probe_linf" in CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY
+        and "bridge_linf" in CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY
+    )
+    blocker_ok = blockers_still_documented and (
+        "dual_linf_under_wire_unproven" in blockers
+        and "wire_not_shipped" in blockers
+    )
+
+    measurement_ok = bool(
+        bridge_ok and probe_ok and alignment_ok and finite_ok
+    )
+    honesty_ok = bool(
+        dual_ban_ok
+        and dual_linf_unproven_ok
+        and path_face_ok
+        and gate_open_ok
+        and first_blocking_ok
+        and anti_ok
+        and blocker_ok
+        and honesty["path_shipped"] is CASE1_PATH_SHIPPED_TODAY
+        and honesty["form_label_change_shipped"] is CASE1_FORM_LABEL_CHANGE_SHIPPED_TODAY
+    )
+    substrate_present = True
+    substrate_ok = bool(measurement_ok and honesty_ok and substrate_present)
+    # ok tracks substrate honesty — never requires linf<=15 and never proves dual_linf.
+    ok = substrate_ok
+
+    proof_composition_path_name = CASE1_DUAL_LINF_PROOF_COMPOSITION_PATH_NAME
+    return {
+        "kind": CASE1_DUAL_LINF_PROOF_SUBSTRATE_KIND,
+        "annotation": CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANNOTATION,
+        "substrate_present": substrate_present,
+        "substrate_face": CASE1_DUAL_LINF_PROOF_SUBSTRATE_FACE,
+        "substrate_ok": substrate_ok,
+        "ok": ok,
+        "contract_ok": ok,
+        "measurement_ok": measurement_ok,
+        "honesty_ok": honesty_ok,
+        "bridge_ok": bridge_ok,
+        "probe_ok": probe_ok,
+        "stream_alignment_ok": alignment_ok,
+        "finite_ok": finite_ok,
+        "dual_ban_ok": dual_ban_ok,
+        "dual_linf_unproven_ok": dual_linf_unproven_ok,
+        "path_face_ok": path_face_ok,
+        "gate_open_ok": gate_open_ok,
+        "first_blocking_ok": first_blocking_ok,
+        "anti_ok": anti_ok,
+        "blocker_ok": blocker_ok,
+        "solver": False,
+        "dual_recovery_path": None,
+        "dual_recovery_path_planned_when_shipped": (
+            CASE1_DUAL_HONEST_TF_AWARE_PATH_DUAL_RECOVERY_PLANNED
+        ),
+        "on_excel_case1_path": False,
+        "on_case1_solve": False,
+        "form_current": CASE1_FORM_CURRENT,
+        "form_planned": CASE1_PLANNED_TF_AWARE_FORM,
+        "form_label_change_shipped": CASE1_FORM_LABEL_CHANGE_SHIPPED_TODAY,
+        "path_shipped": CASE1_PATH_SHIPPED_TODAY,
+        "dual_honest_tf_aware_path_present": (
+            CASE1_DUAL_HONEST_TF_AWARE_PATH_PRESENT_SHIPPED_TODAY
+        ),
+        "dual_honest_tf_aware_path_under_wire": False,
+        "wire_shipped": False,
+        "bundle_shipped": False,
+        "feature_flag_name": CASE1_DUAL_HONEST_TF_AWARE_PATH_FEATURE_FLAG_NAME,
+        "feature_flag_enabled_today": False,
+        "cdu_surface": path_shape.get("cdu_surface"),
+        "blender_surface": CASE1_SHAPED_BLENDER_SURFACE,
+        "streams": streams_list,
+        "dual_vector_face": dual_vector_face,
+        "live_lambda_source": bridge.get("live_lambda_source"),
+        "linf": linf_f,
+        "l1": bridge.get("l1", probe.get("l1")),
+        "per_stream_abs": bridge.get("per_stream_abs", probe.get("per_stream_abs")),
+        "dual_gate_threshold_diagnostic": threshold,
+        "linf_le_threshold_diagnostic": linf_le_threshold_diagnostic,
+        "linf_le_threshold_is_not_proof": True,
+        "dual_linf_under_wire_status": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_under_wire": CASE1_DUAL_LINF_UNDER_WIRE_STATUS,
+        "dual_linf_proof_allowed_today": False,
+        "criteria_met_today": False,
+        "online_linf_gate_under_tf_path": honesty["online_linf_gate_under_tf_path"],
+        "gate_flip_allowed_today": False,
+        "first_blocking_coreq": first_blocking.get("first_blocking_coreq"),
+        "first_blocking_coreq_order_index": first_blocking.get(
+            "first_blocking_coreq_order_index"
+        ),
+        "order_hint_coreq": CASE1_DUAL_LINF_UNDER_WIRE_ORDER_HINT_COREQ,
+        "proof_composition_path_name": proof_composition_path_name,
+        "proof_composition_path_executed_today": False,
+        "proof_composition_status_today": "not_executed",
+        "substrate_is_not_dual_linf_under_wire_proof": True,
+        "substrate_is_not_wire": True,
+        "substrate_is_not_verdict_gate": True,
+        "substrate_is_not_gate_flip": True,
+        "probe_bridge_are_not_proof": True,
+        "anti_criteria_today": list(CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY),
+        "wire_blockers": blockers,
+        "critical_blockers_required": list(CASE1_CONTRACT_CRITICAL_BLOCKERS),
+        "n_wire_blockers": len(blockers),
+        "blockers_still_documented": blockers_still_documented,
+        "dual_linf_under_wire_unproven_blocker_still_true": (
+            "dual_linf_under_wire_unproven" in blockers
+        ),
+        "wire_not_shipped_blocker_still_true": "wire_not_shipped" in blockers,
+        "isolation_rewrite_shipped": CASE1_ISOLATION_REWRITE_SHIPPED_TODAY,
+        "isolation_tests_rewritten_with_wire": (
+            CASE1_ISOLATION_TESTS_REWRITTEN_WITH_WIRE_TODAY
+        ),
+        "dual_linf_proof_checklist": honesty["dual_linf_proof_checklist"],
+        "dual_linf_proof_checklist_open_ids": honesty[
+            "dual_linf_proof_checklist_open_ids"
+        ],
+        "dual_linf_proof_checklist_n_open": honesty[
+            "dual_linf_proof_checklist_n_open"
+        ],
+        "does_not_clear_default_wire_blockers": True,
+        "does_not_redefine_ready_for_wire_discussion": True,
+        "bridge": {
+            "bridge_ok": bridge_ok,
+            "live_lambda_source": bridge.get("live_lambda_source"),
+            "linf": bridge.get("linf"),
+            "probe_ok": probe_ok,
+        },
+        "path_shape_snapshot": {
+            "path_shipped": path_shape.get("path_shipped"),
+            "dual_honest_tf_aware_path_present": path_shape.get(
+                "dual_honest_tf_aware_path_present"
+            ),
+            "cdu_surface": path_shape.get("cdu_surface"),
+            "blender_surface": path_shape.get("blender_surface"),
+            "form_planned": path_shape.get("form_planned"),
+            "wire_shipped": path_shape.get("wire_shipped"),
+        },
+        "ok_criteria": (
+            "substrate_present ∧ measurement_ok (bridge+probe aligned finite) ∧ "
+            "honesty locks ∧ dual_linf unproven ∧ proof_allowed=False ∧ wire_shipped=False ∧ "
+            "path_present face labeled ∧ gate still open ∧ first_blocking=dual_linf — "
+            "NOT dual_linf proven; NOT wire; NOT gate flip; NOT VERDICT; "
+            "linf<=threshold is diagnostic only"
+        ),
+        "note": honesty["note"],
+        "tf_available": tf_available(),
+        "dual_linf_proof_substrate_available": True,
+    }
+
+
+def case1_dual_linf_proof_substrate_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for ``offline_case1_dual_linf_proof_substrate_report``."""
+    return offline_case1_dual_linf_proof_substrate_report(**kwargs)
+
+
+def multi_unit_case1_dual_linf_proof_substrate_report(
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Alias for multi-unit registry symmetry."""
+    return offline_case1_dual_linf_proof_substrate_report(**kwargs)
+
+
+# ---------------------------------------------------------------------------
 # Offline Case-1 dual_linf_under_wire flip-criteria contract (goal 3 honesty)
 # ---------------------------------------------------------------------------
 # Always-on pure compose. Formalizes *when* dual_linf_under_wire status may
@@ -26655,6 +27057,14 @@ __all__ = [
     "offline_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report",
     "case1_dual_honest_multi_blocker_wire_implementation_blueprint_report",
     "multi_unit_case1_dual_honest_multi_blocker_wire_implementation_blueprint_report",
+    "CASE1_DUAL_LINF_PROOF_SUBSTRATE_KIND",
+    "CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANNOTATION",
+    "CASE1_DUAL_LINF_PROOF_SUBSTRATE_FACE",
+    "CASE1_DUAL_LINF_PROOF_SUBSTRATE_DIAGNOSTIC_THRESHOLD",
+    "CASE1_DUAL_LINF_PROOF_SUBSTRATE_ANTI_CRITERIA_TODAY",
+    "offline_case1_dual_linf_proof_substrate_report",
+    "case1_dual_linf_proof_substrate_report",
+    "multi_unit_case1_dual_linf_proof_substrate_report",
     "CASE1_DUAL_LINF_UNDER_WIRE_CRITERIA_CONTRACT_KIND",
     "CASE1_DUAL_LINF_UNDER_WIRE_STATUS_TARGET",
     "CASE1_DUAL_LINF_UNDER_WIRE_ORDER_HINT_COREQ",
