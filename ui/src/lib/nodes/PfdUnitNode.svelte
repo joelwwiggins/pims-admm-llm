@@ -11,12 +11,24 @@
   const showYields = $derived(
     ['FCC', 'COKER', 'REFORMER', 'CDU', 'HDT_NAPH'].includes(data.unitType) && yields.length > 0,
   );
+  const agentStatus = $derived(data.agentStatus || data.status);
   const statusColor = $derived(
-    !data.active ? '#666' : data.status === 'running' ? '#3dba72' : data.status === 'alarm' ? '#e05a5a' : '#e0c040',
+    !data.active
+      ? '#666'
+      : agentStatus === 'alarm' || agentStatus === 'pushback' || agentStatus === 'critical'
+        ? (data.badgeColor || '#e05a5a')
+        : agentStatus === 'watch'
+          ? (data.badgeColor || '#e0c040')
+          : agentStatus === 'ok' || agentStatus === 'running'
+            ? (data.badgeColor || '#3dba72')
+            : '#e0c040',
   );
+  const agentBadge = $derived(data.agentSeverity || data.wiggle_room || null);
   const tip = $derived(
     `${data.tag || id} ${data.label || data.unitType}` +
       (data.charge_kbd ? ` · ${Number(data.charge_kbd).toFixed(1)} kbd` : '') +
+      (data.agentSummary ? ` · ${data.agentSummary}` : '') +
+      (data.wiggle_room ? ` · wiggle=${data.wiggle_room}` : '') +
       (data.description ? ` · ${data.description}` : ''),
   );
 
@@ -74,16 +86,37 @@
   <div class="header">
     <div class="tag">{data.tag || id}</div>
     <div class="title">{data.label || data.unitType}</div>
-    <div class="status" title={data.active ? data.status || 'active' : 'inactive'}>
+    <div class="status" title={data.active ? (data.agentSummary || data.status || 'active') : 'inactive'}>
       <span class="led" style:background={statusColor}></span>
-      {data.active ? (data.status || 'ON') : 'OFF'}
+      {data.active ? (agentStatus === 'alarm' ? 'ALERT' : agentStatus === 'watch' ? 'WATCH' : agentStatus === 'ok' ? 'OK' : (data.status || 'ON')) : 'OFF'}
     </div>
   </div>
+
+  {#if agentBadge && data.active}
+    <div
+      class="agent-badge"
+      class:alarm={agentStatus === 'alarm' || agentStatus === 'pushback'}
+      class:watch={agentStatus === 'watch'}
+      class:ok={agentStatus === 'ok'}
+      title={data.agentSummary || agentBadge}
+    >
+      {#if data.n_pushbacks}
+        {data.n_pushbacks} PB
+      {:else if data.wiggle_room === 'none'}
+        NO WIGGLE
+      {:else}
+        {String(agentBadge).toUpperCase().slice(0, 8)}
+      {/if}
+    </div>
+  {/if}
 
   <div class="body">
     <div class="unit-type">{data.unitType}</div>
     {#if data.charge_kbd}
       <div class="charge">Charge <strong>{Number(data.charge_kbd).toFixed(1)}</strong> kbd</div>
+    {/if}
+    {#if data.wiggle_room}
+      <div class="wiggle">wiggle: <strong>{data.wiggle_room}</strong></div>
     {/if}
 
     {#if showYields}
@@ -141,6 +174,39 @@
   .pfd-node.inactive {
     opacity: 0.55;
     filter: grayscale(0.4);
+  }
+  .agent-badge {
+    position: absolute;
+    top: -8px;
+    right: -6px;
+    z-index: 5;
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 2px 5px;
+    border-radius: 4px;
+    border: 1px solid #0006;
+    box-shadow: 0 2px 8px #0008;
+  }
+  .agent-badge.alarm {
+    background: #a02222;
+    color: #ffd0d0;
+  }
+  .agent-badge.watch {
+    background: #8a7010;
+    color: #fff3c0;
+  }
+  .agent-badge.ok {
+    background: #1a6b3a;
+    color: #c8ffd8;
+  }
+  .wiggle {
+    margin-top: 2px;
+    font-size: 0.6rem;
+    color: #8a9bb0;
+  }
+  .wiggle strong {
+    color: #e0c040;
   }
 
   .toolbar-tip {

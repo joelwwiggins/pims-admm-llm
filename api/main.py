@@ -273,6 +273,12 @@ class GraphSolvePayload(GraphPayload):
     inventory_mode: Optional[bool] = None
     run_admm: bool = True
     stub_only: bool = False
+    # Process-network agents (area pushback + octane couple)
+    process_network: bool = True
+    # Closed loop: pushbacks → re-solve (process-pool) → second agent round
+    closed_loop: bool = True
+    process_pool_modes: bool = False
+    process_pool_two_pass: bool = False
 
 
 def _stub_graph_response(
@@ -331,6 +337,10 @@ def post_graph(payload: GraphSolvePayload) -> dict[str, Any]:
             recovery_path=payload.recovery_path,
             inventory_mode=payload.inventory_mode,
             run_admm=payload.run_admm,
+            process_network=payload.process_network,
+            closed_loop=payload.closed_loop,
+            process_pool_modes=payload.process_pool_modes,
+            process_pool_two_pass=payload.process_pool_two_pass,
         )
         base = {
             "ok": True,

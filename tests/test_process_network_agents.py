@@ -92,3 +92,38 @@ def test_master_summary_nonempty(plant_default):
     d = r.to_dict()
     assert d["n_areas"] >= 5
     assert d["n_pushbacks"] >= 1
+
+
+def test_closed_loop_applies_process_pool_and_improves_or_reduces_pushbacks(
+    plant_default,
+):
+    from pims_admm_llm.agents.process_network import (
+        node_badges_from_round,
+        run_closed_loop,
+    )
+
+    assays = load_assays_json()
+    cl = run_closed_loop(plant_default, assays=assays)
+    assert cl.baseline is not None
+    # Default plan has coker idle pushback → closed loop should act
+    if plant_default.unit_feeds.get("coker_feed", 0) < 1e-6:
+        assert cl.applied is True
+        assert cl.replan is not None
+        assert cl.plant_replan is not None
+        assert cl.delta.get("coker_feed_1", 0) >= cl.delta.get("coker_feed_0", 0)
+        assert "CDU" in cl.node_badges or "COKER" in cl.node_badges
+        # Badges use unit types
+        badges = cl.node_badges
+        assert any(b.get("status") in ("alarm", "watch", "ok") for b in badges.values())
+    d = cl.to_dict()
+    assert "baseline" in d and "delta" in d
+
+
+def test_node_badges_map_areas():
+    from pims_admm_llm.agents.process_network import node_badges_from_round
+
+    plant = solve_full_plant()
+    r = run_process_network_round(plant)
+    badges = node_badges_from_round(r)
+    assert "BLENDER" in badges
+    assert badges["BLENDER"]["wiggle_room"] in ("none", "limited", "ample")

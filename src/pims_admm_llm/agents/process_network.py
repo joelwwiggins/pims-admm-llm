@@ -852,3 +852,295 @@ def format_process_network_round(round_: ProcessNetworkRound) -> str:
         f" severity={round_.severity} pushbacks={len(round_.pushbacks)}"
     )
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Closed loop: pushbacks → re-solve → second agent round → delta
+# ---------------------------------------------------------------------------
+
+# GUI / graph unitType mapping for node badges
+AREA_TO_UNIT_TYPE = {
+    "CDU": "CDU",
+    "FCC": "FCC",
+    "Coker": "COKER",
+    "Reformer": "REFORMER",
+    "Blender": "BLENDER",
+}
+
+
+@dataclass
+class ClosedLoopResult:
+    """Baseline agent round + optional replan plant + second round + delta."""
+
+    baseline: ProcessNetworkRound
+    replan: Optional[ProcessNetworkRound]
+    applied: bool
+    actions: List[Dict[str, Any]]
+    solve_kwargs: Dict[str, Any]
+    delta: Dict[str, Any]
+    node_badges: Dict[str, Dict[str, Any]]
+    recommended_plan: str  # "baseline" | "replan"
+    plant_baseline_obj: float
+    plant_replan_obj: Optional[float]
+    # FullPlantResult for recommended replan (not serialized)
+    plant_replan: Any = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "baseline": self.baseline.to_dict(),
+            "replan": self.replan.to_dict() if self.replan else None,
+            "applied": bool(self.applied),
+            "actions": list(self.actions),
+            "solve_kwargs": dict(self.solve_kwargs),
+            "delta": dict(self.delta),
+            "node_badges": dict(self.node_badges),
+            "recommended_plan": self.recommended_plan,
+            "plant_baseline_obj": float(self.plant_baseline_obj),
+            "plant_replan_obj": (
+                float(self.plant_replan_obj)
+                if self.plant_replan_obj is not None
+                else None
+            ),
+        }
+
+
+def node_badges_from_round(round_: ProcessNetworkRound) -> Dict[str, Dict[str, Any]]:
+    """Map area reports → unitType badges for PFD (red/yellow/green)."""
+    badges: Dict[str, Dict[str, Any]] = {}
+    for a in round_.areas:
+        ut = AREA_TO_UNIT_TYPE.get(a.area, a.area.upper())
+        sev = a.status if a.status != "ok" else "info"
+        if a.pushbacks:
+            sev = _severity_max([sev] + [p.severity for p in a.pushbacks])
+        # UI status strings consumed by PfdUnitNode
+        if sev in ("critical", "pushback"):
+            led = "alarm"
+            color = "#e05a5a"
+        elif sev == "watch":
+            led = "watch"
+            color = "#e0c040"
+        else:
+            led = "ok"
+            color = "#3dba72"
+        badges[ut] = {
+            "area": a.area,
+            "severity": sev if sev != "info" else "ok",
+            "status": led,
+            "wiggle_room": a.wiggle_room,
+            "summary": a.summary,
+            "n_pushbacks": len(a.pushbacks),
+            "pushback_codes": [p.code for p in a.pushbacks],
+            "badge_color": color,
+            "cross_unit": list(a.cross_unit_notes)[:3],
+        }
+    return badges
+
+
+def propose_replan_actions(
+    round_: ProcessNetworkRound,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """Translate pushbacks / master feedback into solve_full_plant kwargs.
+
+    Deterministic policy (no LLM):
+    - coker idle + FO dump → enable process-pool modes (opens resid→coker path economically)
+    - RON binding → process-pool + two-pass (severity + realized feeds)
+    - generic reoptimize → process-pool modes
+    """
+    codes = {p.code for p in round_.pushbacks}
+    actions: List[Dict[str, Any]] = []
+    kwargs: Dict[str, Any] = {
+        "process_pool_modes": False,
+        "process_pool_two_pass": False,
+    }
+
+    if "coker_idled_all_fo" in codes:
+        kwargs["process_pool_modes"] = True
+        actions.append(
+            {
+                "code": "enable_process_pool",
+                "trigger": "coker_idled_all_fo",
+                "reason": (
+                    "Coker pushback: resid all to FO with zero charge — "
+                    "re-solve with process-pool modes to re-open conversion path."
+                ),
+            }
+        )
+
+    if "gasoline_ron_binding" in codes or "reformer_octane_no_wiggle" in codes:
+        kwargs["process_pool_modes"] = True
+        kwargs["process_pool_two_pass"] = True
+        actions.append(
+            {
+                "code": "process_pool_two_pass_for_octane",
+                "trigger": "ron_or_octane_binding",
+                "reason": (
+                    "RON/octane couple tight — re-solve with process-pool severity "
+                    "and two-pass feeds so FCC+Reformer face joint quality pressure."
+                ),
+            }
+        )
+
+    if "fcc_zero_feed_ridiculous" in codes:
+        kwargs["process_pool_modes"] = True
+        actions.append(
+            {
+                "code": "enable_process_pool_fcc",
+                "trigger": "fcc_zero_feed_ridiculous",
+                "reason": "FCC zero feed pushback — replan conversion slate via process-pool.",
+            }
+        )
+
+    if not actions and round_.reoptimize_recommended:
+        kwargs["process_pool_modes"] = True
+        actions.append(
+            {
+                "code": "enable_process_pool_generic",
+                "trigger": "reoptimize_recommended",
+                "reason": "Master recommended reoptimize; try process-pool what-if.",
+            }
+        )
+
+    return kwargs, actions
+
+
+def run_closed_loop(
+    plant: Any,
+    *,
+    assays: Optional[Mapping[str, Any]] = None,
+    routing: Optional[Mapping[str, Any]] = None,
+    force_replan: bool = False,
+) -> ClosedLoopResult:
+    """Baseline agents → apply feedback → re-solve plant → second agent round.
+
+    Plant LP remains plan truth. Returns both rounds and objective/feed delta.
+    """
+    from pims_admm_llm.models.assay_loader import load_assays_json
+    from pims_admm_llm.models.full_plant import solve_full_plant
+
+    assays_d = dict(assays or load_assays_json())
+    r0 = run_process_network_round(plant, assays=assays_d)
+    badges0 = node_badges_from_round(r0)
+    obj0 = float(getattr(plant, "objective", 0.0) or 0.0)
+    feeds0 = dict(getattr(plant, "unit_feeds", {}) or {})
+
+    kwargs, actions = propose_replan_actions(r0)
+    should = force_replan or bool(actions) or r0.reoptimize_recommended
+
+    if not should or not (
+        kwargs.get("process_pool_modes") or kwargs.get("process_pool_two_pass")
+    ):
+        return ClosedLoopResult(
+            baseline=r0,
+            replan=None,
+            applied=False,
+            actions=[],
+            solve_kwargs=kwargs,
+            delta={
+                "applied": False,
+                "reason": "no replan actions from pushbacks",
+                "objective_0": obj0,
+            },
+            node_badges=badges0,
+            recommended_plan="baseline",
+            plant_baseline_obj=obj0,
+            plant_replan_obj=None,
+            plant_replan=None,
+        )
+
+    plant1 = solve_full_plant(
+        assays_d,
+        routing=routing,
+        process_pool_modes=bool(kwargs.get("process_pool_modes")),
+        process_pool_two_pass=bool(kwargs.get("process_pool_two_pass")),
+    )
+    r1 = run_process_network_round(plant1, assays=assays_d)
+    badges1 = node_badges_from_round(r1)
+    obj1 = float(plant1.objective)
+    feeds1 = dict(plant1.unit_feeds or {})
+
+    # Prefer replan if feasible and (higher obj or fewer critical/pushback)
+    n_pb0 = sum(1 for p in r0.pushbacks if p.severity in ("pushback", "critical"))
+    n_pb1 = sum(1 for p in r1.pushbacks if p.severity in ("pushback", "critical"))
+    better_obj = plant1.feasible and obj1 >= obj0 - 1e-6
+    fewer_push = n_pb1 < n_pb0
+    recommend = "replan" if plant1.feasible and (better_obj or fewer_push) else "baseline"
+    badges = badges1 if recommend == "replan" else badges0
+
+    delta = {
+        "applied": True,
+        "objective_0": obj0,
+        "objective_1": obj1,
+        "delta_obj": obj1 - obj0,
+        "delta_obj_pct": ((obj1 - obj0) / abs(obj0) * 100.0) if abs(obj0) > 1e-9 else 0.0,
+        "coker_feed_0": float(feeds0.get("coker_feed") or 0.0),
+        "coker_feed_1": float(feeds1.get("coker_feed") or 0.0),
+        "fcc_feed_0": float(feeds0.get("fcc_feed") or 0.0),
+        "fcc_feed_1": float(feeds1.get("fcc_feed") or 0.0),
+        "reformer_feed_0": float(feeds0.get("reformer_feed") or 0.0),
+        "reformer_feed_1": float(feeds1.get("reformer_feed") or 0.0),
+        "pushbacks_0": len(r0.pushbacks),
+        "pushbacks_1": len(r1.pushbacks),
+        "hard_pushbacks_0": n_pb0,
+        "hard_pushbacks_1": n_pb1,
+        "severity_0": r0.severity,
+        "severity_1": r1.severity,
+        "process_pool_1": plant1.meta.get("process_pool") if plant1.meta else None,
+        "gasoline_0": float((getattr(plant, "products", {}) or {}).get("gasoline") or 0.0),
+        "gasoline_1": float((plant1.products or {}).get("gasoline") or 0.0),
+        "fuel_oil_0": float((getattr(plant, "products", {}) or {}).get("fuel_oil") or 0.0),
+        "fuel_oil_1": float((plant1.products or {}).get("fuel_oil") or 0.0),
+    }
+
+    return ClosedLoopResult(
+        baseline=r0,
+        replan=r1,
+        applied=True,
+        actions=actions,
+        solve_kwargs=kwargs,
+        delta=delta,
+        node_badges=badges,
+        recommended_plan=recommend,
+        plant_baseline_obj=obj0,
+        plant_replan_obj=obj1,
+        plant_replan=plant1,
+    )
+
+
+def format_closed_loop(cl: ClosedLoopResult) -> str:
+    lines = [
+        "=== Process-network CLOSED LOOP ===",
+        f"Applied={cl.applied} recommended={cl.recommended_plan}",
+        f"Baseline obj={cl.plant_baseline_obj:.4f}",
+    ]
+    if cl.actions:
+        lines.append("Actions:")
+        for a in cl.actions:
+            lines.append(f"  • [{a.get('code')}] {a.get('reason')}")
+    lines.append("")
+    lines.append("--- Baseline agent round ---")
+    lines.append(format_process_network_round(cl.baseline))
+    if cl.replan is not None:
+        lines.append("")
+        lines.append("--- Replan agent round ---")
+        lines.append(format_process_network_round(cl.replan))
+        d = cl.delta
+        lines.append("")
+        lines.append("--- Delta ---")
+        lines.append(
+            f"  Δobj={d.get('delta_obj'):+.4f} ({d.get('delta_obj_pct'):+.2f}%) "
+            f"obj {d.get('objective_0'):.2f} → {d.get('objective_1'):.2f}"
+        )
+        lines.append(
+            f"  coker_feed {d.get('coker_feed_0'):.2f} → {d.get('coker_feed_1'):.2f}"
+        )
+        lines.append(
+            f"  fuel_oil {d.get('fuel_oil_0'):.2f} → {d.get('fuel_oil_1'):.2f}"
+        )
+        lines.append(
+            f"  hard_pushbacks {d.get('hard_pushbacks_0')} → {d.get('hard_pushbacks_1')}"
+        )
+    lines.append(
+        f"VERDICT: closed_loop_{'applied' if cl.applied else 'noop'} "
+        f"recommend={cl.recommended_plan}"
+    )
+    return "\n".join(lines)

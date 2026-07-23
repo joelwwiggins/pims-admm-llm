@@ -22,7 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pims_admm_llm.agents.process_network import (  # noqa: E402
+    format_closed_loop,
     format_process_network_round,
+    run_closed_loop,
     run_process_network_round,
 )
 from pims_admm_llm.models.assay_loader import load_assays_json  # noqa: E402
@@ -42,6 +44,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Two-pass process-pool (realized feeds)",
     )
     ap.add_argument(
+        "--closed-loop",
+        action="store_true",
+        default=True,
+        help="Apply pushbacks → re-solve → second agent round (default on)",
+    )
+    ap.add_argument(
+        "--no-closed-loop",
+        action="store_true",
+        help="Single agent round only (no replan)",
+    )
+    ap.add_argument(
         "--json",
         action="store_true",
         help="Also write demos/output/process_network_round.json",
@@ -59,13 +72,20 @@ def main(argv: list[str] | None = None) -> int:
         print("VERDICT: FAIL — plant infeasible; agents not run")
         return 1
 
-    round_ = run_process_network_round(plant, assays=assays)
-    print(format_process_network_round(round_))
-
     out_dir = ROOT / "demos" / "output"
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "process_network_round.json"
-    path.write_text(json.dumps(round_.to_dict(), indent=2, default=str))
+
+    if args.no_closed_loop:
+        round_ = run_process_network_round(plant, assays=assays)
+        print(format_process_network_round(round_))
+        path = out_dir / "process_network_round.json"
+        path.write_text(json.dumps(round_.to_dict(), indent=2, default=str))
+    else:
+        cl = run_closed_loop(plant, assays=assays)
+        print(format_closed_loop(cl))
+        path = out_dir / "process_network_closed_loop.json"
+        path.write_text(json.dumps(cl.to_dict(), indent=2, default=str))
+
     print(f"\nJSON: {path}")
     return 0
 
