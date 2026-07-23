@@ -46,6 +46,7 @@
   let recoveryPath = $state('mono-oracle');
   let inventoryMode = $state(false);
   let runAdmm = $state(true);
+  let closedLoop = $state(true);
 
   const defaultEdgeOptions = {
     type: 'streamEdge',
@@ -311,9 +312,44 @@
     status = 'Canvas cleared';
   }
 
+  function applyNodeBadges(badges) {
+    if (!badges || typeof badges !== 'object') return;
+    nodes = nodes.map((n) => {
+      const ut = n.data?.unitType;
+      const b = badges[ut];
+      if (!b) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            agentStatus: n.data?.active === false ? n.data.status : 'ok',
+            agentSeverity: null,
+            wiggle_room: null,
+            agentSummary: null,
+            n_pushbacks: 0,
+            badgeColor: null,
+          },
+        };
+      }
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          agentStatus: b.status || 'ok',
+          agentSeverity: b.severity,
+          wiggle_room: b.wiggle_room,
+          agentSummary: b.summary,
+          n_pushbacks: b.n_pushbacks || 0,
+          badgeColor: b.badge_color,
+          status: b.status === 'alarm' ? 'alarm' : b.status === 'watch' ? 'watch' : 'running',
+        },
+      };
+    });
+  }
+
   async function solve() {
     solving = true;
-    status = `Solving (${recoveryPath})…`;
+    status = `Solving (${recoveryPath}${closedLoop ? ' + agents' : ''})…`;
     try {
       const res = await postGraph({
         nodes: nodes.map((n) => ({
@@ -334,11 +370,20 @@
         inventory_mode: inventoryMode,
         run_admm: runAdmm,
         stub_only: false,
+        process_network: true,
+        closed_loop: closedLoop,
       });
       lastGraph = res;
       showResults = true;
+      applyNodeBadges(res.node_badges || res.process_network?.node_badges);
       const obj = res.objective != null ? Number(res.objective).toFixed(2) : '—';
-      status = `${res.feasible || res.ok ? 'Optimal' : 'Fail'} · obj ${obj} · ${res.admm_status || ''}`;
+      const pn = res.process_network;
+      const pnNote = pn?.applied
+        ? ` · agents Δobj=${Number(pn.delta?.delta_obj || 0).toFixed(1)} → ${pn.recommended_plan}`
+        : pn?.baseline
+          ? ` · agents ${pn.baseline.severity || ''}`
+          : '';
+      status = `${res.feasible || res.ok ? 'Optimal' : 'Fail'} · obj ${obj} · ${res.admm_status || ''}${pnNote}`;
     } catch (err) {
       status = `Solve failed: ${err.message}`;
     } finally {
@@ -382,6 +427,9 @@
       </select>
       <label class="chk"><input type="checkbox" bind:checked={inventoryMode} /> inventory</label>
       <label class="chk"><input type="checkbox" bind:checked={runAdmm} /> ADMM</label>
+      <label class="chk" title="Process-network agents + closed-loop replan from pushbacks">
+        <input type="checkbox" bind:checked={closedLoop} /> agents
+      </label>
       <button type="button" class="primary" disabled={solving} onclick={solve}>
         {solving ? 'Running…' : 'Run'}
       </button>

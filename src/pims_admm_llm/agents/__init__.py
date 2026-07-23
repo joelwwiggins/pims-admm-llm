@@ -41,10 +41,15 @@ from .layer import (
 from .process_network import (
     AreaInput,
     AreaReport,
+    ClosedLoopResult,
     ProcessNetworkRound,
     Pushback,
     build_area_situations,
+    format_closed_loop,
     format_process_network_round,
+    node_badges_from_round,
+    propose_replan_actions,
+    run_closed_loop,
     run_process_network_round,
 )
 
@@ -77,9 +82,14 @@ __all__ = [
     "inject_suggestions_into_solver_context",
     "AreaInput",
     "AreaReport",
+    "ClosedLoopResult",
     "ProcessNetworkRound",
     "Pushback",
     "build_area_situations",
+    "format_closed_loop",
     "format_process_network_round",
+    "node_badges_from_round",
+    "propose_replan_actions",
+    "run_closed_loop",
     "run_process_network_round",
 ]

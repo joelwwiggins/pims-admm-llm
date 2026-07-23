@@ -242,12 +242,20 @@ def solve_from_graph(
     recovery_path: str = "mono-oracle",
     inventory_mode: Optional[bool] = None,
     run_admm: bool = True,
+    process_network: bool = True,
+    closed_loop: bool = True,
+    process_pool_modes: bool = False,
+    process_pool_two_pass: bool = False,
 ) -> Dict[str, Any]:
     """Build routing from graph, solve mono LP, optional ADMM metrics.
 
     Top-level fields for API consumers (issue #1):
       objective, unit_feeds, products, routing_splits, duals,
       rho, residuals, dual_recovery_path
+
+    process_network / closed_loop:
+      After baseline plant solve, run process-network agents; if closed_loop,
+      apply pushback-driven replan (process-pool) and second agent round.
     """
     assays = load_assays_json()
     routing = routing_from_graph(nodes, edges)
@@ -268,6 +276,8 @@ def solve_from_graph(
         assays,
         routing=routing,
         inventory_mode=inventory_mode,
+        process_pool_modes=process_pool_modes,
+        process_pool_two_pass=process_pool_two_pass,
     )
     duals = {
         k: float(v)
@@ -300,6 +310,7 @@ def solve_from_graph(
         "process_conditions": (mono.meta or {}).get("process_conditions")
         if mono.meta
         else None,
+        "process_pool": (mono.meta or {}).get("process_pool") if mono.meta else None,
         "routing_meta": {
             "version": routing.get("version"),
             "graph_driven": routing.get("graph_driven", False),
@@ -313,11 +324,106 @@ def solve_from_graph(
         },
     }
 
+    # Process-network agents + optional closed-loop replan (grid-style control room)
+    if process_network or closed_loop:
+        try:
+            from pims_admm_llm.agents.process_network import (
+                run_closed_loop,
+                run_process_network_round,
+            )
+
+            if closed_loop:
+                cl = run_closed_loop(mono, assays=assays, routing=routing)
+                out["process_network"] = cl.to_dict()
+                out["node_badges"] = cl.node_badges
+                # Surface recommended plan metrics when replan wins
+                if (
+                    cl.applied
+                    and cl.recommended_plan == "replan"
+                    and cl.plant_replan is not None
+                ):
+                    replan_plant = cl.plant_replan
+                    out["objective_baseline"] = out["objective"]
+                    out["objective"] = replan_plant.objective
+                    out["unit_feeds"] = replan_plant.unit_feeds
+                    out["products"] = replan_plant.products
+                    out["routing_splits"] = replan_plant.routing_splits
+                    out["arc_flows"] = {
+                        k: v
+                        for k, v in replan_plant.arc_flows.items()
+                        if abs(v) > 1e-9
+                    }
+                    out["quality_duals"] = replan_plant.quality_duals
+                    out["economic_shadows"] = replan_plant.economic_shadows
+                    out["process_pool"] = (
+                        (replan_plant.meta or {}).get("process_pool")
+                        if replan_plant.meta
+                        else None
+                    )
+                    out["process_conditions"] = (
+                        (replan_plant.meta or {}).get("process_conditions")
+                        if replan_plant.meta
+                        else None
+                    )
+                    duals = {
+                        k: float(v)
+                        for k, v in (replan_plant.duals or {}).items()
+                        if abs(float(v)) > 1e-12
+                    }
+                    out["duals"] = duals
+                    out["message"] += (
+                        f"; closed-loop replan applied "
+                        f"Δobj={cl.delta.get('delta_obj', 0):+.2f} "
+                        f"recommend={cl.recommended_plan}"
+                    )
+                    mono = replan_plant  # ADMM on recommended plan
+                else:
+                    out["message"] += (
+                        f"; process-network severity={cl.baseline.severity} "
+                        f"pushbacks={len(cl.baseline.pushbacks)} "
+                        f"closed_loop_applied={cl.applied}"
+                    )
+            else:
+                rnd = run_process_network_round(mono, assays=assays)
+                out["process_network"] = {
+                    "baseline": rnd.to_dict(),
+                    "replan": None,
+                    "applied": False,
+                    "node_badges": {
+                        # lazy import path
+                    },
+                }
+                from pims_admm_llm.agents.process_network import node_badges_from_round
+
+                out["node_badges"] = node_badges_from_round(rnd)
+                out["process_network"]["node_badges"] = out["node_badges"]
+                out["message"] += (
+                    f"; process-network severity={rnd.severity} "
+                    f"pushbacks={len(rnd.pushbacks)}"
+                )
+        except Exception as e:  # pragma: no cover - defensive API path
+            out["process_network"] = {
+                "error": f"{type(e).__name__}: {e}",
+                "applied": False,
+            }
+            out["node_badges"] = {}
+
     if run_admm:
+        pp_meta = out.get("process_pool") if isinstance(out.get("process_pool"), dict) else {}
+        admm_pool = bool(pp_meta.get("enabled")) or process_pool_modes
+        admm_two = bool(
+            (out.get("process_network") or {}).get("solve_kwargs", {}).get(
+                "process_pool_two_pass"
+            )
+            if isinstance(out.get("process_network"), dict)
+            else process_pool_two_pass
+        )
         admm = admm_price_directed_plant(
             assays,
             recovery_path=recovery_path,
             routing=routing,
+            process_pool_modes=admm_pool,
+            process_pool_two_pass=admm_two or process_pool_two_pass,
         )
         path = admm.get("dual_recovery_path")
         rho = admm.get("rho")
