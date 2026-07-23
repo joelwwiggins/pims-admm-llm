@@ -372,6 +372,7 @@
         stub_only: false,
         process_network: true,
         closed_loop: closedLoop,
+        max_agent_rounds: 3,
       });
       lastGraph = res;
       showResults = true;
@@ -379,7 +380,7 @@
       const obj = res.objective != null ? Number(res.objective).toFixed(2) : '—';
       const pn = res.process_network;
       const pnNote = pn?.applied
-        ? ` · agents Δobj=${Number(pn.delta?.delta_obj || 0).toFixed(1)} → ${pn.recommended_plan}`
+        ? ` · agents r${pn.n_rounds || '?'}/${pn.max_rounds || 3} Δobj=${Number(pn.delta?.delta_obj || 0).toFixed(1)} → ${pn.recommended_plan}`
         : pn?.baseline
           ? ` · agents ${pn.baseline.severity || ''}`
           : '';

@@ -275,8 +275,9 @@ class GraphSolvePayload(GraphPayload):
     stub_only: bool = False
     # Process-network agents (area pushback + octane couple)
     process_network: bool = True
-    # Closed loop: pushbacks → re-solve (process-pool) → second agent round
+    # Closed loop: pushbacks → re-solve (process-pool) multi-round
     closed_loop: bool = True
+    max_agent_rounds: int = 3
     process_pool_modes: bool = False
     process_pool_two_pass: bool = False
 
@@ -341,6 +342,7 @@ def post_graph(payload: GraphSolvePayload) -> dict[str, Any]:
             closed_loop=payload.closed_loop,
             process_pool_modes=payload.process_pool_modes,
             process_pool_two_pass=payload.process_pool_two_pass,
+            max_agent_rounds=payload.max_agent_rounds,
         )
         base = {
             "ok": True,

@@ -55,6 +55,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Single agent round only (no replan)",
     )
     ap.add_argument(
+        "--max-rounds",
+        type=int,
+        default=3,
+        help="Max replan solves in closed loop (default 3)",
+    )
+    ap.add_argument(
         "--json",
         action="store_true",
         help="Also write demos/output/process_network_round.json",
@@ -81,7 +87,9 @@ def main(argv: list[str] | None = None) -> int:
         path = out_dir / "process_network_round.json"
         path.write_text(json.dumps(round_.to_dict(), indent=2, default=str))
     else:
-        cl = run_closed_loop(plant, assays=assays)
+        cl = run_closed_loop(
+            plant, assays=assays, max_rounds=int(args.max_rounds)
+        )
         print(format_closed_loop(cl))
         path = out_dir / "process_network_closed_loop.json"
         path.write_text(json.dumps(cl.to_dict(), indent=2, default=str))
