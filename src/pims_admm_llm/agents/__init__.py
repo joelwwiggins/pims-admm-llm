@@ -38,6 +38,15 @@ from .layer import (
     demo_round,
     inject_suggestions_into_solver_context,
 )
+from .process_network import (
+    AreaInput,
+    AreaReport,
+    ProcessNetworkRound,
+    Pushback,
+    build_area_situations,
+    format_process_network_round,
+    run_process_network_round,
+)
 
 __all__ = [
     "BlockName",
@@ -66,4 +75,11 @@ __all__ = [
     "collect_suggestions",
     "demo_round",
     "inject_suggestions_into_solver_context",
+    "AreaInput",
+    "AreaReport",
+    "ProcessNetworkRound",
+    "Pushback",
+    "build_area_situations",
+    "format_process_network_round",
+    "run_process_network_round",
 ]
