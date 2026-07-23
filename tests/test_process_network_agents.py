@@ -97,26 +97,64 @@ def test_master_summary_nonempty(plant_default):
 def test_closed_loop_applies_process_pool_and_improves_or_reduces_pushbacks(
     plant_default,
 ):
-    from pims_admm_llm.agents.process_network import (
-        node_badges_from_round,
-        run_closed_loop,
-    )
+    from pims_admm_llm.agents.process_network import run_closed_loop
 
     assays = load_assays_json()
-    cl = run_closed_loop(plant_default, assays=assays)
+    cl = run_closed_loop(plant_default, assays=assays, max_rounds=3)
     assert cl.baseline is not None
     # Default plan has coker idle pushback → closed loop should act
     if plant_default.unit_feeds.get("coker_feed", 0) < 1e-6:
         assert cl.applied is True
+        assert cl.n_rounds >= 2
         assert cl.replan is not None
         assert cl.plant_replan is not None
-        assert cl.delta.get("coker_feed_1", 0) >= cl.delta.get("coker_feed_0", 0)
+        assert cl.delta.get("coker_feed_best", cl.delta.get("coker_feed_1", 0)) >= (
+            cl.delta.get("coker_feed_0", 0)
+        )
         assert "CDU" in cl.node_badges or "COKER" in cl.node_badges
-        # Badges use unit types
         badges = cl.node_badges
         assert any(b.get("status") in ("alarm", "watch", "ok") for b in badges.values())
+        assert len(cl.transcript) == cl.n_rounds
+        assert cl.transcript[0]["kind"] == "baseline"
+        assert cl.stop_reason in (
+            "no_hard_pushbacks",
+            "no_new_actions",
+            "hard_pushbacks_not_improving",
+            "hard_pushbacks_worsened",
+            "max_rounds",
+        )
     d = cl.to_dict()
     assert "baseline" in d and "delta" in d
+    assert "n_rounds" in d and "transcript" in d
+
+
+def test_multi_round_escalates_pool_then_two_pass(plant_default):
+    """Escalation ladder: r1 process-pool → r2 two-pass if RON still tight."""
+    from pims_admm_llm.agents.process_network import run_closed_loop
+
+    assays = load_assays_json()
+    cl = run_closed_loop(plant_default, assays=assays, max_rounds=3)
+    if not cl.applied:
+        pytest.skip("no replan on this plant")
+    codes = [a["code"] for a in cl.actions]
+    assert "enable_process_pool" in codes
+    # If more than one replan hop, second should be two-pass escalate
+    replan_steps = [t for t in cl.transcript if t["kind"] == "replan"]
+    assert len(replan_steps) >= 1
+    if len(replan_steps) >= 2:
+        assert "process_pool_two_pass_for_octane" in codes
+        assert replan_steps[1]["solve_kwargs"].get("process_pool_two_pass") is True
+
+
+def test_max_rounds_one_is_single_replan(plant_default):
+    from pims_admm_llm.agents.process_network import run_closed_loop
+
+    assays = load_assays_json()
+    cl = run_closed_loop(plant_default, assays=assays, max_rounds=1)
+    if plant_default.unit_feeds.get("coker_feed", 0) < 1e-6:
+        assert cl.applied
+        assert cl.n_rounds == 2  # baseline + 1 replan
+        assert cl.max_rounds == 1
 
 
 def test_node_badges_map_areas():

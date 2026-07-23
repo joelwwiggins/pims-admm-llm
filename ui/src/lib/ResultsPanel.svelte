@@ -49,22 +49,38 @@
     {#if pn}
       <h3>Process-network agents</h3>
       <div class="row head" style="margin-bottom:0.35rem">
-        <span class:ok={!pn.applied || pn.recommended_plan === 'replan'} class:bad={pn.baseline?.severity === 'critical'}>
+        <span class:ok={!pn.applied || pn.recommended_plan !== 'baseline'} class:bad={pn.baseline?.severity === 'critical'}>
           {(pn.recommended_plan || 'baseline').toUpperCase()}
         </span>
         <span class="path">
-          {pn.applied ? 'closed-loop' : 'single-round'}
+          {pn.applied ? `multi-round ${pn.n_rounds || '?'}/${pn.max_rounds || 3}` : 'single-round'}
+          · stop {pn.stop_reason || '—'}
           · sev {pnBase?.severity || '—'}
         </span>
       </div>
+      {#if pn.transcript?.length}
+        <h3>Round timeline</h3>
+        <table>
+          <tbody>
+            {#each pn.transcript as t}
+              <tr>
+                <td>r{t.round_index} {t.kind}</td>
+                <td>
+                  obj {fmt(t.objective)} · pb {t.hard_pushbacks} · {t.severity}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
       {#if pnDelta?.applied}
         <table>
           <tbody>
             <tr><td>Δ objective</td><td>{fmt(pnDelta.delta_obj)} ({fmt(pnDelta.delta_obj_pct)}%)</td></tr>
-            <tr><td>obj</td><td>{fmt(pnDelta.objective_0)} → {fmt(pnDelta.objective_1)}</td></tr>
-            <tr><td>coker feed</td><td>{fmt(pnDelta.coker_feed_0)} → {fmt(pnDelta.coker_feed_1)}</td></tr>
-            <tr><td>fuel oil</td><td>{fmt(pnDelta.fuel_oil_0)} → {fmt(pnDelta.fuel_oil_1)}</td></tr>
-            <tr><td>hard pushbacks</td><td>{pnDelta.hard_pushbacks_0} → {pnDelta.hard_pushbacks_1}</td></tr>
+            <tr><td>obj</td><td>{fmt(pnDelta.objective_0)} → {fmt(pnDelta.objective_best ?? pnDelta.objective_1)}</td></tr>
+            <tr><td>coker feed</td><td>{fmt(pnDelta.coker_feed_0)} → {fmt(pnDelta.coker_feed_best ?? pnDelta.coker_feed_1)}</td></tr>
+            <tr><td>fuel oil</td><td>{fmt(pnDelta.fuel_oil_0)} → {fmt(pnDelta.fuel_oil_best ?? pnDelta.fuel_oil_1)}</td></tr>
+            <tr><td>hard pushbacks</td><td>{pnDelta.hard_pushbacks_0} → {pnDelta.hard_pushbacks_best ?? pnDelta.hard_pushbacks_1}</td></tr>
           </tbody>
         </table>
       {/if}

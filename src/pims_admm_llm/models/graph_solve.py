@@ -246,6 +246,7 @@ def solve_from_graph(
     closed_loop: bool = True,
     process_pool_modes: bool = False,
     process_pool_two_pass: bool = False,
+    max_agent_rounds: int = 3,
 ) -> Dict[str, Any]:
     """Build routing from graph, solve mono LP, optional ADMM metrics.
 
@@ -333,14 +334,17 @@ def solve_from_graph(
             )
 
             if closed_loop:
-                cl = run_closed_loop(mono, assays=assays, routing=routing)
+                cl = run_closed_loop(
+                    mono,
+                    assays=assays,
+                    routing=routing,
+                    max_rounds=int(max_agent_rounds),
+                )
                 out["process_network"] = cl.to_dict()
                 out["node_badges"] = cl.node_badges
-                # Surface recommended plan metrics when replan wins
-                if (
-                    cl.applied
-                    and cl.recommended_plan == "replan"
-                    and cl.plant_replan is not None
+                # Surface recommended plan metrics when a replan round wins
+                if cl.applied and cl.plant_replan is not None and (
+                    cl.recommended_plan != "baseline"
                 ):
                     replan_plant = cl.plant_replan
                     out["objective_baseline"] = out["objective"]
@@ -372,7 +376,9 @@ def solve_from_graph(
                     }
                     out["duals"] = duals
                     out["message"] += (
-                        f"; closed-loop replan applied "
+                        f"; closed-loop multi-round applied "
+                        f"rounds={cl.n_rounds}/{cl.max_rounds} "
+                        f"stop={cl.stop_reason} "
                         f"Δobj={cl.delta.get('delta_obj', 0):+.2f} "
                         f"recommend={cl.recommended_plan}"
                     )
@@ -381,7 +387,7 @@ def solve_from_graph(
                     out["message"] += (
                         f"; process-network severity={cl.baseline.severity} "
                         f"pushbacks={len(cl.baseline.pushbacks)} "
-                        f"closed_loop_applied={cl.applied}"
+                        f"closed_loop rounds={cl.n_rounds} stop={cl.stop_reason}"
                     )
             else:
                 rnd = run_process_network_round(mono, assays=assays)
